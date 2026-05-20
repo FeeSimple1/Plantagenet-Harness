@@ -1,0 +1,111 @@
+Seats of prominent houses are indicated in parentheses. Existing parenthetical seats are Vassal seats. Lord seats (where applicable) are listed in a separate "Lord seat" line.
+ 
+The town of Truro is connected to Launceston and Plymouth by Road.  This location is a port.
+ 
+The city of Launceston (seat of Bonville) is connected to Truro, Plymouth, and Exeter by Road.
+ 
+The town of Plymouth is connected to Truro, Launceston, and Exeter by Road.  This location is a port.
+ 
+The city of Exeter (seat of Devon) is connected to Launceston, Plymouth, and Dorchester by Road, and to Wells by Highway.  This location is a port.  Lord seat: Devon, Exeter (1), Exeter (2).
+ 
+The town of Dorchester is connected to Exeter, Wells, and Salisbury by Road.  This location is a port.
+ 
+The city of Wells is connected to Bristol and Dorchester by Road, and to Exeter and Salisbury by Highway.  Lord seat: Somerset (1), Somerset (2).
+ 
+The city of Salisbury is connected to Dorchester, Newbury, and Southampton by Road, and to Wells and Winchester by Highway.  This location is in the South region.
+ 
+The town of Southampton is connected to Salisbury, Winchester, and Arundel by Road.  This location is a port.  This location is in the South region.
+ 
+The town of Arundel (seat of Norfolk) is connected to Southampton and Hastings by Road.  This location is in the South region.  Lord seat: Norfolk.
+ 
+The city of Winchester is connected to Southampton by Road and Salisbury and Guildford by Highway.  This location is in the South region.
+ 
+The city of Guildford is connected to Winchester and London by Highway.  This location is in the South region.
+ 
+The town of Hastings is connected to Arundel, Rochester, and Dover by Road.  This location is a port.  This location is in the South region.
+ 
+The town of Dover (seat of Fauconberg) is connected to Hastings and Canterbury by Road.  This location is a port.  This location is in the South region.
+ 
+The city of Canterbury is connected to Dover and Rochester by Road.  This location is in the South region.  Lord seat: Rutland.
+ 
+The special stronghold of London is connected to Rochester by Road, and to Guildford, Oxford, and St. Albans by Highway.  Lord seat: Henry VI, Margaret, Henry Tudor, Edward IV, Gloucester (2), Richard III.
+ 
+The city of Rochester is connected to Canterbury, London, and Hastings by Road.  This location is in the South region.
+ 
+The city of Bristol is connected to Wells by Road and to Gloucester by Highway.
+ 
+The town of Newbury is connected to Salisbury and Oxford by Road.
+ 
+The city of Oxford (seat of Oxford) is connected to Newbury and Northampton by Road and to Gloucester and London by Highway.  Lord seat: Oxford.
+ 
+The town of St. Albans (seat of Essex) is connected to Ipswich by Road and to London, Bedford, and Cambridge by Highway.
+ 
+The town of Bedford is connected to Cambridge by Road, and to Northampton and St. Albans by Highway.
+ 
+The town of Cambridge is connected to Bedford and Bury St. Edmunds by Road, and to St. Albans and Ely by Highway.
+ 
+The town of Bury St. Edmunds is connected to Norwich, Cambridge, Ely, and Ipswich by Road.
+ 
+The town of Ipswich (seat of Suffolk) is connected to St. Albans, Bury St. Edmunds, and Norwich by Road.  This location is a port.
+ 
+The city of Norwich is connected to Ipswich, Bury St. Edmunds, and Lynn by Road.
+ 
+The city of Ely is connected to Lynn and Bury St. Edmunds by Road, and is connected to to Cambridge and Peterborough by Highway.  Lord seat: York.
+ 
+The fortress of Lynn is connected to Norwich and Ely by Road.  This location is a port.
+ 
+The city of Peterborough is connected to Northampton by Road and to Ely and Lincoln by Highway.
+ 
+The town of Northampton is connected to Oxford, Coventry, and Peterborough by Road and to Bedford and Leicester by Highway.
+ 
+The city of Gloucester is connected to Cardiff by Road and to Oxford, Hereford, Bristol, and Worcester by Highway.  This location is in the Wales region.  Lord seat: Gloucester (1).
+ 
+The city of Cardiff is connected to Gloucester by Road and to Pembroke by Path.  This location is in the Wales region.
+ 
+The fortress of Pembroke is connected to Cardiff and Harlech by Path.  This location is a port.  This location is in the Wales region.  Lord seat: Jasper Tudor (2), Pembroke.
+ 
+The special stronghold of Harlech is connected to Pembroke and Chester by Path.  This location is a port.  This location is in the Wales region.  Lord seat: Jasper Tudor (1).
+ 
+The city of Chester is connected to Shrewsbury by Road and Harlech, Lancaster, and York by Path.  
+ 
+The city of Shrewsbury (seat of Shrewsbury) is connected to Chester, Lichfield, and Ludlow by Road.  This location is in the Wales region.
+ 
+The fortress of Ludlow is connected to Shrewsbury and Worcester by Road and to Hereford by Highway.  This location is in the Wales region.  Lord seat: March.
+ 
+The city of Hereford is connected to Ludlow and Gloucester by Highway.  This location is in the Wales region.
+ 
+The city of Worcester (seat of Worcester) is connected to Lichfield and Ludlow by Road, and to Gloucester by Highway.
+ 
+The city of Coventry is connected to Lichfield and Northampton by Road.  Lord seat: Buckingham.
+ 
+The city of Lichfield is connected to Shrewsbury, Worcester, Coventry, Leicester, and Derby by Road.
+ 
+The town of Leicester (seat of Dudley) is connected to Peterborough and Lichfield by Road and to Nottingham and Northampton by Highway.
+ 
+The town of Derby (seat of Stanley) is connected to Nottingham and Lichfield by Road.
+ 
+The town of Nottingham is connected to Lincoln and Derby by Road.
+ 
+The city of Lincoln (seat of Beaumont) is connected to Ravenspur and Nottingham by Road and to Peterborough and York by Highway.
+ 
+The fortress of Ravenspur is connected to Lincoln and York by Road.  This location is a port.
+ 
+The city of York is connected to Ravenspur and Scarborough by Road; to Lincoln and Newcastle by Highway, and to Chester by Path.  Lord seat: Clarence, Salisbury.
+ 
+The town of Scarborough is connected to York and Newcastle by Road.  This location is a port.  This location is in the North region.
+ 
+The city of Newcastle is connected to Hexham, Scarborough, and Appleby by Road, and to Bamburgh and York by Highway.  This location is a port.  This location is in the North region.
+ 
+The town of Appleby (seat of Westmorland) is connected to Newcastle and Carlisle by Road, and Lancaster by Path.  This location is in the North region.
+ 
+The town of Lancaster is connected to Chester and Appleby by Path.
+ 
+the city of Carlisle is connected to Hexham and Appleby by Road.  This location is in the North region.  Lord seat: Northumberland (Lancastrian), Northumberland (1), Northumberland (2).
+ 
+The town of Hexham is connected to Carlisle and Newcastle by Road.  This location is in the North region.
+ 
+The fortress of Bamburgh is connected to Newcastle by Highway.  This location is in the North region.
+ 
+The special stronghold of Calais is not connected to any other space by land, but is a port.  Lord seat: Warwick (Lancastrian), Warwick (Yorkist).
+ 
+Scotland is a special exile box - lords can move out of it by land to Carlisle or Bamburgh, but this is a one-way move.

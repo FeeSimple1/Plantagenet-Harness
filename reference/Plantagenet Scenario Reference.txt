@@ -1,0 +1,1160 @@
+================================================================
+PLANTAGENET SCENARIO REFERENCE
+Compiled from Plantagenet Rules of Play (GMT Games, 2023)
+Errata and clarifications applied where indicated.
+================================================================
+ 
+================================================================
+TABLE OF CONTENTS
+================================================================
+A.  General Setup (2.1) and Calendar (2.2) Essentials
+B.  Scenario Procedure (6.0)
+C.  Victory Conditions (5.0)
+D.  Short / Standalone Scenarios
+     D1.  Scenario Ia. Henry VI, 1459-1461
+     D2.  Scenario Ib. Towton, 1461
+     D3.  Scenario Ic. Somerset's Return, 1463-1464
+     D4.  Scenario II. Warwick's Rebellion, 1469-1471
+     D5.  Scenario III. My Kingdom for a Horse, 1484-1485
+     D6.  Scenario III(B). Bosworth, 22 August 1485
+E.  Wars of the Roses Grand Scenario
+     E1.  Respite and War (6.1)
+     E2.  Heirs and Succession (6.2)
+     E3.  War I. Plantagenets Go to War, 1459-1461
+     E4.  War IIY. The Kingmaker, 1469-1471
+     E5.  War IIL. Lancastrian Legitimacy Fades, 1469-1471
+     E6.  War IIIY. New Rivals, 1484-1485
+     E7.  War IIIL. Yorkists' Last Stand, 1484-1485
+ 
+ 
+================================================================
+A.  GENERAL SETUP AND CALENDAR ESSENTIALS
+================================================================
+ 
+LAY OUT (2.1.1)
+Seat players with the board between them. Allow table space for
+mats, cards, and pools.
+- POOLS: One pool each for wooden Troops, Asset markers, and
+  remaining markers.
+- DECKS: Separate playing cards into four decks - one Arts of War
+  deck and one Command deck per side.
+- OTHER: Each player takes a foldout aid. If using the Hidden
+  Mats option, each player gets a screen.
+ 
+SCENARIOS (2.1.2)
+Choose a scenario. Agree on Hidden Mats. Prepare Arts of War
+decks by setting aside cards not used. Set up the situation and
+begin with the first Levy.
+ 
+CALENDAR (2.2)
+- Each Turn covers 60 or 90 Days. Each Turn has a Levy sequence,
+  then a Campaign sequence.
+- The round Levy/Campaign marker tracks progress. Place with the
+  appropriate side up in the Levy/Campaign circle of the current
+  Turn box.
+- Place Lord cylinders and Vassal markers as instructed by the
+  scenario or by Event cards. "Shift right/left" means that many
+  Turn boxes.
+- CALENDAR'S END: A cylinder or Vassal marker due to appear or
+  shift below box 1 or beyond box 15 sits just off the Calendar
+  on that side; ignore further shifts in that direction. The
+  first shift back places it into box 1 or box 15 respectively.
+ 
+ 
+================================================================
+B.  SCENARIO PROCEDURE (6.0)
+================================================================
+ 
+Prepare general setup per 2.1. Agree on Hidden Mats option.
+Choose a scenario from the Scenario Guide (or the "quickstart"
+in the Background Book). Find the scenario and set it up.
+ 
+NOTE: The Bosworth Battle mini-scenario does NOT use the game
+board, the Hidden Mats option, or the Command deck.
+ 
+DECKS
+Each side has one Arts of War deck and one Command deck.
+Assemble each Arts of War deck for the scenario by including
+only cards without any roses at center PLUS those with the
+number of roses matching that scenario number (I, II, or III,
+ignoring letters).
+For the Wars of the Roses grand scenario, set up Arts of War
+decks as instructed in section E (6.3).
+ 
+MUSTERED LORDS
+Find the named Lord cards listed. For each, prepare a Mustered
+Lord mat as if just Levied, with that Lord's card and starting
+Forces and Assets. Place that Lord's Seat marker at the
+Stronghold listed on the Lord card and noted on the back of the
+marker.
+ 
+MAP, CALENDAR, INFLUENCE TRACK
+As listed for that scenario, place:
+- Mustered Lord cylinders, regular Vassal marker pairs, round
+  Exile box alignment markers, and any other markers on the map;
+- Cylinders and markers on the Calendar;
+- Markers on the Influence edge track.
+ 
+SPECIAL RULES
+Note any listed special rules (e.g. "Capture of the King") and
+Victory Threshold(s) for that scenario.
+ 
+BEGIN PLAY
+Commence the first Levy by shuffling each side's Arts of War
+deck and drawing random Capabilities.
+ 
+SCENARIO GUIDE (Turn ranges on the Calendar)
+- Ia.    Henry VI, 1459-1461 .................. Boxes 1-15
+- Ib.    Towton, 1461 .......................... Box 1 only
+- Ic.    Somerset's Return, 1463-1464 .......... Boxes 5-7
+- II.    Warwick's Rebellion, 1469-1471 ........ Boxes 1-15
+- III.   My Kingdom for a Horse, 1484-1485 ..... Boxes 3-9
+- III(B). Bosworth, 22 August 1485 ............. Battle only
+- I-III. Wars of the Roses, 1459-1485 .......... Boxes 1-15
+ 
+ 
+================================================================
+C.  VICTORY (5.0)
+================================================================
+ 
+Check for victory after each Campaign and at the end of the
+scenario (and after each War in the grand scenario). Scenario
+special rules may add further victory conditions.
+ 
+CAMPAIGN VICTORY (5.1)
+If, at Victory check, a side has no Lords on the map (including
+none in Exile boxes) AND no Lord cylinders marked Exile in the
+next Turn's Calendar box, the game ends immediately - the other
+side wins regardless of Influence. If this applies to both
+sides, the game is a draw.
+ 
+THRESHOLD VICTORY (5.2)
+Several scenarios list Influence point thresholds, some by
+Turn. If a side reaches or exceeds a Turn's threshold after a
+Campaign's Tides of War and Disembark steps, it wins
+immediately.
+ 
+SCENARIO END VICTORY (5.3)
+If neither side has won by the Victory check of the final
+Campaign of a Scenario, the side with more Influence wins; if
+tied, the game ends in a draw.
+ 
+FAQ CLARIFICATION: In a Campaign game, if a scenario is Tied
+(IP at 0 at end of scenario), victory goes to the King's side.
+ 
+ 
+================================================================
+D1.  SCENARIO Ia. HENRY VI, 1459-1461
+================================================================
+Richard of York and his sons, with the help of Richard Neville
+and his son, rebel against King Henry VI.
+ 
+SEASONS
+15 Turns, three years. Play from the first Levy of 1459 (box 1)
+through the last Campaign of 1461 (box 15).
+ 
+SIDES
+Lancastrians King, Yorkists Rebel.
+ 
+ARTS OF WAR
+Each side forms a deck of its 13 no-rose and 9 one-rose Arts of
+War cards. Return all remaining cards to the game box.
+ 
+LORD CARDS
+Lancastrian:                Yorkist:
+- Henry VI                  - York
+- Somerset (1)              - March
+- Northumberland            - Salisbury
+- Exeter (1)                - Warwick
+- Buckingham                - Rutland
+ 
+MUSTERED LORD MATS
+Lancastrians: Henry VI and Somerset (1).
+Yorkists: York and March.
+ 
+MAP
+- Scotland and France Exile boxes marked Lancastrian; Ireland
+  and Burgundy Yorkist.
+- Seats for each Lord listed above at the Locales specified on
+  each marker.
+- All 13 regular Vassal marker pairs (no Special Vassals) at
+  their Vassal Seats.
+- Lancastrian (red) Favour at London and Wells.
+- Yorkist (white) Favour at Ely and Ludlow.
+- Henry VI and Somerset (with silver ring) at London (red
+  cylinders).
+- York at Ely, March at Ludlow (white cylinders).
+ 
+CALENDAR
+- Box 1: Levy marker.
+- Box 2: Northumberland (red), Salisbury (white).
+- Box 3: Exeter (red), Warwick (white).
+- Box 5: Buckingham (red), Rutland (white).
+ 
+INFLUENCE TRACK
+- Influence marker at 0 on Lancastrian (red) side.
+- Fortress marker Yorkist (white) at 1, Town Yorkist (white) at
+  0, City Yorkist (white) at 0.
+- Victory Check marker at 40.
+ 
+ALLIED NETWORKS
+Lords may use Exile boxes only as follows:
+- Henry VI and Somerset - Scotland.
+- Northumberland, Exeter, Buckingham - France.
+- York and Rutland - Ireland.
+- March, Warwick, and Salisbury - Burgundy.
+ 
+SPECIAL RULE - CAPTURE OF THE KING
+If Yorkists win a Battle against Henry VI, they add +10
+Influence points.
+- Instead of checking for Henry VI's Death, Disband him. The
+  Yorkists place his cylinder on the mat of any Unrouted Yorkist
+  Lord at the Battle (instead of on the Calendar).
+- While a Yorkist Lord holds him, Henry VI cannot Muster and
+  does not count as on map.
+- If that Lord goes into Exile, Disbands, or Dies, place Henry
+  VI on the Calendar as if just Disbanded; Lancastrians add +10
+  Influence points.
+ 
+VICTORY THRESHOLDS
+- 40+ Influence on Turns 1-5.
+- 35+ Influence on Turns 6-10.
+- 30+ Influence on Turns 11-15.
+ 
+ 
+================================================================
+D2.  SCENARIO Ib. TOWTON, 1461
+================================================================
+A climactic showdown will decide who is to be King of England
+for the next 10 years, Henry VI or Edward IV.
+ 
+SEASONS
+Brief introductory scenario. Play just the first Levy and
+Campaign of 1461 (box 1).
+ 
+SIDES
+Lancastrians King, Yorkists Rebel.
+ 
+ARTS OF WAR
+Each side forms a deck of its 13 no-rose and 9 one-rose Arts of
+War cards. Return all remaining cards to the game box.
+ 
+LORD CARDS
+Lancastrian:                Yorkist:
+- Somerset (1)              - March
+- Exeter (1)                - Norfolk
+- Northumberland            - Warwick
+ 
+MUSTERED LORD MATS
+Set up six mats, one with each of the Lord cards listed above.
+ 
+MUSTERED VASSAL
+Add a Fauconberg Vassal marker to March's mat.
+ 
+MAP
+- Seats for each Lord listed above at the Locales specified on
+  each marker.
+- The 11 regular Vassal marker pairs OTHER than Fauconberg and
+  Norfolk at their Vassal Seats.
+- Lancastrian (red) Favour at St. Albans and all six
+  Strongholds within the North Area.
+- Yorkist (white) Favour at London, Calais, Hereford,
+  Gloucester, Oxford, and all nine Strongholds within the South
+  Area.
+- Somerset (silver ring) and Exeter at Newcastle; Northumberland
+  at Carlisle (red cylinders).
+- March, Norfolk, and Warwick at London (white cylinders).
+ 
+NOTE: No need to mark Exile boxes; the scenario is too short
+for Lords to end up there.
+ 
+CALENDAR
+- Box 1: Levy marker.
+- Box 2: End marker.
+- Box 4: Fauconberg Vassal.
+ 
+INFLUENCE TRACK
+Influence marker at 0 on Yorkist (white) side. No Stronghold
+markers.
+ 
+SPECIAL RULE - NORFOLK IS LATE
+In the first Battle that includes Norfolk and any other Yorkist
+Lord(s), Norfolk Arrays and stays in Reserve until Round 2.
+ 
+SPECIAL RULE - TEST OF ARMS
+After each and any Battle at York, set it to Favour the winning
+side. A side with Favour at York at the end of the Campaign
+wins the Scenario. The sides draw if neither has Favour there.
+ 
+VICTORY THRESHOLD
+None.
+ 
+ 
+================================================================
+D3.  SCENARIO Ic. SOMERSET'S RETURN, 1463-1464
+================================================================
+As the Scots expel Henry VI, Henry Beaufort, Duke of Somerset,
+turns on Edward IV - a new king seeking to prove himself in the
+shadow of the mighty Warwick.
+ 
+SEASONS
+Short scenario (three Turns, eight months). Play from October
+1463 (box 5) Levy through the April/May 1464 Campaign (box 7).
+ 
+SIDES
+Yorkists King, Lancastrians Rebel.
+ 
+ARTS OF WAR
+Each side forms a deck of its 13 no-rose and 9 one-rose Arts of
+War cards. Return all remaining cards to the game box.
+ 
+LORD CARDS
+Yorkist:                    Lancastrian:
+- March                     - Henry VI
+- Warwick                   - Somerset (1)
+ 
+DESIGN NOTE: Edward uses his "March" card because he is still a
+young and inexperienced king. Henry VI's side is Rebel because
+Somerset is in rebellion against Edward's control of England.
+ 
+MUSTERED LORD MATS
+Yorkists: March, Warwick (with Lancastrian Capability card L23
+MONTAGU and Montagu Special Vassal marker - see Montagu special
+rule below).
+Lancastrians: Somerset.
+ 
+MAP
+- Burgundy Exile box marked Yorkist; Scotland Lancastrian
+  (only).
+- Seats for March, Warwick, Henry VI, and Somerset at the
+  Locales specified on each marker.
+- All 13 regular Vassal marker pairs at their Vassal Seats.
+- Yorkist (white) Favour at Ludlow, Hereford, London, Calais,
+  and all nine Strongholds within the South Area.
+- Lancastrian (red) Favour at Harlech, Pembroke, Cardiff,
+  Chester, Lancaster, and all six Strongholds within the North
+  Area.
+- March and Warwick at London (white cylinders).
+- Somerset at Bamburgh (red cylinder with ring).
+ 
+CALENDAR
+- Box 5: Levy marker and Henry VI (red cylinder) with Exile
+  marker.
+- Box 8: End marker.
+ 
+INFLUENCE TRACK
+- Influence marker at 6 on Lancastrian (red) side.
+- Fortress marker Lancastrian (red) at 1, Town Lancastrian (red)
+  at 0, City Yorkist (white) at 2.
+- Victory Check marker at 25.
+ 
+SPECIAL RULE - MONTAGU
+Warwick - even though a Yorkist - sets up with the Lancastrian
+2-rose MONTAGU Capability card and its Special Vassal. Disband
+or removal of Warwick or Montagu removes the card from play.
+ 
+SPECIAL RULE - BRIEF REBELLION
+Skip Waste (4.8.5).
+ 
+VICTORY THRESHOLD
+25+ Influence.
+ 
+ 
+================================================================
+D4.  SCENARIO II. WARWICK'S REBELLION, 1469-1471
+================================================================
+Slighted by the King he made, Warwick schemes with Edward's
+brother, the Duke of Clarence, then allies with Margaret
+d'Anjou and Lancastrian exiles in France.
+ 
+SEASONS
+15 Turns, three years. Play from the first Levy of 1469 (box 1)
+through the last Campaign of 1471 (box 15).
+ 
+SIDES
+Yorkists King, Lancastrians Rebel.
+ 
+ARTS OF WAR
+12 or 13 no-rose and 9 two-rose cards per deck. For the
+Lancastrian deck, REMOVE card L4 BE SENT FOR/HERALDS from this
+scenario.
+ 
+LORD CARDS
+Yorkist:                    Lancastrian:
+- Edward IV                 - Warwick
+- Pembroke                  - Clarence
+- Devon                     - Jasper Tudor (1)
+- Gloucester (1)            - Margaret
+- Northumberland (1)        - Somerset (2)
+                            - Exeter (2)
+                            - Oxford
+ 
+MUSTERED LORD MATS
+Yorkists: Edward IV and Pembroke.
+Lancastrians: Warwick, Clarence, Jasper Tudor.
+ 
+MAP
+- Burgundy Exile box marked Yorkist; France Lancastrian (only).
+- Seats for the Lords listed above at the Locales specified on
+  the cards.
+- The 11 regular Vassal marker pairs OTHER than Devon and Oxford
+  at their Vassal Seats.
+- Yorkist (white) Favour at London, Ely, Ludlow, Carlisle,
+  Pembroke, and Exeter.
+- Lancastrian (red) Favour at Calais, Harlech, York, Coventry,
+  and Wells.
+- Edward IV at London, Pembroke at Pembroke (white cylinders).
+- Warwick at Calais, Clarence at York, Jasper Tudor at Harlech
+  (red cylinders).
+ 
+CALENDAR
+- Box 1: Levy marker and Devon (white cylinder).
+- Box 9: Gloucester (silver ring) and Northumberland (white
+  cylinders); and, marked Exile, Margaret, Somerset (no ring),
+  Oxford, and Exeter (red cylinders).
+ 
+INFLUENCE TRACK
+- Influence marker at 0 on Yorkist (white) side.
+- Fortress marker Yorkist (white) at 2, Town Yorkist (white) at
+  0, City Yorkist (white) at 0.
+- Victory Check marker at 40.
+ 
+SPECIAL RULE - FOREIGN HAVEN  [ERRATA APPLIED]
+- Whenever Warwick goes into Exile upon Yorkist Approach (4.3.5)
+  OR DIES AS A DEFENDER (4.4.3), shift all Lancastrian Lords on
+  the Calendar (including Warwick) leftward (only) to the
+  current Turn; then shift all Yorkists on the Calendar leftward
+  (only) to the next Turn.
+- Whenever Edward IV is Routed in Battle while Margaret is NOT
+  on map, he may go into Exile (4.3.5) instead of checking for
+  Death.
+ 
+SPECIAL RULE - SHAKY ALLIES
+Upon placing Margaret in the France Exile box, permanently
+remove Clarence (return his mat's items to their pools and his
+cylinder, Lord card, and Seat marker to the game box). Margaret
+and Warwick may never enter the same Stronghold.
+ 
+SPECIAL RULE - QUEEN REGENT
+Each Tides of War that Margaret is at London, Lancastrians add
++3 Influence.
+ 
+VICTORY THRESHOLDS
+- 40+ Influence on Turns 1-5.
+- 35+ Influence on Turns 6-10.
+- 30+ Influence on Turns 11-15.
+ 
+ 
+================================================================
+D5.  SCENARIO III. MY KINGDOM FOR A HORSE, 1484-1485
+================================================================
+King Richard III defends his crown against Henry Tudor to set
+the fate of the Plantagenet dynasty.
+ 
+SEASONS
+Medium scenario (seven Turns, 16 months). Play from June/July
+1484 (box 3) Levy through the end of August/September 1485
+(box 9).
+ 
+SIDES
+Yorkists King, Lancastrians Rebel.
+ 
+ARTS OF WAR
+13 no-rose and 6 three-rose cards per deck.
+ 
+LORD CARDS
+Yorkist:                    Lancastrian:
+- Gloucester (2)            - Henry Tudor
+- Northumberland (2)        - Jasper Tudor (2)
+- Norfolk                   - Oxford
+- Richard III
+ 
+MUSTERED LORD MATS
+Yorkists: Gloucester (or Richard III), Northumberland, Norfolk.
+Lancastrians: Henry Tudor, Jasper Tudor, Oxford.
+ 
+MAP
+- Burgundy Exile box marked Yorkist; France Lancastrian (only).
+- Seats for the Lords listed above at the Locales specified on
+  the cards.
+- The 11 regular Vassal marker pairs OTHER than Oxford and
+  Norfolk at their Vassal Seats.
+- Yorkist (white) Favour at London, Calais, Carlisle, Arundel,
+  Gloucester, and York.
+- Lancastrian (red) Favour at Oxford, Harlech, and Pembroke.
+- Gloucester (gold ring) at London, Northumberland at Carlisle,
+  Norfolk at Arundel (white cylinders).
+- Henry Tudor, Jasper Tudor, and Oxford in France Exile box
+  (red cylinders).
+ 
+CALENDAR
+- Box 3: Levy marker.
+- Box 10: End marker.
+ 
+INFLUENCE TRACK
+- Influence marker at 0 on Yorkist (white) side.
+- Lancastrian (red) Fortress marker at 1, Town Yorkist (white)
+  at 1, City Yorkist (white) at 2.
+ 
+SPECIAL RULE - KING RICHARD
+The Yorkist player, at setup or during any Muster (3.4) with
+Gloucester at London, may replace the Gloucester Lord card in
+place with Richard III, affecting various Arts of War.
+ 
+SPECIAL RULE - RAVAGED LAND
+Skip all Grow and Waste (4.8.4 - 4.8.5).
+ 
+VICTORY THRESHOLD
+45+ Influence.
+ 
+ 
+================================================================
+D6.  SCENARIO III(B). BOSWORTH, 22 AUGUST 1485
+================================================================
+Richard III and Henry Tudor clash in an epic final battle.
+ 
+SEASONS
+Battle-only mini-scenario. It does NOT use the game board, the
+Hidden Mats option, or the Command deck. Ignore the map,
+Calendar, and Influence track. Rather than playing any Turns,
+just Array Lord mats for a Battle (4.4) and fight the Battle
+out for victory.
+ 
+SIDES
+Yorkists King, Lancastrians Rebel.
+ 
+ARTS OF WAR
+13 no-rose and 6 three-rose cards per deck.
+ 
+LORD CARDS
+Yorkist:                    Lancastrian:
+- Richard III               - Henry Tudor
+- Northumberland (2)        - Jasper Tudor (2)
+- Norfolk                   - Oxford
+ 
+MUSTERED LORD MATS
+Yorkists: Richard III, Northumberland, Norfolk.
+Lancastrians: Henry Tudor, Jasper Tudor, Oxford.
+ 
+ON BOSWORTH FIELD
+Each player, working behind a screen, secretly chooses four
+Capability cards. Distribute the Capabilities among the Lords.
+Then Array the mats, one Lord at Front Center, one at Front
+Left, and one at Front Right, placing each Lord's Valour
+tokens (4.4.1). Finally, reveal Arrays and begin the Battle
+with Round 1 (4.4.2).
+ 
+VICTORY
+The winner of the Battle wins the scenario. If all Lords on
+both sides Rout, the game is a draw.
+ 
+ 
+================================================================
+E.  WARS OF THE ROSES GRAND SCENARIO
+================================================================
+This full-length scenario links versions of Scenarios I, II,
+and III into a single grand conflict (36 or 37 Turns total),
+with added rules and altered setups. Play each of three
+sub-scenarios - called "Wars" - in order.
+ 
+HEIRS AND SUCCESSION
+A specific set of Lords are rank-ordered Heirs for each side.
+Heirs affect setup and play as explained in the Victory rules
+below, Surrender (6.1.1), Succession (6.2.2), and each War's
+own special rules.
+ 
+VICTORY IN THE GRAND SCENARIO
+ 
+DYNASTIC VICTORY: A side that has its entire list of Heirs
+removed (including Warwick where listed) immediately loses the
+full Wars of the Roses.
+NOTE: This is not possible for the Lancastrians in the first
+and second Wars because of Henry Tudor, nor for the Yorkists in
+the first War only because of Gloucester.
+ 
+WAR VICTORY: A side that has all its Heirs listed for the
+current War only removed by Death, Shipwreck, setup, or special
+rules immediately loses that War. A side that wins a Campaign
+or Threshold Victory in the first or second War (5.1-5.2) wins
+that War only. In either case, go to Respite and War (6.1).
+ 
+FINAL VICTORY: Ignore Scenario End Victory (5.3) until after
+the third War, IIIY or IIIL. The side that wins the third War
+wins the Wars of the Roses.
+ 
+ 
+----------------------------------------------------------------
+E1.  RESPITE AND WAR (6.1)
+----------------------------------------------------------------
+ 
+To begin the Wars of the Roses, set up and play the first War,
+"Plantagenets Go to War". That War's outcome determines which
+version of the next War to set up.
+ 
+SURRENDER (6.1.1)
+A side in the first or second War may concede that War as the
+loser (so as to proceed to Renewed War, 6.1.2), just before
+their last Heir still present in that War rolls for Death
+(only - not Disembark).
+ 
+RENEWED WAR (6.1.2)
+At the end of a War, note which Heirs were removed (e.g., by
+leaving them in the game box). Then set up the next War:
+- After the first War: if Yorkists won, set up IIY. If
+  Lancastrians won, set up IIL.
+- After the second War: if Yorkists won, set up IIIY. If
+  Lancastrians won, set up IIIL.
+ 
+ 
+----------------------------------------------------------------
+E2.  HEIRS AND SUCCESSION (6.2)
+----------------------------------------------------------------
+ 
+HEIRS (6.2.1)
+Possible Heirs ranked highest to lowest:
+ 
+Yorkists -
+- Heir #1: York.
+- Heir #2: March or Edward IV (eldest son of York).
+- Heir #3: Rutland (middle son).
+- Heir #4: Gloucester (1) or (2) or Richard III (youngest son).
+ 
+Lancastrians -
+- Heir #1: Henry VI.
+- Heir #2: Margaret (with her son Prince Edward).
+- Heir #3: Somerset (1) (2nd cousin of Henry VI).
+- Heir #4: Somerset (2) (next brother in line).
+- Heir #5: Henry Tudor (nephew of Henry VI).
+- Heir #6: Warwick - perhaps, in the third War only.
+ 
+KING: The highest-ranking Heir of the King's side present in a
+War will be King, affecting Succession aspects during setup and
+play such as added Lords and Arts of War card mix.
+ 
+SUCCESSION (6.2.2)
+Removal of an Heir by Death or Shipwreck (not mere Disband or
+Exile) can bring in new Lords and cards, either upon setup of
+the next War or - in certain Wars - immediately during play.
+ 
+IMPORTANT: Upon Death or Shipwreck, check if the removed Lord
+is an Heir subject to Succession as specified in the special
+rules for that War.
+ 
+REMOVE: An Heir removed by Death or Shipwreck is permanently
+out of the game and may not return in future Wars. In contrast,
+a Lord who is not an Heir and is removed might return in the
+setup of a future War.
+ 
+NOTE: Dead Heirs do not return in later Wars. Lords who are not
+Heirs can Die or Shipwreck and return in a later War
+(representing other members of the same family). Warwick is not
+an Heir until so designated in the third War, so may always
+return in that War.
+ 
+ADD: Add a new arrival's Command cards to the game, Lord card
+(to a mat if Mustered), Seat to the map, and cylinder to the
+Calendar or map.
+ 
+REPLACE: To replace a Lord "in place", swap Lord cards on the
+mat currently in use, cylinders in place on the gameboard, and
+Command cards where they are, including in that side's Plan
+stack.
+ 
+TO CALENDAR: Adding a Lord to the Calendar during play places
+the cylinder in the next Turn box, and during setup into a
+Calendar box as directed.
+ 
+SEATS: Exchange any removed Lord's Seat with the new arrival's
+Seat on the mat, as applicable.
+ 
+ARTS OF WAR: Sometimes Succession also adjusts which Arts of
+War cards are in play. Remove cards from wherever they are,
+including Held Events and Mustered Capabilities, and add cards
+to that side's deck, as directed. Cards repeated from one Lord
+to the next stay where they are (example: Card Y20 in War IIL).
+ 
+ 
+----------------------------------------------------------------
+E3.  WAR I. PLANTAGENETS GO TO WAR, 1459-1461
+----------------------------------------------------------------
+York and Warwick's rebellion touches off decades of bloodshed
+among cousins chasing the English crown.
+ 
+WAR
+First of three Wars of the Roses. Set up Scenario Ia "Henry VI"
+(see D1 above).
+ 
+SEASONS
+Play from the first Levy of 1459 (box 1) through the last
+Campaign of 1461 (box 15), using the Wars of the Roses rules
+and the special rules below (including Succession) in place of
+those listed for Scenario Ia.
+ 
+SIDES
+Lancastrians King, Yorkists Rebel.
+ 
+LANCASTRIAN SUCCESSION
+Lancastrian Heirs present for this War are Henry VI, Margaret
+(Edward), Somerset (1), and Somerset (2) (only). Removal of
+Henry VI or Somerset (1) and Muster of Margaret during play
+triggers additions:
+- Removal of Henry VI adds Margaret to the next Calendar box.
+  Remove Arts of War cards L15 and L17 from play (wherever they
+  are) and add L27 and L31 to the Lancastrian deck.
+- Muster of Margaret immediately assigns Arts of War card L26
+  EDWARD to her mat as a free, mandatory Capability. Her
+  Disband or removal sets the card aside rather than back into
+  the deck - the Event Henry Released cannot occur. The
+  Capability returns to Margaret if she Musters anew.
+- Removal of Somerset (1) adds Somerset (2) to the next
+  Calendar box (whether or not highest Heir).
+ 
+YORKIST SUCCESSION
+Yorkist Heirs present for this War are York, March, and
+Rutland. Do not replace or add any Yorkists. (But see
+Automatic War Victory.)
+ 
+ALLIED NETWORKS
+- Henry VI and any Somerset - Scotland.
+- Margaret, Northumberland, Exeter, and Buckingham - France.
+- York and Rutland - Ireland.
+- March, Warwick, and Salisbury - Burgundy.
+ 
+AUTOMATIC WAR VICTORY
+- Removal of Henry VI AND Somerset (1) immediately wins the War
+  for the Yorkists.
+- Removal of York, March, AND Rutland immediately wins the War
+  for the Lancastrians.
+ 
+VICTORY THRESHOLD
+40+ Influence.
+ 
+ 
+----------------------------------------------------------------
+E4.  WAR IIY. THE KINGMAKER, 1469-1471
+----------------------------------------------------------------
+His power waning as the new King cements rule after the first
+War of the Roses, Warwick plots a comeback.
+ 
+WAR
+Second War if the Yorkists win the first War. Set up Scenario
+II "Warwick's Rebellion" (see D4 above), but do NOT yet form
+Arts of War decks or set up any Yorkist Lords or Seats. Modify
+the setup as below, using Succession to find a Yorkist King and
+set each side's Lords and Arts of War cards.
+ 
+SEASONS
+First Levy of 1469 (box 1) through last Campaign of 1471
+(box 15).
+ 
+SIDES
+Yorkists King, Lancastrians Rebel.
+ 
+SETUP MODIFICATIONS
+ 
+ARTS OF WAR
+Yorkists start with all no-rose cards plus Y25, Y26, Y27, Y29,
+Y30.
+Lancastrians with all no-rose EXCEPT L4, plus L23, L24, L25,
+L29, L30, L36.
+Succession can add or later remove more cards.
+ 
+YORKISTS
+Add Rutland (unless removed in first War), Mustered with
+Yorkist Favour at Canterbury (slide Yorkist Cities marker to
+1); Devon in Calendar box 1; Gloucester (1) (silver ring) and
+Northumberland (1) in box 9.
+ 
+YORKIST SUCCESSION
+The four Heirs below can be present and become King whenever
+that Heir is the highest-ranked remaining. At setup and in
+play, adjust for who is King (including cards, mats, cylinders,
+and Seats).
+- YORK. If still present, add York as King, Mustered at London.
+  Unless removed, Muster March at Ludlow. For as long as York
+  remains present (only), add Arts of War cards Y14, Y18, Y19,
+  Y20.
+- MARCH / EDWARD IV. If York removed and March present, replace
+  March with Edward IV as King, Mustered at London at setup, or
+  in place during play. As long as Edward IV remains (only),
+  add cards Y23, Y24, Y28, Y31.
+- RUTLAND. If York and March removed at setup, Rutland as King
+  sets up at London (not Canterbury). Rutland, while King, adds
+  Y20, Y21, Y28, Y35.
+- GLOUCESTER / RICHARD III. If Gloucester becomes King, replace
+  him in place with Richard III. Richard III adds cards Y32,
+  Y33, Y34, Y35.
+ 
+In addition, as soon as two or fewer of the above four Heirs
+remain, add Pembroke - at setup Mustered at Pembroke, or during
+play to the next Calendar box.
+ 
+LANCASTRIAN SUCCESSION
+These Heirs can be present and adjust other Lords and/or Arts
+of War:
+- HENRY VI. If Henry VI survived the first War, he replaces
+  Margaret in box 9 of the Calendar, marked Exile. If Henry VI
+  is later removed, add Margaret to the next Calendar box (no
+  Exile). For as long as Henry VI remains present (only), add
+  Arts of War cards L17, L18, L20, L21.
+- MARGARET (EDWARD). When Margaret is present, add cards L27,
+  L28, L31. When Margaret Musters, she uses card L26 EDWARD as
+  per the first War's Lancastrian Succession.
+- SOMERSET. If Somerset (1) survived the first War, replace
+  Somerset (2) (no ring) with (1) in box 9, marked Exile. If
+  Somerset (1) is removed, add Somerset (2) to the next
+  Calendar box. Whenever a Somerset is highest Heir, add cards
+  L20, L21, L27.
+ 
+SPECIAL RULES
+ 
+SUCCESSION
+For any Heir removed during play, conduct Succession as given
+above, including removing and adding Arts of War.
+ 
+SHAKY ALLIES
+Margaret and Warwick may never enter the same Stronghold.
+ 
+FOREIGN HAVEN  [ERRATA APPLIED]
+If Warwick chooses Exile upon Approach (4.3.5) OR DIES AS A
+DEFENDER (4.4.3), shift all Lancastrians on the Calendar left
+to the current Turn and all Yorkists left to the next Turn.
+ 
+GLOUCESTER
+After resolving Event Y28 GLOUCESTER AS HEIR, set the card
+aside for reference in setup of the next War. Its Capability
+becomes unavailable.
+ 
+NATURAL CAUSES
+After victory in this War, roll two dice each for Henry VI and
+York, if still present - a roll less than the last Turn played
+removes that Heir. Then roll one die for Edward IV (only, not
+March) - remove him on a roll of "6".
+ 
+VICTORY THRESHOLD
+40+ Influence.
+ 
+ 
+----------------------------------------------------------------
+E5.  WAR IIL. LANCASTRIAN LEGITIMACY FADES, 1469-1471
+----------------------------------------------------------------
+Rejecting the first War's verdict, Warwick rallies the House of
+York to renew its bid for the crown.
+ 
+WAR
+Second War if the Lancastrians win the first War. Set up as
+below, with Succession.
+ 
+SEASONS
+First Turn of 1469 (box 1) through last Campaign of 1471
+(box 15).
+ 
+SIDES
+Lancastrians King, Yorkists Rebel.
+ 
+SETUP
+ 
+ARTS OF WAR
+Lancastrians start with all no-rose cards EXCEPT L4, plus L18,
+L19, L20, L21, L25, L29, L34.
+Yorkists with all no-rose plus Y15, Y16, Y17, Y22, Y28, Y29,
+Y31, Y34.
+Succession will add and possibly later remove cards.
+ 
+LANCASTRIAN LORD CARDS
+- Unless removed in first War: Henry VI, Margaret, Somerset (1),
+  Somerset (2).
+- Northumberland, Exeter (1), Oxford, Jasper Tudor (1).
+ 
+YORKIST LORD CARDS
+- Unless removed in first War: York, March, Rutland.
+- Gloucester (1), Warwick, Salisbury, Devon, Pembroke.
+ 
+LANCASTRIAN SUCCESSION
+Lancastrian Heirs are Henry VI, Margaret, Somerset (1), and
+Somerset (2), less any removed in the first War. The highest
+ranked is King (Margaret as her son Edward).
+- HENRY VI, so long as King, adds cards L15, L17. If Henry VI
+  removed, add Margaret to the Calendar - box 1 at setup or
+  next box in play.
+- MARGARET upon Muster uses card L26 EDWARD as per first War,
+  Lancastrian Succession. So long as Margaret (Edward) is King,
+  add L27, L31.
+- SOMERSET while King adds L16, L27. Any removal of Somerset
+  (1) (whether King or not) replaces Somerset (1) with Somerset
+  (2) in place.
+ 
+YORKIST SUCCESSION
+Yorkist Heirs are York, March, Rutland, and Gloucester (1).
+The highest Heir present adjusts Arts of War cards:
+- YORK as highest-ranking Heir adds Y14, Y20.
+- MARCH or RUTLAND as highest Heir adds Y20, Y21.
+- GLOUCESTER as highest Heir adds Y25, Y30.
+ 
+MUSTERED LORD MATS
+Lancastrians: The King, Somerset (1) or (2) (if not King),
+Jasper Tudor.
+Yorkists: Warwick, Salisbury, Pembroke.
+ 
+MAP
+- France Exile box Lancastrian, Burgundy Yorkist.
+- Seat markers per Lord cards listed above.
+- The 11 regular Vassal marker pairs OTHER than Devon and Oxford
+  at their Vassal Seats.
+- Lancastrian (red) Favour at London, Harlech, Wells, Oxford,
+  Exeter, Carlisle.
+- Yorkist (white) Favour at Calais, York, Ely, Pembroke, Ludlow.
+- The King at London, Somerset at Wells (unless King), Jasper
+  Tudor at Harlech (red cylinders).
+- Warwick at Calais, Salisbury at York, Pembroke at Pembroke
+  (white cylinders).
+ 
+CALENDAR
+- Box 1: Levy marker and Devon (white cylinder).
+- Box 2: Exeter and Oxford (red cylinders).
+- Box 7: York, March, Rutland, Gloucester (silver ring) (white
+  cylinders), all with Exile markers.
+- Box 8: Northumberland (red cylinder).
+ 
+INFLUENCE TRACK
+- Influence marker at 0 on Lancastrian (red) side.
+- Fortress marker Yorkist (white) at 2, Town Lancastrian (red)
+  at 0, City Lancastrian (red) at 2.
+- Victory Check marker at 40.
+ 
+SPECIAL RULES
+ 
+SUCCESSION
+For Heirs removed in play, conduct Succession as above,
+adjusting Arts of War.
+ 
+GLOUCESTER
+After resolving Event Y28 GLOUCESTER AS HEIR, set the card
+aside for reference in setup of the next War. Its Capability
+becomes unavailable.
+ 
+NATURAL CAUSES
+After victory in this War, roll two dice each for Henry VI and
+York, if still present - a roll less than the last Turn played
+removes that Heir.
+ 
+VICTORY THRESHOLD
+40+ Influence.
+ 
+ 
+----------------------------------------------------------------
+E6.  WAR IIIY. NEW RIVALS, 1484-1485
+----------------------------------------------------------------
+Under Yorkist rule, discontent Lancaster rises to a final bout
+for the Crown of England.
+ 
+WAR
+Third War if the Yorkists win the second War. Set up Scenario
+III "My Kingdom for a Horse" (see D5 above), but hold off
+choosing cards and setting up any Lords, Seats, or Favour.
+Modify setup as below, including Succession to find which
+Yorkist is King and set Arts of War cards.
+ 
+SEASONS
+Seven complete Turns, June/July 1484 (box 3) through
+August/September 1485 (box 9).
+ 
+SIDES
+Yorkists King, Lancastrians Rebel.
+ 
+SETUP MODIFICATIONS
+ 
+ARTS OF WAR
+Yorkists start with all no-rose cards plus Y36.
+Lancastrians with all no-rose plus L33, L34, L36, L37.
+Heirs and Succession permanently add cards.
+ 
+NOTE: All Lords who set up in this War do so Mustered (with
+mats); none start on the Calendar.
+ 
+YORKIST HEIRS AND LORDS
+- Yorkist Heirs are York, March or Edward IV, Rutland, and
+  Gloucester (1), Gloucester (2), or Richard III, less any
+  removed in previous Wars.
+- If Event Y28 GLOUCESTER AS HEIR occurred in the second War
+  (set aside per IIY or IIL special rule), and if both Rutland
+  and Gloucester remain, remove Rutland now.
+- If Rutland now remains as the only Heir, remove Rutland and
+  add the Yorkist Warwick as King at London (with cards, mat,
+  cylinder, and Seat), Salisbury at York, and cards Y16, Y17,
+  Y22.
+- If exactly one of York, March/Edward IV, or Gloucester/Richard
+  III now remains, add Northumberland (2) at Carlisle and card
+  Y37.
+- Add Norfolk at Arundel.
+ 
+YORKIST SUCCESSION
+The highest-ranked among the Heirs listed above who still
+remain sets up as King at London (adding cards, mat, cylinder,
+and Seat). The next highest sets up as an Heir who can become
+King. Remove all other Yorkist Heirs.
+- YORK. York as King adds cards Y14, Y21.
+- MARCH / EDWARD IV. If York is King and March remains, set up
+  March at Ludlow and add card Y20. If March is King, set up
+  Edward IV at London instead of March at Ludlow and add Y23,
+  Y24.
+- RUTLAND. If he remains as Heir to York or Edward IV, set
+  Rutland up at Canterbury. If Rutland and Gloucester remain,
+  set up Rutland as King at London. Rutland as Heir to York
+  adds Y20; Heir to Edward IV adds Y31; or as King adds Y20,
+  Y21.
+- GLOUCESTER / RICHARD III. If York or Edward IV is King and
+  Gloucester remains, set up Gloucester (1) (silver ring) at
+  Gloucester. If Rutland is King and Gloucester remains, set up
+  Gloucester (2) (gold ring) at London. Gloucester (1) or (2)
+  adds card Y34 plus, if with Edward IV, Y28. If Gloucester is
+  King, set up Richard III (gold ring) at London instead of
+  Gloucester and add cards Y32, Y33.
+ 
+LANCASTRIAN HEIR
+There is exactly one:
+- MARGARET (with Edward, Prince of Wales) - unless removed
+  earlier - in the France Exile box. Add L27, L31. She uses
+  card L26 EDWARD per the first War's Lancastrian Succession.
+- HENRY TUDOR - if no Margaret and if anyone but Edward IV
+  (York, Rutland, Richard III, or Warwick) is King - in the
+  France Exile box. Add cards L32, L35.
+- WARWICK otherwise, at Calais. (In this case, not only King
+  Edward IV but also Richard Neville have survived to fight a
+  final war.) Add cards L23, L30.
+ 
+LANCASTRIAN LORDS
+Add Oxford and Jasper Tudor (2) either in the France Exile box
+if with Margaret or Henry Tudor, or at Calais if with Warwick.
+ 
+MAP
+Set London to Yorkist Favour and each side's other marked Lord
+Seat (only) to that side's Favour.
+ 
+INFLUENCE TRACK
+- Each Heir (not Warwick) removed in an earlier War by Death,
+  Shipwreck, or Natural Causes special rule costs that side
+  -8 Influence points.
+- Adjust City, Town, Fortress markers per Favour on the map.
+ 
+SPECIAL RULES
+ 
+SUCCESSION
+Heir removal affects only setup, not play.
+ 
+RAVAGED LAND
+Skip all Grow and Waste (4.8.4 - 4.8.5).
+ 
+VICTORY THRESHOLD
+45+ Influence.
+ 
+ 
+----------------------------------------------------------------
+E7.  WAR IIIL. YORKISTS' LAST STAND, 1484-1485
+----------------------------------------------------------------
+Despite defeats, the House of York rallies for one final stab
+at the crown.
+ 
+WAR
+Third War if the Lancastrians win the second War. Set up as
+below, modifying for Yorkist and Lancastrian Succession.
+ 
+SEASONS
+Six Turns, August/September 1484 through August/September 1485
+(boxes 4 through 9).
+ 
+SIDES
+Lancastrians King, Yorkists Rebel.
+ 
+SETUP
+ 
+ARTS OF WAR
+Lancastrians start with all no-rose cards plus L25, L34, L36.
+Yorkists with all no-rose cards plus Y36.
+Succession will permanently add more cards.
+ 
+LANCASTRIAN LORD CARDS
+- Unless previously removed: Henry VI, Margaret, Somerset (1),
+  Somerset (2).
+- Oxford and Jasper Tudor (2).
+ 
+YORKIST LORD CARDS
+- Unless previously removed: York, March, Rutland, Gloucester
+  (1), Gloucester (2).
+- Warwick, Norfolk, and Salisbury.
+ 
+LANCASTRIAN SUCCESSION
+Lancastrian Heirs are Henry VI, Margaret, Somerset (1) and
+(2) - less any removed earlier. The highest ranked is King
+(Margaret as Edward) - if Somerset (2), replace him with
+Somerset (1) (his ratings showing the power of the Crown).
+Remove the other Heirs. The King (only) adds cards as follows:
+- Henry VI adds L15, L17.
+- Margaret (Edward) uses card L26 EDWARD per the first War's
+  Lancastrian Succession, and adds L27, L31.
+- Somerset adds L18, L20, L27.
+ 
+YORKIST SUCCESSION
+- Yorkist Heirs are York, March, Rutland, and Gloucester, less
+  any removed, and perhaps Warwick.
+- If Edward IV is present from the second War, replace him with
+  March, or Richard III with Gloucester (2).
+- If Event Y28 GLOUCESTER AS HEIR occurred in the second War
+  (set aside per IIY or IIL special rule) and Gloucester (2)
+  remains, or if Gloucester is already highest Heir, remove all
+  other Yorkist Heirs and add card Y35.
+- If York remains, add Y14, Y18 and remove all other Heirs
+  except the single next highest; if that is March or Rutland,
+  add Y20; if Gloucester, replace Gloucester (2) with Gloucester
+  (1) and add Y34.
+- If neither York nor Gloucester remains as the highest Heir,
+  remove all Heirs except Warwick.
+- If no other Yorkist Heir remains, add the Yorkist Warwick as
+  Heir and add card Y16.
+- If Yorkists now have exactly one Heir, add Salisbury and
+  cards Y17, Y22.
+ 
+MUSTERED LORD MATS
+Lancastrians: The King, Oxford, and Jasper Tudor.
+Yorkists: Heir(s), Salisbury if added, and Norfolk.
+ 
+MAP
+- France Exile box Lancastrian, Burgundy Yorkist.
+- Seat markers per Lord cards listed above.
+- The 11 regular Vassal marker pairs OTHER than Oxford and
+  Norfolk at their Vassal Seats.
+- Lancastrian (red) Favour at London and at each other
+  Lancastrian Lord Seat marker (only).
+- Yorkist (white) Favour at each Yorkist Lord Seat marker
+  (only).
+- The King at London, Oxford at Oxford, Jasper Tudor at
+  Pembroke.
+- All Yorkist Lords per Succession plus Norfolk in Burgundy or -
+  if Warwick present - at Calais.
+ 
+CALENDAR
+- Box 4: Levy marker.
+- Box 10: End marker.
+ 
+INFLUENCE TRACK
+- Start Influence marker at 0. Then each Heir (not Warwick)
+  removed in an earlier War by Death, Shipwreck, or Natural
+  Causes costs that side -8 Influence points.
+- Adjust City, Town, and Fortress markers to reflect Favour on
+  the map.
+ 
+SPECIAL RULES
+ 
+SUCCESSION
+Heir removal affects only setup, not play.
+ 
+RAVAGED LAND
+Skip all Grow and Waste (4.8.4 - 4.8.5).
+ 
+VICTORY THRESHOLD
+45+ Influence.
+ 
+ 
+================================================================
+END OF SCENARIO REFERENCE
+================================================================

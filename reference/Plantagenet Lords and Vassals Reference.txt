@@ -1,0 +1,381 @@
+Plantagenet — Lords and Vassals
+Standard Retinue
+Every Lord has a Retinue counter as part of their Forces. Where listed below, the Retinue is the same on every mat:
+
+Retinue: 3 strikes, Armour 1-4
+
+
+Lancastrian Lords
+Henry VI
+
+Heir: #1
+Title: Marshal
+Seat: London
+Ratings: Influence 5 / Lordship 2 / Command 2 / Valour 0
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 4 x Militia
+Assets: 2 Provender, 4 Coin, 2 Cart
+
+Margaret
+
+Heir: #2
+Title: Marshal
+Seat: London
+Ratings: Influence 4 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 3 x Men-at-Arms, 3 x Longbow
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Somerset (1)
+
+Heir: #3
+Title: Lieutenant
+Seat: Wells
+Ratings: Influence 5 / Lordship 2 / Command 2 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow
+Assets: 2 Provender, 1 Coin, 2 Cart
+
+Somerset (2)
+
+Heir: #4
+Title: — (no ring)
+Seat: Wells
+Ratings: Influence 3 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Henry Tudor
+
+Heir: #5
+Title: Marshal
+Seat: London
+Ratings: Influence 5 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 4 Coin, 2 Cart, 2 Ship
+
+Warwick (Lancastrian)
+
+Heir: #6 (third War only)
+Title: Lieutenant
+Seat: Calais
+Ratings: Influence 5 / Lordship 3 / Command 2 / Valour 2
+Forces: Retinue, 3 x Men-at-Arms, 3 x Longbow
+Assets: 2 Provender, 2 Coin, 2 Cart, 2 Ship
+
+Northumberland
+
+Title: —
+Seat: Carlisle
+Ratings: Influence 4 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 1 Coin, 2 Cart
+
+Clarence
+
+Title: —
+Seat: York
+Ratings: Influence 1 / Lordship 2 / Command 1 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: none
+
+Exeter (1)
+
+Title: —
+Seat: Exeter
+Ratings: Influence 2 / Lordship 1 / Command 2 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow
+Assets: 1 Provender, 1 Coin, 1 Cart
+
+Exeter (2)
+
+Title: —
+Seat: Exeter
+Ratings: Influence 2 / Lordship 1 / Command 2 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Oxford
+
+Title: —
+Seat: Oxford
+Ratings: Influence 2 / Lordship 2 / Command 2 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Buckingham
+
+Title: —
+Seat: Coventry
+Ratings: Influence 3 / Lordship 3 / Command 1 / Valour 1
+Forces: Retinue, 1 x Men-at-Arms, 2 x Longbow, 1 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Jasper Tudor (1)
+
+Title: —
+Seat: Harlech
+Ratings: Influence 2 / Lordship 2 / Command 3 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 3 x Longbow, 1 x Militia
+Assets: 2 Provender, 2 Coin, 1 Cart
+
+Jasper Tudor (2)
+
+Title: —
+Seat: Pembroke
+Ratings: Influence 2 / Lordship 3 / Command 3 / Valour 2
+Forces: Retinue, 3 x Men-at-Arms, 3 x Longbow
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+
+Yorkist Lords
+York
+
+Heir: #1
+Title: Marshal
+Seat: Ely
+Ratings: Influence 5 / Lordship 3 / Command 2 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+March
+
+Heir: #2
+Title: — (no ring)
+Seat: Ludlow
+Ratings: Influence 2 / Lordship 2 / Command 2 / Valour 3
+Forces: Retinue, 1 x Men-at-Arms, 2 x Longbow, 1 x Militia
+Assets: 1 Provender, 1 Coin, 1 Cart
+
+Edward IV
+
+Heir: #2
+Title: Marshal
+Seat: London
+Ratings: Influence 5 / Lordship 3 / Command 2 / Valour 4
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Rutland
+
+Heir: #3
+Title: — (no ring)
+Seat: Canterbury
+Ratings: Influence 2 / Lordship 2 / Command 1 / Valour 1
+Forces: Retinue, 1 x Men-at-Arms, 2 x Longbow, 1 x Militia
+Assets: 1 Provender, 1 Coin, 1 Cart
+
+Gloucester (1)
+
+Heir: #4
+Title: Lieutenant
+Seat: Gloucester
+Ratings: Influence 2 / Lordship 2 / Command 3 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow
+Assets: 1 Provender, 1 Coin, 1 Cart
+
+Gloucester (2)
+
+Heir: #4
+Title: Marshal
+Seat: London
+Ratings: Influence 5 / Lordship 3 / Command 3 / Valour 2
+Forces: Retinue, 3 x Men-at-Arms, 3 x Longbow, 4 x Militia
+Assets: 2 Provender, 4 Coin, 2 Cart
+
+Richard III
+
+Heir: #4
+Title: Marshal
+Seat: London
+Ratings: Influence 5 / Lordship 3 / Command 3 / Valour 2
+Forces: Retinue, 3 x Men-at-Arms, 3 x Longbow, 4 x Militia
+Assets: 2 Provender, 4 Coin, 2 Cart
+
+Warwick (Yorkist)
+
+Heir: #5 (third War only)
+Title: Lieutenant
+Seat: Calais
+Ratings: Influence 5 / Lordship 3 / Command 2 / Valour 1
+Forces: Retinue, 3 x Men-at-Arms, 3 x Longbow
+Assets: 2 Provender, 2 Coin, 2 Ship
+
+Salisbury
+
+Title: —
+Seat: York
+Ratings: Influence 3 / Lordship 3 / Command 2 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow
+Assets: 1 Provender, 1 Coin, 1 Cart
+
+Devon
+
+Title: —
+Seat: Exeter
+Ratings: Influence 4 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 1 x Men-at-Arms, 2 x Longbow, 1 x Militia
+Assets: 1 Provender, 1 Coin, 1 Cart
+
+Pembroke
+
+Title: —
+Seat: Pembroke
+Ratings: Influence 2 / Lordship 2 / Command 2 / Valour 2
+Forces: Retinue, 1 x Men-at-Arms, 3 x Longbow, 2 x Militia
+Assets: 1 Provender, 2 Coin, 1 Cart
+
+Norfolk
+
+Title: —
+Seat: Arundel
+Ratings: Influence 3 / Lordship 3 / Command 3 / Valour 2
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Northumberland (1)
+
+Title: —
+Seat: Carlisle
+Ratings: Influence 4 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 4 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+Northumberland (2)
+
+Title: —
+Seat: Carlisle
+Ratings: Influence 4 / Lordship 2 / Command 2 / Valour 1
+Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
+Assets: 2 Provender, 2 Coin, 2 Cart
+
+
+Vassals
+Regular Vassals
+Each Vassal counter shows a coat of arms, the Vassal's Seat (on the back), and one or two ratings:
+
+Loyalty — left numeral, colored red (Lancastrian) or white (Yorkist). Added to the Levying Lord's Influence rating if the color matches the Levying side, subtracted if it opposes. Some Vassals have no Loyalty rating.
+Service — right numeral. Sets how far right on the Calendar the Vassal's second counter is placed when Mustered (determines Pay/Disband timing).
+
+Names and Seats below are from the map file. Loyalty and Service ratings to be filled in.
+Beaumont
+
+Seat: Lincoln
+Loyalty: 2 (red)
+Service: 1
+
+Bonville
+
+Seat: Launceston
+Loyalty: 1 (white)
+Service: 1
+
+Devon
+
+Seat: Exeter
+Loyalty: 1 (red)
+Service: 2
+Note: Also a Yorkist Lord in some scenarios.
+
+Dudley
+
+Seat: Leicester
+Loyalty: —
+Service: 1
+
+Essex
+
+Seat: St. Albans
+Loyalty: —
+Service: 1
+
+Fauconberg
+
+Seat: Dover
+Loyalty: 2 (white)
+Service: 3
+
+Norfolk
+
+Seat: Arundel
+Loyalty: —
+Service: 1
+Note: Also a Yorkist Lord in some scenarios.
+
+Oxford
+
+Seat: Oxford
+Loyalty: —
+Service: 2
+Note: Also a Lancastrian Lord in some scenarios.
+
+Shrewsbury
+
+Seat: Shrewsbury
+Loyalty: 1 (red)
+Service: 2
+
+Stanley
+
+Seat: Derby
+Loyalty: —
+Service: 1
+
+Suffolk
+
+Seat: Ipswich
+Loyalty: 1 (white)
+Service: 3
+
+Westmorland
+
+Seat: Appleby
+Loyalty: —
+Service: 3
+
+Worcester
+
+Seat: Worcester
+Loyalty: —
+Service: 3
+
+Special Vassals
+Single counters with light blue (Yorkist) or pink (Lancastrian) backgrounds, no Seat, no Loyalty, no Service ratings. Mustered via a Capability card rather than Levy Vassal action; do not set up on the map and do not aid Tax; do not appear on the Calendar; need not be Paid. If the Special Vassal Disbands, discard the Capability card that placed them.
+Hastings
+
+Side: Yorkist
+Capability: Y24 Hastings
+Eligible Lord(s): Edward IV
+Effect: Levied free; also adds 2 Men-at-Arms units and Command +1 to Edward IV. Command +1 ends if Hastings Disbands. The 2 Men-at-Arms are not affected by Hastings Disbanding (but per FAQ #6, they ARE removed during Waste).
+
+Edward (Prince of Wales)
+
+Side: Lancastrian
+Capability: L26 Edward Prince of Wales
+Eligible Lord(s): Margaret
+Effect: Levied free; grants Valour +1 to Margaret.
+
+Montagu
+
+Side: Lancastrian
+Capability: L23 Montagu
+Eligible Lord(s): Warwick
+Effect: Levied free; gives Warwick's Retinue Armour 1-5, including for the rest of any Battle in which Montagu Routs.
+
+Clifford
+
+Side: Lancastrian
+Capability: L21 My Father's Blood
+Eligible Lord(s): Any (Lancastrian)
+Effect: Levied free; grants Valour +1 to the Lord.
+
+Stanley
+
+Side: Lancastrian
+Capability: L35 Thomas Stanley
+Eligible Lord(s): Jasper Tudor or Henry Tudor
+Effect: Levied free; once per Levy, the Lord can Levy Troops for 0 Lordship while retaining the Capability and Special Vassal.
+
+Trollope
+
+Side: Lancastrian
+Capability: L19 Andrew Trollope
+Eligible Lord(s): Exeter, Buckingham, or Somerset
+Effect: Levied free; grants Valour +1 to the Lord.

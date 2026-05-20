@@ -1,0 +1,161 @@
+Errata & Clarification File for Plantagenet
+ 
+Added/Changed items are in red (in the original PDF; not visible in this plain-text version)
+ 
+================================================================
+ERRATA
+================================================================
+ 
+RULES OF PLAY:
+ 
+Page 24: Scenario II. Warwick's Rebellion, 1469-1471
+Foreign Haven: • Whenever Warwick goes into Exile upon Yorkist
+Approach (4.3.5) or Dies as a defender (4.4.3), shift all
+Lancastrian Lords on the Calendar (including Warwick) leftward
+(only) to the current Turn; then shift all Yorkists on the
+Calendar leftward (only) to the next Turn.
+ 
+Page 32 (back of the rules booklet):
+The actions requirement has some mistakes. The corrected Action
+Requirement Summary is as follows:
+ 
+----------------------------------------------------------------
+ACTION REQUIREMENTS SUMMARY (corrected)
+----------------------------------------------------------------
+ 
+LEVY actions:
+ 
+  Lord (3.4.2)
+    At Friendly Locale?  Yes
+    Route?               —
+    Check Influence?     Yes
+    Deplete/Exhaust?     —
+    Special:             Target Lord's or Friendly Seat,
+                         free of Enemy
+ 
+  Vassal (3.4.3)
+    At Friendly Locale?  Yes
+    Route?               —
+    Check Influence?     Yes
+    Deplete/Exhaust?     —
+    Special:             Vassal's Seat Friendly, free of Enemy
+ 
+  Troops (3.4.4)
+    At Friendly Locale?  Yes
+    Route?               —
+    Check Influence?     —
+    Deplete/Exhaust?     Yes
+    Special:             At Stronghold (not in Exile box)
+ 
+  Transport (3.4.5)
+    At Friendly Locale?  Yes
+    Route?               —
+    Check Influence?     —
+    Deplete/Exhaust?     —
+    Special:             At Port or in Exile box: may add Ship
+                         instead of Cart
+ 
+  Capability (3.4.6)
+    At Friendly Locale?  Yes
+    Route?               —
+    Check Influence?     —
+    Deplete/Exhaust?     —
+    Special:             Until 2 cards / Lord (no discard)
+ 
+  Parley (3.4.1, 4.6.4)
+    At Friendly Locale?  —
+    Route?               Yes
+    Check Influence?     Yes
+    Deplete/Exhaust?     —
+    Special:             Target Stronghold: Neutral or Enemy
+                         Favour
+ 
+CAMPAIGN actions:
+ 
+  Parley (3.4.1, 4.6.4)
+    At Friendly Locale?  —
+    Route?               —
+    Check Influence?     Yes
+    Deplete/Exhaust?     —
+    Special:             Adjacent (or by Sea): no Enemy Lord.
+                         At target: no check
+ 
+  March (4.3)
+    At Friendly Locale?  —
+    Route?               —
+    Check Influence?     —
+    Deplete/Exhaust?     —
+    Special:             From Stronghold or Scotland.
+                         Path: entire card
+ 
+  Supply (4.5)
+    At Friendly Locale?  Yes
+    Route?               Yes
+    Check Influence?     —
+    Deplete/Exhaust?     Yes
+    Special:             Route to Stronghold or Port:
+                         1 Cart / Prov / Way
+ 
+  Sail (4.6.1)
+    At Friendly Locale?  —
+    Route?               —
+    Check Influence?     —
+    Deplete/Exhaust?     —
+    Special:             Ships from Port, Exile, Sea.
+                         Entire card. No Enemy Lord
+ 
+  Forage (4.6.2)
+    At Friendly Locale?  —
+    Route?               —
+    Check Influence?     —
+    Deplete/Exhaust?     Yes
+    Special:             Enemy or Neutral Locale or Enemy
+                         adjacent: roll
+ 
+  Tax (4.6.3)
+    At Friendly Locale?  Yes
+    Route?               Yes
+    Check Influence?     Yes
+    Deplete/Exhaust?     Yes
+    Special:             Seat or Special Stronghold.
+                         Lord's Seat: no check
+ 
+----------------------------------------------------------------
+ 
+PLAYBOOK:
+ 
+Page 7, right Column, under the image
+Levy the Vassal Shrewsbury (3.4.3), now that Shrewsbury's Vassal
+Seat is Friendly. [Deleted from original: "Just as for his
+Parley, March needs a Route to the target Seat (there is one)"]
+ 
+Page 31:
+Suspicion event:
+Tips. Play at the Event step after Battle Array (4.4.1). Then
+choose one Friendly Lord and one Enemy Lord. The Friendly Lord
+must have a higher printed Influence rating than the Enemy.
+[Deleted from original: "(1.5.2, including modifications by
+other cards)"]
+ 
+================================================================
+FAQ / CLARIFICATIONS
+================================================================
+ 
+1) Sail action does not allow to go directly from a port to
+   another port on another sea. Neither Great Ships, which
+   affects only Parley, Tax and Supply.
+ 
+2) The Lord's Retinue and Vassals also count as forces during
+   the Sail action.
+ 
+3) Exiled lords can only be mustered in their Exile box during
+   the Muster Exiles phase.
+ 
+4) Fallen Brother Capability, Clarence removal through the
+   Foreign Haven rule also counts.
+ 
+5) Campaign game: If a scenario is Tied (IP at 0 at end of
+   scenario), victory goes to the King.
+ 
+6) Capability Hastings additional men-at-arms are removed
+   during Waste.
