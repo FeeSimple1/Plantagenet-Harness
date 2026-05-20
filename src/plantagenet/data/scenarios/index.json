@@ -1,0 +1,12 @@
+{
+  "_source": "reference/Plantagenet Scenario Reference.txt",
+  "scenarios": [
+    "henry_vi",
+    "towton",
+    "somersets_return",
+    "warwicks_rebellion",
+    "my_kingdom_for_a_horse",
+    "bosworth",
+    "wars_of_the_roses"
+  ]
+}

@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plantagenet-harness"
+version = "0.1.0"
+description = "Python harness for GMT's Plantagenet: Cousins' War (Levy & Command series)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "FeeSimple1" }]
+dependencies = [
+    "pydantic>=2.6",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+    "jsonschema>=4",
+]
+parallel = [
+    "pytest-xdist>=3",
+]
+
+[project.scripts]
+plantagenet = "plantagenet.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plantagenet"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# Builder scripts embed verbatim rules text from the reference docs.
+"scripts/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/plantagenet"]

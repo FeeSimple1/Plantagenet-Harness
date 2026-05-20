@@ -1,0 +1,150 @@
+{
+  "id": "somersets_return",
+  "title": "Scenario Ic. Somerset's Return, 1463-1464",
+  "years": "1463-1464",
+  "turns": {
+    "first_box": 5,
+    "last_box": 7,
+    "levy_box": 5,
+    "end_marker_box": 8
+  },
+  "arts_of_war": "Each side: its 13 no-rose and 9 one-rose Arts of War cards.",
+  "sides": {
+    "yorkist": {
+      "role": "king",
+      "lord_cards": [
+        "march",
+        "warwick_yorkist"
+      ],
+      "mustered": [
+        "march",
+        "warwick_yorkist"
+      ]
+    },
+    "lancastrian": {
+      "role": "rebel",
+      "lord_cards": [
+        "henry_vi",
+        "somerset_1"
+      ],
+      "mustered": [
+        "somerset_1"
+      ]
+    }
+  },
+  "setup": {
+    "exile_alignment": {
+      "burgundy": "yorkist",
+      "scotland": "lancastrian"
+    },
+    "favour": {
+      "yorkist": [
+        "arundel",
+        "calais",
+        "canterbury",
+        "dover",
+        "guildford",
+        "hastings",
+        "hereford",
+        "london",
+        "ludlow",
+        "rochester",
+        "salisbury",
+        "southampton",
+        "winchester"
+      ],
+      "lancastrian": [
+        "appleby",
+        "bamburgh",
+        "cardiff",
+        "carlisle",
+        "chester",
+        "harlech",
+        "hexham",
+        "lancaster",
+        "newcastle",
+        "pembroke",
+        "scarborough"
+      ]
+    },
+    "vassals_on_map": {
+      "mode": "all"
+    },
+    "on_map": [
+      {
+        "lord": "march",
+        "locale": "london",
+        "color": "white"
+      },
+      {
+        "lord": "warwick_yorkist",
+        "locale": "london",
+        "color": "white",
+        "capability": "L23",
+        "special_vassal": "montagu"
+      },
+      {
+        "lord": "somerset_1",
+        "locale": "bamburgh",
+        "color": "red",
+        "ring": "silver"
+      }
+    ],
+    "calendar": [
+      {
+        "box": 5,
+        "markers": [
+          "levy"
+        ],
+        "lords": [
+          {
+            "lord": "henry_vi",
+            "color": "red",
+            "exile": true
+          }
+        ]
+      },
+      {
+        "box": 8,
+        "markers": [
+          "end"
+        ]
+      }
+    ],
+    "influence": {
+      "marker_at": 6,
+      "marker_side": "lancastrian",
+      "stronghold_markers": {
+        "fortress": {
+          "side": "lancastrian",
+          "at": 1
+        },
+        "town": {
+          "side": "lancastrian",
+          "at": 0
+        },
+        "city": {
+          "side": "yorkist",
+          "at": 2
+        }
+      },
+      "victory_check": 25
+    }
+  },
+  "special_rules": [
+    {
+      "name": "Montagu",
+      "text": "Warwick - even though a Yorkist - sets up with the Lancastrian 2-rose MONTAGU Capability card (L23) and its Special Vassal. Disband or removal of Warwick or Montagu removes the card from play."
+    },
+    {
+      "name": "Brief Rebellion",
+      "text": "Skip Waste (4.8.5)."
+    }
+  ],
+  "victory_thresholds": [
+    {
+      "turns": "all",
+      "influence": 25
+    }
+  ]
+}

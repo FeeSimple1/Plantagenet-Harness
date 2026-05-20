@@ -1,0 +1,415 @@
+{
+  "_meta": {
+    "_source": "reference/Plantagenet Map Reference.txt",
+    "_note": "Sea adjacency between ports is not enumerated in the Map Reference; see RULES_QUESTIONS.md Q-001. Only land Ways (Road/Highway/Path) are encoded.",
+    "disputed_pending_adjudication": [
+      [
+        "leicester",
+        "nottingham",
+        "highway"
+      ],
+      [
+        "leicester",
+        "peterborough",
+        "road"
+      ]
+    ]
+  },
+  "ways": [
+    {
+      "from": "appleby",
+      "to": "carlisle",
+      "type": "road"
+    },
+    {
+      "from": "appleby",
+      "to": "lancaster",
+      "type": "path"
+    },
+    {
+      "from": "appleby",
+      "to": "newcastle",
+      "type": "road"
+    },
+    {
+      "from": "arundel",
+      "to": "hastings",
+      "type": "road"
+    },
+    {
+      "from": "arundel",
+      "to": "southampton",
+      "type": "road"
+    },
+    {
+      "from": "bamburgh",
+      "to": "newcastle",
+      "type": "highway"
+    },
+    {
+      "from": "bedford",
+      "to": "cambridge",
+      "type": "road"
+    },
+    {
+      "from": "bedford",
+      "to": "northampton",
+      "type": "highway"
+    },
+    {
+      "from": "bedford",
+      "to": "st_albans",
+      "type": "highway"
+    },
+    {
+      "from": "bristol",
+      "to": "gloucester",
+      "type": "highway"
+    },
+    {
+      "from": "bristol",
+      "to": "wells",
+      "type": "road"
+    },
+    {
+      "from": "bury_st_edmunds",
+      "to": "cambridge",
+      "type": "road"
+    },
+    {
+      "from": "bury_st_edmunds",
+      "to": "ely",
+      "type": "road"
+    },
+    {
+      "from": "bury_st_edmunds",
+      "to": "ipswich",
+      "type": "road"
+    },
+    {
+      "from": "bury_st_edmunds",
+      "to": "norwich",
+      "type": "road"
+    },
+    {
+      "from": "cambridge",
+      "to": "ely",
+      "type": "highway"
+    },
+    {
+      "from": "cambridge",
+      "to": "st_albans",
+      "type": "highway"
+    },
+    {
+      "from": "canterbury",
+      "to": "dover",
+      "type": "road"
+    },
+    {
+      "from": "canterbury",
+      "to": "rochester",
+      "type": "road"
+    },
+    {
+      "from": "cardiff",
+      "to": "gloucester",
+      "type": "road"
+    },
+    {
+      "from": "cardiff",
+      "to": "pembroke",
+      "type": "path"
+    },
+    {
+      "from": "carlisle",
+      "to": "hexham",
+      "type": "road"
+    },
+    {
+      "from": "chester",
+      "to": "harlech",
+      "type": "path"
+    },
+    {
+      "from": "chester",
+      "to": "lancaster",
+      "type": "path"
+    },
+    {
+      "from": "chester",
+      "to": "shrewsbury",
+      "type": "road"
+    },
+    {
+      "from": "chester",
+      "to": "york",
+      "type": "path"
+    },
+    {
+      "from": "coventry",
+      "to": "lichfield",
+      "type": "road"
+    },
+    {
+      "from": "coventry",
+      "to": "northampton",
+      "type": "road"
+    },
+    {
+      "from": "derby",
+      "to": "lichfield",
+      "type": "road"
+    },
+    {
+      "from": "derby",
+      "to": "nottingham",
+      "type": "road"
+    },
+    {
+      "from": "dorchester",
+      "to": "exeter",
+      "type": "road"
+    },
+    {
+      "from": "dorchester",
+      "to": "salisbury",
+      "type": "road"
+    },
+    {
+      "from": "dorchester",
+      "to": "wells",
+      "type": "road"
+    },
+    {
+      "from": "dover",
+      "to": "hastings",
+      "type": "road"
+    },
+    {
+      "from": "ely",
+      "to": "lynn",
+      "type": "road"
+    },
+    {
+      "from": "ely",
+      "to": "peterborough",
+      "type": "highway"
+    },
+    {
+      "from": "exeter",
+      "to": "launceston",
+      "type": "road"
+    },
+    {
+      "from": "exeter",
+      "to": "plymouth",
+      "type": "road"
+    },
+    {
+      "from": "exeter",
+      "to": "wells",
+      "type": "highway"
+    },
+    {
+      "from": "gloucester",
+      "to": "hereford",
+      "type": "highway"
+    },
+    {
+      "from": "gloucester",
+      "to": "oxford",
+      "type": "highway"
+    },
+    {
+      "from": "gloucester",
+      "to": "worcester",
+      "type": "highway"
+    },
+    {
+      "from": "guildford",
+      "to": "london",
+      "type": "highway"
+    },
+    {
+      "from": "guildford",
+      "to": "winchester",
+      "type": "highway"
+    },
+    {
+      "from": "harlech",
+      "to": "pembroke",
+      "type": "path"
+    },
+    {
+      "from": "hastings",
+      "to": "rochester",
+      "type": "road"
+    },
+    {
+      "from": "hereford",
+      "to": "ludlow",
+      "type": "highway"
+    },
+    {
+      "from": "hexham",
+      "to": "newcastle",
+      "type": "road"
+    },
+    {
+      "from": "ipswich",
+      "to": "norwich",
+      "type": "road"
+    },
+    {
+      "from": "ipswich",
+      "to": "st_albans",
+      "type": "road"
+    },
+    {
+      "from": "launceston",
+      "to": "plymouth",
+      "type": "road"
+    },
+    {
+      "from": "launceston",
+      "to": "truro",
+      "type": "road"
+    },
+    {
+      "from": "leicester",
+      "to": "lichfield",
+      "type": "road"
+    },
+    {
+      "from": "leicester",
+      "to": "northampton",
+      "type": "highway"
+    },
+    {
+      "from": "lichfield",
+      "to": "shrewsbury",
+      "type": "road"
+    },
+    {
+      "from": "lichfield",
+      "to": "worcester",
+      "type": "road"
+    },
+    {
+      "from": "lincoln",
+      "to": "nottingham",
+      "type": "road"
+    },
+    {
+      "from": "lincoln",
+      "to": "peterborough",
+      "type": "highway"
+    },
+    {
+      "from": "lincoln",
+      "to": "ravenspur",
+      "type": "road"
+    },
+    {
+      "from": "lincoln",
+      "to": "york",
+      "type": "highway"
+    },
+    {
+      "from": "london",
+      "to": "oxford",
+      "type": "highway"
+    },
+    {
+      "from": "london",
+      "to": "rochester",
+      "type": "road"
+    },
+    {
+      "from": "london",
+      "to": "st_albans",
+      "type": "highway"
+    },
+    {
+      "from": "ludlow",
+      "to": "shrewsbury",
+      "type": "road"
+    },
+    {
+      "from": "ludlow",
+      "to": "worcester",
+      "type": "road"
+    },
+    {
+      "from": "lynn",
+      "to": "norwich",
+      "type": "road"
+    },
+    {
+      "from": "newbury",
+      "to": "oxford",
+      "type": "road"
+    },
+    {
+      "from": "newbury",
+      "to": "salisbury",
+      "type": "road"
+    },
+    {
+      "from": "newcastle",
+      "to": "scarborough",
+      "type": "road"
+    },
+    {
+      "from": "newcastle",
+      "to": "york",
+      "type": "highway"
+    },
+    {
+      "from": "northampton",
+      "to": "oxford",
+      "type": "road"
+    },
+    {
+      "from": "northampton",
+      "to": "peterborough",
+      "type": "road"
+    },
+    {
+      "from": "plymouth",
+      "to": "truro",
+      "type": "road"
+    },
+    {
+      "from": "ravenspur",
+      "to": "york",
+      "type": "road"
+    },
+    {
+      "from": "salisbury",
+      "to": "southampton",
+      "type": "road"
+    },
+    {
+      "from": "salisbury",
+      "to": "wells",
+      "type": "highway"
+    },
+    {
+      "from": "salisbury",
+      "to": "winchester",
+      "type": "highway"
+    },
+    {
+      "from": "scarborough",
+      "to": "york",
+      "type": "road"
+    },
+    {
+      "from": "southampton",
+      "to": "winchester",
+      "type": "road"
+    }
+  ]
+}

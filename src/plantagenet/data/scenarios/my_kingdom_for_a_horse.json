@@ -1,0 +1,150 @@
+{
+  "id": "my_kingdom_for_a_horse",
+  "title": "Scenario III. My Kingdom for a Horse, 1484-1485",
+  "years": "1484-1485",
+  "turns": {
+    "first_box": 3,
+    "last_box": 9,
+    "levy_box": 3,
+    "end_marker_box": 10
+  },
+  "arts_of_war": "13 no-rose and 6 three-rose cards per deck.",
+  "sides": {
+    "yorkist": {
+      "role": "king",
+      "lord_cards": [
+        "gloucester_2",
+        "northumberland_2",
+        "norfolk",
+        "richard_iii"
+      ],
+      "mustered": [
+        "gloucester_2",
+        "northumberland_2",
+        "norfolk"
+      ]
+    },
+    "lancastrian": {
+      "role": "rebel",
+      "lord_cards": [
+        "henry_tudor",
+        "jasper_tudor_2",
+        "oxford"
+      ],
+      "mustered": [
+        "henry_tudor",
+        "jasper_tudor_2",
+        "oxford"
+      ]
+    }
+  },
+  "setup": {
+    "exile_alignment": {
+      "burgundy": "yorkist",
+      "france": "lancastrian"
+    },
+    "favour": {
+      "yorkist": [
+        "arundel",
+        "calais",
+        "carlisle",
+        "gloucester",
+        "london",
+        "york"
+      ],
+      "lancastrian": [
+        "harlech",
+        "oxford",
+        "pembroke"
+      ]
+    },
+    "vassals_on_map": {
+      "mode": "all_except",
+      "except": [
+        "oxford",
+        "norfolk"
+      ]
+    },
+    "on_map": [
+      {
+        "lord": "gloucester_2",
+        "locale": "london",
+        "color": "white",
+        "ring": "gold"
+      },
+      {
+        "lord": "northumberland_2",
+        "locale": "carlisle",
+        "color": "white"
+      },
+      {
+        "lord": "norfolk",
+        "locale": "arundel",
+        "color": "white"
+      },
+      {
+        "lord": "henry_tudor",
+        "exile_box": "france",
+        "color": "red"
+      },
+      {
+        "lord": "jasper_tudor_2",
+        "exile_box": "france",
+        "color": "red"
+      },
+      {
+        "lord": "oxford",
+        "exile_box": "france",
+        "color": "red"
+      }
+    ],
+    "calendar": [
+      {
+        "box": 3,
+        "markers": [
+          "levy"
+        ]
+      },
+      {
+        "box": 10,
+        "markers": [
+          "end"
+        ]
+      }
+    ],
+    "influence": {
+      "marker_at": 0,
+      "marker_side": "yorkist",
+      "stronghold_markers": {
+        "fortress": {
+          "side": "lancastrian",
+          "at": 1
+        },
+        "town": {
+          "side": "yorkist",
+          "at": 1
+        },
+        "city": {
+          "side": "yorkist",
+          "at": 2
+        }
+      }
+    }
+  },
+  "special_rules": [
+    {
+      "name": "King Richard",
+      "text": "The Yorkist player, at setup or during any Muster (3.4) with Gloucester at London, may replace the Gloucester Lord card in place with Richard III, affecting various Arts of War."
+    },
+    {
+      "name": "Ravaged Land",
+      "text": "Skip all Grow and Waste (4.8.4 - 4.8.5)."
+    }
+  ],
+  "victory_thresholds": [
+    {
+      "turns": "all",
+      "influence": 45
+    }
+  ]
+}

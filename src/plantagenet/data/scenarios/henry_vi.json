@@ -1,0 +1,191 @@
+{
+  "id": "henry_vi",
+  "title": "Scenario Ia. Henry VI, 1459-1461",
+  "years": "1459-1461",
+  "turns": {
+    "first_box": 1,
+    "last_box": 15,
+    "levy_box": 1
+  },
+  "arts_of_war": "Each side: its 13 no-rose and 9 one-rose Arts of War cards.",
+  "sides": {
+    "lancastrian": {
+      "role": "king",
+      "lord_cards": [
+        "henry_vi",
+        "somerset_1",
+        "northumberland_lancastrian",
+        "exeter_1",
+        "buckingham"
+      ],
+      "mustered": [
+        "henry_vi",
+        "somerset_1"
+      ]
+    },
+    "yorkist": {
+      "role": "rebel",
+      "lord_cards": [
+        "york",
+        "march",
+        "salisbury",
+        "warwick_yorkist",
+        "rutland"
+      ],
+      "mustered": [
+        "york",
+        "march"
+      ]
+    }
+  },
+  "setup": {
+    "exile_alignment": {
+      "scotland": "lancastrian",
+      "france": "lancastrian",
+      "ireland": "yorkist",
+      "burgundy": "yorkist"
+    },
+    "favour": {
+      "lancastrian": [
+        "london",
+        "wells"
+      ],
+      "yorkist": [
+        "ely",
+        "ludlow"
+      ]
+    },
+    "vassals_on_map": {
+      "mode": "all"
+    },
+    "on_map": [
+      {
+        "lord": "henry_vi",
+        "locale": "london",
+        "color": "red"
+      },
+      {
+        "lord": "somerset_1",
+        "locale": "london",
+        "color": "red",
+        "ring": "silver"
+      },
+      {
+        "lord": "york",
+        "locale": "ely",
+        "color": "white"
+      },
+      {
+        "lord": "march",
+        "locale": "ludlow",
+        "color": "white"
+      }
+    ],
+    "calendar": [
+      {
+        "box": 1,
+        "markers": [
+          "levy"
+        ]
+      },
+      {
+        "box": 2,
+        "lords": [
+          {
+            "lord": "northumberland_lancastrian",
+            "color": "red"
+          },
+          {
+            "lord": "salisbury",
+            "color": "white"
+          }
+        ]
+      },
+      {
+        "box": 3,
+        "lords": [
+          {
+            "lord": "exeter_1",
+            "color": "red"
+          },
+          {
+            "lord": "warwick_yorkist",
+            "color": "white"
+          }
+        ]
+      },
+      {
+        "box": 5,
+        "lords": [
+          {
+            "lord": "buckingham",
+            "color": "red"
+          },
+          {
+            "lord": "rutland",
+            "color": "white"
+          }
+        ]
+      }
+    ],
+    "influence": {
+      "marker_at": 0,
+      "marker_side": "lancastrian",
+      "stronghold_markers": {
+        "fortress": {
+          "side": "yorkist",
+          "at": 1
+        },
+        "town": {
+          "side": "yorkist",
+          "at": 0
+        },
+        "city": {
+          "side": "yorkist",
+          "at": 0
+        }
+      },
+      "victory_check": 40
+    }
+  },
+  "allied_networks": {
+    "scotland": [
+      "henry_vi",
+      "somerset_1"
+    ],
+    "france": [
+      "northumberland_lancastrian",
+      "exeter_1",
+      "buckingham"
+    ],
+    "ireland": [
+      "york",
+      "rutland"
+    ],
+    "burgundy": [
+      "march",
+      "warwick_yorkist",
+      "salisbury"
+    ]
+  },
+  "special_rules": [
+    {
+      "name": "Capture of the King",
+      "text": "If Yorkists win a Battle against Henry VI, they add +10 Influence points. Instead of checking for Henry VI's Death, Disband him; the Yorkists place his cylinder on the mat of any Unrouted Yorkist Lord at the Battle (instead of on the Calendar). While a Yorkist Lord holds him, Henry VI cannot Muster and does not count as on map. If that Lord goes into Exile, Disbands, or Dies, place Henry VI on the Calendar as if just Disbanded; Lancastrians add +10 Influence points."
+    }
+  ],
+  "victory_thresholds": [
+    {
+      "turns": "1-5",
+      "influence": 40
+    },
+    {
+      "turns": "6-10",
+      "influence": 35
+    },
+    {
+      "turns": "11-15",
+      "influence": 30
+    }
+  ]
+}

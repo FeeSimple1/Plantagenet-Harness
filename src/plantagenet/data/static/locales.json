@@ -1,0 +1,392 @@
+{
+  "_source": "reference/Plantagenet Map Reference.txt",
+  "truro": {
+    "name": "Truro",
+    "type": "town",
+    "port": true
+  },
+  "launceston": {
+    "name": "Launceston",
+    "type": "city",
+    "port": false,
+    "vassal_seats": [
+      "bonville"
+    ]
+  },
+  "plymouth": {
+    "name": "Plymouth",
+    "type": "town",
+    "port": true
+  },
+  "exeter": {
+    "name": "Exeter",
+    "type": "city",
+    "port": true,
+    "lord_seats": [
+      "devon",
+      "exeter_1",
+      "exeter_2"
+    ],
+    "vassal_seats": [
+      "devon"
+    ]
+  },
+  "dorchester": {
+    "name": "Dorchester",
+    "type": "town",
+    "port": true
+  },
+  "wells": {
+    "name": "Wells",
+    "type": "city",
+    "port": false,
+    "lord_seats": [
+      "somerset_1",
+      "somerset_2"
+    ]
+  },
+  "salisbury": {
+    "name": "Salisbury",
+    "type": "city",
+    "port": false,
+    "region": "south"
+  },
+  "southampton": {
+    "name": "Southampton",
+    "type": "town",
+    "port": true,
+    "region": "south"
+  },
+  "arundel": {
+    "name": "Arundel",
+    "type": "town",
+    "port": false,
+    "region": "south",
+    "lord_seats": [
+      "norfolk"
+    ],
+    "vassal_seats": [
+      "norfolk"
+    ]
+  },
+  "winchester": {
+    "name": "Winchester",
+    "type": "city",
+    "port": false,
+    "region": "south"
+  },
+  "guildford": {
+    "name": "Guildford",
+    "type": "city",
+    "port": false,
+    "region": "south"
+  },
+  "hastings": {
+    "name": "Hastings",
+    "type": "town",
+    "port": true,
+    "region": "south"
+  },
+  "dover": {
+    "name": "Dover",
+    "type": "town",
+    "port": true,
+    "region": "south",
+    "vassal_seats": [
+      "fauconberg"
+    ]
+  },
+  "canterbury": {
+    "name": "Canterbury",
+    "type": "city",
+    "port": false,
+    "region": "south",
+    "lord_seats": [
+      "rutland"
+    ]
+  },
+  "london": {
+    "name": "London",
+    "type": "special_stronghold",
+    "port": false,
+    "lord_seats": [
+      "henry_vi",
+      "margaret",
+      "henry_tudor",
+      "edward_iv",
+      "gloucester_2",
+      "richard_iii"
+    ]
+  },
+  "rochester": {
+    "name": "Rochester",
+    "type": "city",
+    "port": false,
+    "region": "south"
+  },
+  "bristol": {
+    "name": "Bristol",
+    "type": "city",
+    "port": false
+  },
+  "newbury": {
+    "name": "Newbury",
+    "type": "town",
+    "port": false
+  },
+  "oxford": {
+    "name": "Oxford",
+    "type": "city",
+    "port": false,
+    "lord_seats": [
+      "oxford"
+    ],
+    "vassal_seats": [
+      "oxford"
+    ]
+  },
+  "st_albans": {
+    "name": "St. Albans",
+    "type": "town",
+    "port": false,
+    "vassal_seats": [
+      "essex"
+    ]
+  },
+  "bedford": {
+    "name": "Bedford",
+    "type": "town",
+    "port": false
+  },
+  "cambridge": {
+    "name": "Cambridge",
+    "type": "town",
+    "port": false
+  },
+  "bury_st_edmunds": {
+    "name": "Bury St. Edmunds",
+    "type": "town",
+    "port": false
+  },
+  "ipswich": {
+    "name": "Ipswich",
+    "type": "town",
+    "port": true,
+    "vassal_seats": [
+      "suffolk"
+    ]
+  },
+  "norwich": {
+    "name": "Norwich",
+    "type": "city",
+    "port": false
+  },
+  "ely": {
+    "name": "Ely",
+    "type": "city",
+    "port": false,
+    "lord_seats": [
+      "york"
+    ]
+  },
+  "lynn": {
+    "name": "Lynn",
+    "type": "fortress",
+    "port": true
+  },
+  "peterborough": {
+    "name": "Peterborough",
+    "type": "city",
+    "port": false
+  },
+  "northampton": {
+    "name": "Northampton",
+    "type": "town",
+    "port": false
+  },
+  "gloucester": {
+    "name": "Gloucester",
+    "type": "city",
+    "port": false,
+    "region": "wales",
+    "lord_seats": [
+      "gloucester_1"
+    ]
+  },
+  "cardiff": {
+    "name": "Cardiff",
+    "type": "city",
+    "port": false,
+    "region": "wales"
+  },
+  "pembroke": {
+    "name": "Pembroke",
+    "type": "fortress",
+    "port": true,
+    "region": "wales",
+    "lord_seats": [
+      "jasper_tudor_2",
+      "pembroke"
+    ]
+  },
+  "harlech": {
+    "name": "Harlech",
+    "type": "special_stronghold",
+    "port": true,
+    "region": "wales",
+    "lord_seats": [
+      "jasper_tudor_1"
+    ]
+  },
+  "chester": {
+    "name": "Chester",
+    "type": "city",
+    "port": false
+  },
+  "shrewsbury": {
+    "name": "Shrewsbury",
+    "type": "city",
+    "port": false,
+    "region": "wales",
+    "vassal_seats": [
+      "shrewsbury"
+    ]
+  },
+  "ludlow": {
+    "name": "Ludlow",
+    "type": "fortress",
+    "port": false,
+    "region": "wales",
+    "lord_seats": [
+      "march"
+    ]
+  },
+  "hereford": {
+    "name": "Hereford",
+    "type": "city",
+    "port": false,
+    "region": "wales"
+  },
+  "worcester": {
+    "name": "Worcester",
+    "type": "city",
+    "port": false,
+    "vassal_seats": [
+      "worcester"
+    ]
+  },
+  "coventry": {
+    "name": "Coventry",
+    "type": "city",
+    "port": false,
+    "lord_seats": [
+      "buckingham"
+    ]
+  },
+  "lichfield": {
+    "name": "Lichfield",
+    "type": "city",
+    "port": false
+  },
+  "leicester": {
+    "name": "Leicester",
+    "type": "town",
+    "port": false,
+    "vassal_seats": [
+      "dudley"
+    ]
+  },
+  "derby": {
+    "name": "Derby",
+    "type": "town",
+    "port": false,
+    "vassal_seats": [
+      "stanley"
+    ]
+  },
+  "nottingham": {
+    "name": "Nottingham",
+    "type": "town",
+    "port": false
+  },
+  "lincoln": {
+    "name": "Lincoln",
+    "type": "city",
+    "port": false,
+    "vassal_seats": [
+      "beaumont"
+    ]
+  },
+  "ravenspur": {
+    "name": "Ravenspur",
+    "type": "fortress",
+    "port": true
+  },
+  "york": {
+    "name": "York",
+    "type": "city",
+    "port": false,
+    "lord_seats": [
+      "clarence",
+      "salisbury"
+    ]
+  },
+  "scarborough": {
+    "name": "Scarborough",
+    "type": "town",
+    "port": true,
+    "region": "north"
+  },
+  "newcastle": {
+    "name": "Newcastle",
+    "type": "city",
+    "port": true,
+    "region": "north"
+  },
+  "appleby": {
+    "name": "Appleby",
+    "type": "town",
+    "port": false,
+    "region": "north",
+    "vassal_seats": [
+      "westmorland"
+    ]
+  },
+  "lancaster": {
+    "name": "Lancaster",
+    "type": "town",
+    "port": false
+  },
+  "carlisle": {
+    "name": "Carlisle",
+    "type": "city",
+    "port": false,
+    "region": "north",
+    "lord_seats": [
+      "northumberland_lancastrian",
+      "northumberland_1",
+      "northumberland_2"
+    ]
+  },
+  "hexham": {
+    "name": "Hexham",
+    "type": "town",
+    "port": false,
+    "region": "north"
+  },
+  "bamburgh": {
+    "name": "Bamburgh",
+    "type": "fortress",
+    "port": false,
+    "region": "north"
+  },
+  "calais": {
+    "name": "Calais",
+    "type": "special_stronghold",
+    "port": true,
+    "lord_seats": [
+      "warwick_lancastrian",
+      "warwick_yorkist"
+    ]
+  }
+}
