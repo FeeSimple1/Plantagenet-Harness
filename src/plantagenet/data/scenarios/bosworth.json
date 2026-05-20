@@ -1,0 +1,47 @@
+{
+  "id": "bosworth",
+  "title": "Scenario III(B). Bosworth, 22 August 1485",
+  "years": "1485",
+  "battle_only": true,
+  "_note": "Battle-only mini-scenario. Does NOT use the game board, the Hidden Mats option, or the Command deck. Ignore map, Calendar, and Influence track.",
+  "arts_of_war": "13 no-rose and 6 three-rose cards per deck. Each player secretly chooses four Capability cards and distributes them among the Lords.",
+  "sides": {
+    "yorkist": {
+      "role": "king",
+      "lord_cards": [
+        "richard_iii",
+        "northumberland_2",
+        "norfolk"
+      ],
+      "mustered": [
+        "richard_iii",
+        "northumberland_2",
+        "norfolk"
+      ]
+    },
+    "lancastrian": {
+      "role": "rebel",
+      "lord_cards": [
+        "henry_tudor",
+        "jasper_tudor_2",
+        "oxford"
+      ],
+      "mustered": [
+        "henry_tudor",
+        "jasper_tudor_2",
+        "oxford"
+      ]
+    }
+  },
+  "special_rules": [
+    {
+      "name": "On Bosworth Field",
+      "text": "Each player, working behind a screen, secretly chooses four Capability cards. Distribute the Capabilities among the Lords. Then Array the mats, one Lord at Front Center, one at Front Left, and one at Front Right, placing each Lord's Valour tokens (4.4.1). Finally, reveal Arrays and begin the Battle with Round 1 (4.4.2)."
+    },
+    {
+      "name": "Victory",
+      "text": "The winner of the Battle wins the scenario. If all Lords on both sides Rout, the game is a draw."
+    }
+  ],
+  "victory_thresholds": []
+}

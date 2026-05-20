@@ -1,0 +1,171 @@
+{
+  "_source": "reference/Plantagenet Lords and Vassals Reference.txt",
+  "_note": "Regular Vassals set up on the map at their Seat with a Calendar marker (Service). Loyalty is added to a same-color Levying Lord's Influence and subtracted for opposite color; null = no Loyalty rating. Special Vassals are Mustered via a Capability card, have no Seat/Loyalty/Service, do not appear on the Calendar, and need not be Paid; full effects are implemented in Phase 4.",
+  "regular": {
+    "beaumont": {
+      "name": "Beaumont",
+      "seat": "lincoln",
+      "loyalty": {
+        "value": 2,
+        "color": "red"
+      },
+      "service": 1
+    },
+    "bonville": {
+      "name": "Bonville",
+      "seat": "launceston",
+      "loyalty": {
+        "value": 1,
+        "color": "white"
+      },
+      "service": 1
+    },
+    "devon": {
+      "name": "Devon",
+      "seat": "exeter",
+      "loyalty": {
+        "value": 1,
+        "color": "red"
+      },
+      "service": 2,
+      "note": "Also a Yorkist Lord in some scenarios."
+    },
+    "dudley": {
+      "name": "Dudley",
+      "seat": "leicester",
+      "loyalty": null,
+      "service": 1
+    },
+    "essex": {
+      "name": "Essex",
+      "seat": "st_albans",
+      "loyalty": null,
+      "service": 1
+    },
+    "fauconberg": {
+      "name": "Fauconberg",
+      "seat": "dover",
+      "loyalty": {
+        "value": 2,
+        "color": "white"
+      },
+      "service": 3
+    },
+    "norfolk": {
+      "name": "Norfolk",
+      "seat": "arundel",
+      "loyalty": null,
+      "service": 1,
+      "note": "Also a Yorkist Lord in some scenarios."
+    },
+    "oxford": {
+      "name": "Oxford",
+      "seat": "oxford",
+      "loyalty": null,
+      "service": 2,
+      "note": "Also a Lancastrian Lord in some scenarios."
+    },
+    "shrewsbury": {
+      "name": "Shrewsbury",
+      "seat": "shrewsbury",
+      "loyalty": {
+        "value": 1,
+        "color": "red"
+      },
+      "service": 2
+    },
+    "stanley": {
+      "name": "Stanley",
+      "seat": "derby",
+      "loyalty": null,
+      "service": 1
+    },
+    "suffolk": {
+      "name": "Suffolk",
+      "seat": "ipswich",
+      "loyalty": {
+        "value": 1,
+        "color": "white"
+      },
+      "service": 3
+    },
+    "westmorland": {
+      "name": "Westmorland",
+      "seat": "appleby",
+      "loyalty": null,
+      "service": 3
+    },
+    "worcester": {
+      "name": "Worcester",
+      "seat": "worcester",
+      "loyalty": null,
+      "service": 3
+    }
+  },
+  "special": {
+    "hastings": {
+      "name": "Hastings",
+      "side": "yorkist",
+      "capability_card": "Y24",
+      "eligible_lords": [
+        "edward_iv"
+      ],
+      "eligible_text": "Edward IV",
+      "effect": "Levied free; adds 2 Men-at-Arms units and Command +1 to Edward IV. Command +1 ends if Hastings Disbands. The 2 Men-at-Arms are not affected by Hastings Disbanding, but per FAQ #6 they ARE removed during Waste."
+    },
+    "edward_prince_of_wales": {
+      "name": "Edward (Prince of Wales)",
+      "side": "lancastrian",
+      "capability_card": "L26",
+      "eligible_lords": [
+        "margaret"
+      ],
+      "eligible_text": "Margaret",
+      "effect": "Levied free; grants Valour +1 to Margaret."
+    },
+    "montagu": {
+      "name": "Montagu",
+      "side": "lancastrian",
+      "capability_card": "L23",
+      "eligible_lords": [
+        "warwick_lancastrian"
+      ],
+      "eligible_text": "Warwick",
+      "effect": "Levied free; gives Warwick's Retinue Armour 1-5, including for the rest of any Battle in which Montagu Routs."
+    },
+    "clifford": {
+      "name": "Clifford",
+      "side": "lancastrian",
+      "capability_card": "L21",
+      "eligible_lords": [],
+      "eligible_text": "Any (Lancastrian)",
+      "effect": "Levied free; grants Valour +1 to the Lord. (Capability L21 'My Father's Blood'.)"
+    },
+    "thomas_stanley": {
+      "name": "Stanley",
+      "side": "lancastrian",
+      "capability_card": "L35",
+      "eligible_lords": [
+        "jasper_tudor_1",
+        "jasper_tudor_2",
+        "henry_tudor"
+      ],
+      "eligible_text": "Jasper Tudor or Henry Tudor",
+      "effect": "Levied free; once per Levy, the Lord can Levy Troops for 0 Lordship while retaining the Capability and Special Vassal. (Capability L35 'Thomas Stanley'.)"
+    },
+    "trollope": {
+      "name": "Trollope",
+      "side": "lancastrian",
+      "capability_card": "L19",
+      "eligible_lords": [
+        "exeter_1",
+        "exeter_2",
+        "buckingham",
+        "somerset_1",
+        "somerset_2"
+      ],
+      "eligible_text": "Exeter, Buckingham, or Somerset",
+      "effect": "Levied free; grants Valour +1 to the Lord. (Capability L19 'Andrew Trollope'.)"
+    }
+  }
+}

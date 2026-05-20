@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantagenet-harness/state.schema.json",
+  "title": "Plantagenet game state (Phase 0 stub)",
+  "description": "Skeleton schema for the single-file game state. This is a Phase 0 stub: it fixes the top-level shape so state files are recognizable and seed/RNG/scenario provenance is captured. Sub-structures (lords, locales, calendar, influence, pending decisions, history) are filled in during Phase 1+ as the state model is implemented.",
+  "type": "object",
+  "required": ["schema_version", "scenario", "seed", "rng_state", "active_side"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"type": "integer", "const": 0},
+    "scenario": {"type": "string", "description": "Scenario id (see data/scenarios/index.json)."},
+    "seed": {"type": "integer", "description": "RNG seed stored for reproducibility."},
+    "rng_state": {"description": "Serialized DiceRoller state (random.Random getstate)."},
+    "active_side": {"enum": ["lancastrian", "yorkist"]},
+    "turn_box": {"type": "integer", "description": "Current Calendar Turn box (1-15)."},
+    "phase": {"type": "string", "description": "Current phase/step (Phase 1+)."},
+    "lords": {"type": "object", "description": "Per-Lord state (Phase 1+)."},
+    "locales": {"type": "object", "description": "Per-Locale Favour/markers (Phase 1+)."},
+    "influence": {"type": "object", "description": "Influence track state (Phase 1+)."},
+    "calendar": {"type": "object", "description": "Calendar cylinders/markers (Phase 1+)."},
+    "pending": {"type": "array", "description": "Pending sub-decisions (Phase 3b+)."},
+    "history": {"type": "array", "description": "Action/result log."}
+  }
+}

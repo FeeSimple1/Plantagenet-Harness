@@ -1,0 +1,355 @@
+"""Generate the Wars of the Roses grand scenario file.
+
+Provenance: reference/Plantagenet Scenario Reference.txt, section E
+(E1-E7), errata applied. The grand scenario links Wars I -> II(Y/L) ->
+III(Y/L) with rank-ordered Heirs and conditional Succession. The
+Succession branching is game logic for later phases; it is captured here
+VERBATIM (complete) alongside the static setup that each War specifies.
+Wars IIL and IIIL give concrete map/calendar/influence setups; those are
+structured. Wars IIY and IIIY are modifications layered on their base
+standalone scenario via Succession, so their conditional setup is stored
+as verbatim rule text rather than (incorrectly) flattened to static data.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+SCN = Path("src/plantagenet/data/scenarios")
+
+doc = {
+    "id": "wars_of_the_roses",
+    "title": "Wars of the Roses Grand Scenario, 1459-1485",
+    "is_grand_scenario": True,
+    "_note": "Links Scenarios I, II, III into one conflict (36 or 37 Turns). "
+             "Play three sub-scenarios ('Wars') in order; each War's outcome selects "
+             "the next War's variant. Conditional Succession rules are stored verbatim "
+             "for implementation in later phases.",
+
+    "heirs": {
+        "_source": "Scenario Reference E2 (6.2.1). Ranked highest to lowest.",
+        "yorkist": [
+            {"rank": 1, "heir": "York", "lord_ids": ["york"]},
+            {"rank": 2, "heir": "March or Edward IV", "lord_ids": ["march", "edward_iv"]},
+            {"rank": 3, "heir": "Rutland", "lord_ids": ["rutland"]},
+            {"rank": 4, "heir": "Gloucester (1) or (2) or Richard III",
+             "lord_ids": ["gloucester_1", "gloucester_2", "richard_iii"]},
+        ],
+        "lancastrian": [
+            {"rank": 1, "heir": "Henry VI", "lord_ids": ["henry_vi"]},
+            {"rank": 2, "heir": "Margaret (with Prince Edward)", "lord_ids": ["margaret"]},
+            {"rank": 3, "heir": "Somerset (1)", "lord_ids": ["somerset_1"]},
+            {"rank": 4, "heir": "Somerset (2)", "lord_ids": ["somerset_2"]},
+            {"rank": 5, "heir": "Henry Tudor", "lord_ids": ["henry_tudor"]},
+            {"rank": 6, "heir": "Warwick (third War only)",
+             "lord_ids": ["warwick_lancastrian", "warwick_yorkist"], "third_war_only": True},
+        ],
+    },
+
+    "victory": {
+        "dynastic": "A side that has its entire list of Heirs removed (including Warwick "
+                    "where listed) immediately loses the full Wars of the Roses. Not "
+                    "possible for the Lancastrians in Wars I-II (Henry Tudor), nor for the "
+                    "Yorkists in War I only (Gloucester).",
+        "war": "A side that has all its Heirs listed for the current War removed by Death, "
+               "Shipwreck, setup, or special rules immediately loses that War. A side that "
+               "wins a Campaign or Threshold Victory in the first or second War (5.1-5.2) "
+               "wins that War only. Then go to Respite and War (6.1).",
+        "final": "Ignore Scenario End Victory (5.3) until after the third War (IIIY or IIIL). "
+                 "The side that wins the third War wins the Wars of the Roses.",
+    },
+
+    "respite_and_war": {
+        "_source": "E1 (6.1).",
+        "surrender": "A side in the first or second War may concede that War as the loser "
+                     "(to proceed to Renewed War, 6.1.2), just before their last Heir still "
+                     "present in that War rolls for Death (only - not Disembark).",
+        "renewed_war": {
+            "after_first": {"yorkist_won": "war_iiy", "lancastrian_won": "war_iil"},
+            "after_second": {"yorkist_won": "war_iiiy", "lancastrian_won": "war_iiil"},
+        },
+    },
+
+    "succession_general": "E2 (6.2.2). Removal of an Heir by Death or Shipwreck (not mere "
+        "Disband or Exile) can bring in new Lords and cards, on setup of the next War or - "
+        "in certain Wars - immediately during play. Heirs removed by Death/Shipwreck are "
+        "permanently out and may not return. Non-Heir Lords may return in a future War. "
+        "Dead Heirs do not return. Warwick is not an Heir until the third War, so may always "
+        "return in that War. ADD/REPLACE/TO CALENDAR/SEATS/ARTS OF WAR procedures as in E2.",
+
+    "wars": [
+        {
+            "war_id": "war_i",
+            "title": "War I. Plantagenets Go to War, 1459-1461",
+            "order": 1,
+            "base_scenario": "henry_vi",
+            "turns": {"first_box": 1, "last_box": 15, "levy_box": 1},
+            "sides": {"lancastrian": {"role": "king"}, "yorkist": {"role": "rebel"}},
+            "note": "Set up Scenario Ia, using the Wars of the Roses rules and the special "
+                    "rules below (including Succession) in place of those listed for Ia.",
+            "lancastrian_succession": "Heirs present: Henry VI, Margaret (Edward), Somerset "
+                "(1), Somerset (2) only. Removal of Henry VI adds Margaret to the next "
+                "Calendar box; remove Arts of War L15 and L17 from play and add L27 and L31 "
+                "to the Lancastrian deck. Muster of Margaret immediately assigns L26 EDWARD "
+                "to her mat as a free, mandatory Capability (set aside on her Disband/removal "
+                "rather than returned to deck - Event Henry Released cannot occur; returns to "
+                "her if she Musters anew). Removal of Somerset (1) adds Somerset (2) to the "
+                "next Calendar box (whether or not highest Heir).",
+            "yorkist_succession": "Heirs present: York, March, and Rutland. Do not replace or "
+                "add any Yorkists. (But see Automatic War Victory.)",
+            "allied_networks": {
+                "scotland": ["henry_vi", "somerset_1", "somerset_2"],
+                "france": ["margaret", "northumberland_lancastrian", "exeter_1", "buckingham"],
+                "ireland": ["york", "rutland"],
+                "burgundy": ["march", "warwick_yorkist", "salisbury"],
+            },
+            "automatic_war_victory": [
+                "Removal of Henry VI AND Somerset (1) immediately wins the War for the Yorkists.",
+                "Removal of York, March, AND Rutland immediately wins the War for the Lancastrians.",
+            ],
+            "victory_threshold": 40,
+        },
+        {
+            "war_id": "war_iiy",
+            "title": "War IIY. The Kingmaker, 1469-1471",
+            "order": 2,
+            "condition": "Second War if the Yorkists win the first War.",
+            "base_scenario": "warwicks_rebellion",
+            "turns": {"first_box": 1, "last_box": 15, "levy_box": 1},
+            "sides": {"yorkist": {"role": "king"}, "lancastrian": {"role": "rebel"}},
+            "note": "Set up Scenario II but do NOT yet form Arts of War decks or set up any "
+                    "Yorkist Lords or Seats. Modify setup via Succession to find a Yorkist "
+                    "King and set each side's Lords and Arts of War cards.",
+            "arts_of_war": "Yorkists: all no-rose plus Y25, Y26, Y27, Y29, Y30. Lancastrians: "
+                "all no-rose EXCEPT L4, plus L23, L24, L25, L29, L30, L36. Succession can add "
+                "or later remove more cards.",
+            "yorkist_setup_additions": "Add Rutland (unless removed in first War), Mustered "
+                "with Yorkist Favour at Canterbury (slide Yorkist Cities marker to 1); Devon "
+                "in Calendar box 1; Gloucester (1) (silver ring) and Northumberland (1) in box 9.",
+            "yorkist_succession": "The four Heirs (York; March/Edward IV; Rutland; "
+                "Gloucester/Richard III) can be present and become King when highest-ranked "
+                "remaining. YORK as King Mustered at London; unless removed, Muster March at "
+                "Ludlow; while York present add Y14, Y18, Y19, Y20. MARCH/EDWARD IV: if York "
+                "removed and March present, replace March with Edward IV as King at London "
+                "(at setup or in place during play); while Edward IV remains add Y23, Y24, "
+                "Y28, Y31. RUTLAND: if York and March removed at setup, Rutland as King at "
+                "London (not Canterbury); while King adds Y20, Y21, Y28, Y35. "
+                "GLOUCESTER/RICHARD III: if Gloucester becomes King, replace in place with "
+                "Richard III; Richard III adds Y32, Y33, Y34, Y35. As soon as two or fewer of "
+                "the four Heirs remain, add Pembroke (setup: Mustered at Pembroke; in play: "
+                "next Calendar box).",
+            "lancastrian_succession": "HENRY VI: if survived War I, replaces Margaret in box 9 "
+                "marked Exile; if later removed, add Margaret to next Calendar box (no Exile); "
+                "while Henry VI present add L17, L18, L20, L21. MARGARET (EDWARD): when present "
+                "add L27, L28, L31; on Muster uses L26 EDWARD per War I. SOMERSET: if Somerset "
+                "(1) survived War I, replace Somerset (2) (no ring) with (1) in box 9 marked "
+                "Exile; if (1) removed, add Somerset (2) to next Calendar box; whenever a "
+                "Somerset is highest Heir add L20, L21, L27.",
+            "special_rules": [
+                {"name": "Shaky Allies", "text": "Margaret and Warwick may never enter the same Stronghold."},
+                {"name": "Foreign Haven", "errata_applied": True,
+                 "text": "If Warwick chooses Exile upon Approach (4.3.5) OR DIES AS A DEFENDER "
+                         "(4.4.3), shift all Lancastrians on the Calendar left to the current "
+                         "Turn and all Yorkists left to the next Turn."},
+                {"name": "Gloucester", "text": "After resolving Event Y28 GLOUCESTER AS HEIR, "
+                         "set the card aside for reference in setup of the next War; its "
+                         "Capability becomes unavailable."},
+                {"name": "Natural Causes", "text": "After victory in this War, roll two dice "
+                         "each for Henry VI and York if still present - a roll less than the "
+                         "last Turn played removes that Heir. Then roll one die for Edward IV "
+                         "(only, not March) - remove him on a roll of '6'."},
+            ],
+            "victory_threshold": 40,
+        },
+        {
+            "war_id": "war_iil",
+            "title": "War IIL. Lancastrian Legitimacy Fades, 1469-1471",
+            "order": 2,
+            "condition": "Second War if the Lancastrians win the first War.",
+            "turns": {"first_box": 1, "last_box": 15, "levy_box": 1},
+            "sides": {"lancastrian": {"role": "king"}, "yorkist": {"role": "rebel"}},
+            "arts_of_war": "Lancastrians: all no-rose EXCEPT L4, plus L18, L19, L20, L21, L25, "
+                "L29, L34. Yorkists: all no-rose plus Y15, Y16, Y17, Y22, Y28, Y29, Y31, Y34. "
+                "Succession will add and possibly later remove cards.",
+            "lord_cards": {
+                "lancastrian": ["henry_vi", "margaret", "somerset_1", "somerset_2",
+                                "northumberland_lancastrian", "exeter_1", "oxford", "jasper_tudor_1"],
+                "yorkist": ["york", "march", "rutland", "gloucester_1", "warwick_yorkist",
+                            "salisbury", "devon", "pembroke"],
+            },
+            "lord_cards_note": "York/March/Rutland and Henry VI/Margaret/Somerset (1)/(2) "
+                "included only unless removed in the first War.",
+            "lancastrian_succession": "Heirs: Henry VI, Margaret, Somerset (1), Somerset (2), "
+                "less any removed in War I. Highest ranked is King (Margaret as Edward). HENRY "
+                "VI while King adds L15, L17; if removed add Margaret to Calendar (box 1 at "
+                "setup or next box in play). MARGARET on Muster uses L26 EDWARD; while King "
+                "adds L27, L31. SOMERSET while King adds L16, L27; any removal of Somerset (1) "
+                "replaces (1) with (2) in place.",
+            "yorkist_succession": "Heirs: York, March, Rutland, Gloucester (1). Highest present "
+                "adjusts Arts of War: YORK adds Y14, Y20; MARCH or RUTLAND add Y20, Y21; "
+                "GLOUCESTER adds Y25, Y30.",
+            "mustered": {
+                "lancastrian": ["king", "somerset_if_not_king", "jasper_tudor_1"],
+                "yorkist": ["warwick_yorkist", "salisbury", "pembroke"],
+            },
+            "setup": {
+                "exile_alignment": {"france": "lancastrian", "burgundy": "yorkist"},
+                "favour": {
+                    "lancastrian": ["london", "harlech", "wells", "oxford", "exeter", "carlisle"],
+                    "yorkist": ["calais", "york", "ely", "pembroke", "ludlow"],
+                },
+                "vassals_on_map": {"mode": "all_except", "except": ["devon", "oxford"]},
+                "on_map": [
+                    {"lord": "KING", "locale": "london", "color": "red"},
+                    {"lord": "somerset_1", "locale": "wells", "color": "red", "if": "not King"},
+                    {"lord": "jasper_tudor_1", "locale": "harlech", "color": "red"},
+                    {"lord": "warwick_yorkist", "locale": "calais", "color": "white"},
+                    {"lord": "salisbury", "locale": "york", "color": "white"},
+                    {"lord": "pembroke", "locale": "pembroke", "color": "white"},
+                ],
+                "calendar": [
+                    {"box": 1, "markers": ["levy"], "lords": [{"lord": "devon", "color": "white"}]},
+                    {"box": 2, "lords": [{"lord": "exeter_1", "color": "red"},
+                                          {"lord": "oxford", "color": "red"}]},
+                    {"box": 7, "lords": [{"lord": "york", "color": "white", "exile": True},
+                                          {"lord": "march", "color": "white", "exile": True},
+                                          {"lord": "rutland", "color": "white", "exile": True},
+                                          {"lord": "gloucester_1", "color": "white", "ring": "silver", "exile": True}]},
+                    {"box": 8, "lords": [{"lord": "northumberland_lancastrian", "color": "red"}]},
+                ],
+                "influence": {"marker_at": 0, "marker_side": "lancastrian",
+                              "stronghold_markers": {"fortress": {"side": "yorkist", "at": 2},
+                                                     "town": {"side": "lancastrian", "at": 0},
+                                                     "city": {"side": "lancastrian", "at": 2}},
+                              "victory_check": 40},
+            },
+            "special_rules": [
+                {"name": "Gloucester", "text": "After resolving Event Y28 GLOUCESTER AS HEIR, "
+                         "set the card aside for the next War; its Capability becomes unavailable."},
+                {"name": "Natural Causes", "text": "After victory in this War, roll two dice "
+                         "each for Henry VI and York if still present - a roll less than the "
+                         "last Turn played removes that Heir."},
+            ],
+            "victory_threshold": 40,
+        },
+        {
+            "war_id": "war_iiiy",
+            "title": "War IIIY. New Rivals, 1484-1485",
+            "order": 3,
+            "condition": "Third War if the Yorkists win the second War.",
+            "base_scenario": "my_kingdom_for_a_horse",
+            "turns": {"first_box": 3, "last_box": 9, "levy_box": 3},
+            "sides": {"yorkist": {"role": "king"}, "lancastrian": {"role": "rebel"}},
+            "note": "Set up Scenario III but hold off choosing cards and setting up Lords, "
+                    "Seats, or Favour. All Lords who set up in this War do so Mustered; none "
+                    "start on the Calendar.",
+            "arts_of_war": "Yorkists: all no-rose plus Y36. Lancastrians: all no-rose plus "
+                "L33, L34, L36, L37. Heirs and Succession permanently add cards.",
+            "yorkist_succession": "Heirs: York, March/Edward IV, Rutland, Gloucester "
+                "(1)/(2)/Richard III, less any removed in previous Wars. If Y28 GLOUCESTER AS "
+                "HEIR occurred in War II and both Rutland and Gloucester remain, remove Rutland "
+                "now. If Rutland is the only Heir, remove Rutland and add Yorkist Warwick as "
+                "King at London (cards/mat/cylinder/Seat), Salisbury at York, and Y16, Y17, "
+                "Y22. If exactly one of York, March/Edward IV, or Gloucester/Richard III "
+                "remains, add Northumberland (2) at Carlisle and Y37. Add Norfolk at Arundel. "
+                "Highest remaining Heir is King at London; next highest is an Heir who can "
+                "become King; remove all other Yorkist Heirs. YORK as King adds Y14, Y21. "
+                "MARCH/EDWARD IV: if York King and March remains, set March at Ludlow + Y20; "
+                "if March King, set Edward IV at London + Y23, Y24. RUTLAND: Heir to York/"
+                "Edward IV sets at Canterbury; if Rutland and Gloucester remain, Rutland as "
+                "King at London; Rutland Heir-to-York adds Y20, Heir-to-Edward IV adds Y31, as "
+                "King adds Y20, Y21. GLOUCESTER/RICHARD III: if York or Edward IV is King and "
+                "Gloucester remains, set Gloucester (1) (silver ring) at Gloucester; if Rutland "
+                "King and Gloucester remains, set Gloucester (2) (gold ring) at London; "
+                "Gloucester (1)/(2) adds Y34 plus, if with Edward IV, Y28; if Gloucester King, "
+                "set Richard III (gold ring) at London + Y32, Y33.",
+            "lancastrian_succession": "Exactly one Heir: MARGARET (with Edward) unless removed "
+                "earlier, in France Exile box; add L27, L31; uses L26 EDWARD per War I. HENRY "
+                "TUDOR if no Margaret and if anyone but Edward IV (York, Rutland, Richard III, "
+                "or Warwick) is King, in France Exile box; add L32, L35. WARWICK otherwise, at "
+                "Calais; add L23, L30. Add Oxford and Jasper Tudor (2) in France Exile box "
+                "(if with Margaret/Henry Tudor) or at Calais (if with Warwick).",
+            "setup": {
+                "map": "Set London to Yorkist Favour and each side's other marked Lord Seat "
+                       "(only) to that side's Favour.",
+                "influence": "Each Heir (not Warwick) removed in an earlier War by Death, "
+                             "Shipwreck, or Natural Causes costs that side -8 Influence. "
+                             "Adjust City/Town/Fortress markers per Favour on the map.",
+            },
+            "special_rules": [
+                {"name": "Succession", "text": "Heir removal affects only setup, not play."},
+                {"name": "Ravaged Land", "text": "Skip all Grow and Waste (4.8.4 - 4.8.5)."},
+            ],
+            "victory_threshold": 45,
+        },
+        {
+            "war_id": "war_iiil",
+            "title": "War IIIL. Yorkists' Last Stand, 1484-1485",
+            "order": 3,
+            "condition": "Third War if the Lancastrians win the second War.",
+            "turns": {"first_box": 4, "last_box": 9, "levy_box": 4, "end_marker_box": 10},
+            "sides": {"lancastrian": {"role": "king"}, "yorkist": {"role": "rebel"}},
+            "arts_of_war": "Lancastrians: all no-rose plus L25, L34, L36. Yorkists: all no-rose "
+                "plus Y36. Succession will permanently add more cards.",
+            "lord_cards": {
+                "lancastrian": ["henry_vi", "margaret", "somerset_1", "somerset_2",
+                                "oxford", "jasper_tudor_2"],
+                "yorkist": ["york", "march", "rutland", "gloucester_1", "gloucester_2",
+                            "warwick_yorkist", "norfolk", "salisbury"],
+            },
+            "lord_cards_note": "Henry VI/Margaret/Somerset (1)/(2) and York/March/Rutland/"
+                "Gloucester (1)/(2) included only unless previously removed.",
+            "lancastrian_succession": "Heirs: Henry VI, Margaret, Somerset (1)/(2), less any "
+                "removed earlier. Highest ranked is King (Margaret as Edward); if Somerset (2), "
+                "replace with Somerset (1) (his ratings showing the power of the Crown). Remove "
+                "the other Heirs. King only adds: Henry VI -> L15, L17; Margaret (Edward) -> "
+                "uses L26 EDWARD per War I and adds L27, L31; Somerset -> L18, L20, L27.",
+            "yorkist_succession": "Heirs: York, March, Rutland, Gloucester, less any removed, "
+                "and perhaps Warwick. If Edward IV present from War II, replace with March, or "
+                "Richard III with Gloucester (2). If Y28 GLOUCESTER AS HEIR occurred in War II "
+                "and Gloucester (2) remains, or Gloucester is already highest Heir, remove all "
+                "other Yorkist Heirs and add Y35. If York remains, add Y14, Y18 and remove all "
+                "other Heirs except the single next highest; if that is March or Rutland add "
+                "Y20; if Gloucester, replace Gloucester (2) with (1) and add Y34. If neither "
+                "York nor Gloucester remains as highest Heir, remove all Heirs except Warwick. "
+                "If no other Yorkist Heir remains, add Yorkist Warwick as Heir and add Y16. If "
+                "Yorkists now have exactly one Heir, add Salisbury and Y17, Y22.",
+            "mustered": {
+                "lancastrian": ["king", "oxford", "jasper_tudor_2"],
+                "yorkist": ["heirs_per_succession", "salisbury_if_added", "norfolk"],
+            },
+            "setup": {
+                "exile_alignment": {"france": "lancastrian", "burgundy": "yorkist"},
+                "favour": {
+                    "lancastrian": "London and each other Lancastrian Lord Seat marker (only).",
+                    "yorkist": "Each Yorkist Lord Seat marker (only).",
+                },
+                "vassals_on_map": {"mode": "all_except", "except": ["oxford", "norfolk"]},
+                "on_map": [
+                    {"lord": "KING", "locale": "london", "color": "red"},
+                    {"lord": "oxford", "locale": "oxford", "color": "red"},
+                    {"lord": "jasper_tudor_2", "locale": "pembroke", "color": "red"},
+                    {"lord": "yorkist_lords_per_succession",
+                     "where": "Burgundy, or at Calais if Warwick present", "color": "white"},
+                ],
+                "calendar": [
+                    {"box": 4, "markers": ["levy"]},
+                    {"box": 10, "markers": ["end"]},
+                ],
+                "influence": {"marker_at": 0, "marker_side": "lancastrian",
+                              "note": "Each Heir (not Warwick) removed in an earlier War by "
+                                      "Death, Shipwreck, or Natural Causes costs that side -8 "
+                                      "Influence. Adjust City/Town/Fortress markers per Favour."},
+            },
+            "special_rules": [
+                {"name": "Succession", "text": "Heir removal affects only setup, not play."},
+                {"name": "Ravaged Land", "text": "Skip all Grow and Waste (4.8.4 - 4.8.5)."},
+            ],
+            "victory_threshold": 45,
+        },
+    ],
+}
+
+(SCN / "wars_of_the_roses.json").write_text(json.dumps(doc, indent=2) + "\n")
+print("wars_of_the_roses.json written; wars:", [w["war_id"] for w in doc["wars"]])

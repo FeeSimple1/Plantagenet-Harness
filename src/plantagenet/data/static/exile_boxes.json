@@ -1,0 +1,28 @@
+{
+  "_source": "reference/Plantagenet Map Reference.txt + Scenario Reference + Errata FAQ #3.",
+  "_note": "Per-scenario side alignment (which side may use each box) is scenario data, not encoded here. Sea connectivity for exile boxes is not enumerated in the references; see RULES_QUESTIONS.md Q-001.",
+  "scotland": {
+    "name": "Scotland",
+    "land_exits": [
+      "carlisle",
+      "bamburgh"
+    ],
+    "land_exit_one_way": true,
+    "note": "Lords can move out of Scotland by land to Carlisle or Bamburgh, but this is a one-way move."
+  },
+  "france": {
+    "name": "France",
+    "land_exits": [],
+    "note": "Exile box."
+  },
+  "ireland": {
+    "name": "Ireland",
+    "land_exits": [],
+    "note": "Exile box."
+  },
+  "burgundy": {
+    "name": "Burgundy",
+    "land_exits": [],
+    "note": "Exile box."
+  }
+}

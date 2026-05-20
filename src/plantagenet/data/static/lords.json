@@ -1,0 +1,656 @@
+{
+  "_source": "reference/Plantagenet Lords and Vassals Reference.txt",
+  "_note": "Retinue is 3 strikes / Armour 1-4 on every mat (see forces.json). Heir is the printed succession number; third_war_only Lords (the two Warwicks) are Heirs only in War III. Northumberland (1)/(2) are listed under Yorkist Lords in the reference.",
+  "henry_vi": {
+    "name": "Henry VI",
+    "side": "lancastrian",
+    "seat": "london",
+    "title": "marshal",
+    "ratings": {
+      "influence": 5,
+      "lordship": 2,
+      "command": 2,
+      "valour": 0
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 4
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 4,
+      "cart": 2
+    },
+    "heir": 1
+  },
+  "margaret": {
+    "name": "Margaret",
+    "side": "lancastrian",
+    "seat": "london",
+    "title": "marshal",
+    "ratings": {
+      "influence": 4,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 3,
+      "longbow": 3
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    },
+    "heir": 2
+  },
+  "somerset_1": {
+    "name": "Somerset (1)",
+    "side": "lancastrian",
+    "seat": "wells",
+    "title": "lieutenant",
+    "ratings": {
+      "influence": 5,
+      "lordship": 2,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 1,
+      "cart": 2
+    },
+    "heir": 3
+  },
+  "somerset_2": {
+    "name": "Somerset (2)",
+    "side": "lancastrian",
+    "seat": "wells",
+    "title": null,
+    "ratings": {
+      "influence": 3,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    },
+    "heir": 4,
+    "no_ring": true
+  },
+  "henry_tudor": {
+    "name": "Henry Tudor",
+    "side": "lancastrian",
+    "seat": "london",
+    "title": "marshal",
+    "ratings": {
+      "influence": 5,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 4,
+      "cart": 2,
+      "ship": 2
+    },
+    "heir": 5
+  },
+  "warwick_lancastrian": {
+    "name": "Warwick (Lancastrian)",
+    "side": "lancastrian",
+    "seat": "calais",
+    "title": "lieutenant",
+    "ratings": {
+      "influence": 5,
+      "lordship": 3,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 3,
+      "longbow": 3
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2,
+      "ship": 2
+    },
+    "heir": 6,
+    "third_war_only": true
+  },
+  "northumberland_lancastrian": {
+    "name": "Northumberland",
+    "side": "lancastrian",
+    "seat": "carlisle",
+    "title": null,
+    "ratings": {
+      "influence": 4,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 1,
+      "cart": 2
+    }
+  },
+  "clarence": {
+    "name": "Clarence",
+    "side": "lancastrian",
+    "seat": "york",
+    "title": null,
+    "ratings": {
+      "influence": 1,
+      "lordship": 2,
+      "command": 1,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {}
+  },
+  "exeter_1": {
+    "name": "Exeter (1)",
+    "side": "lancastrian",
+    "seat": "exeter",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 1,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 1,
+      "cart": 1
+    }
+  },
+  "exeter_2": {
+    "name": "Exeter (2)",
+    "side": "lancastrian",
+    "seat": "exeter",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 1,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  },
+  "oxford": {
+    "name": "Oxford",
+    "side": "lancastrian",
+    "seat": "oxford",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 2,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  },
+  "buckingham": {
+    "name": "Buckingham",
+    "side": "lancastrian",
+    "seat": "coventry",
+    "title": null,
+    "ratings": {
+      "influence": 3,
+      "lordship": 3,
+      "command": 1,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 1,
+      "longbow": 2,
+      "militia": 1
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  },
+  "jasper_tudor_1": {
+    "name": "Jasper Tudor (1)",
+    "side": "lancastrian",
+    "seat": "harlech",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 2,
+      "command": 3,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 3,
+      "militia": 1
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 1
+    }
+  },
+  "jasper_tudor_2": {
+    "name": "Jasper Tudor (2)",
+    "side": "lancastrian",
+    "seat": "pembroke",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 3,
+      "command": 3,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 3,
+      "longbow": 3
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  },
+  "york": {
+    "name": "York",
+    "side": "yorkist",
+    "seat": "ely",
+    "title": "marshal",
+    "ratings": {
+      "influence": 5,
+      "lordship": 3,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    },
+    "heir": 1
+  },
+  "march": {
+    "name": "March",
+    "side": "yorkist",
+    "seat": "ludlow",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 2,
+      "command": 2,
+      "valour": 3
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 1,
+      "longbow": 2,
+      "militia": 1
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 1,
+      "cart": 1
+    },
+    "heir": 2,
+    "no_ring": true
+  },
+  "edward_iv": {
+    "name": "Edward IV",
+    "side": "yorkist",
+    "seat": "london",
+    "title": "marshal",
+    "ratings": {
+      "influence": 5,
+      "lordship": 3,
+      "command": 2,
+      "valour": 4
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    },
+    "heir": 2
+  },
+  "rutland": {
+    "name": "Rutland",
+    "side": "yorkist",
+    "seat": "canterbury",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 2,
+      "command": 1,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 1,
+      "longbow": 2,
+      "militia": 1
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 1,
+      "cart": 1
+    },
+    "heir": 3
+  },
+  "gloucester_1": {
+    "name": "Gloucester (1)",
+    "side": "yorkist",
+    "seat": "gloucester",
+    "title": "lieutenant",
+    "ratings": {
+      "influence": 2,
+      "lordship": 2,
+      "command": 3,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 1,
+      "cart": 1
+    },
+    "heir": 4
+  },
+  "gloucester_2": {
+    "name": "Gloucester (2)",
+    "side": "yorkist",
+    "seat": "london",
+    "title": "marshal",
+    "ratings": {
+      "influence": 5,
+      "lordship": 3,
+      "command": 3,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 3,
+      "longbow": 3,
+      "militia": 4
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 4,
+      "cart": 2
+    },
+    "heir": 4
+  },
+  "richard_iii": {
+    "name": "Richard III",
+    "side": "yorkist",
+    "seat": "london",
+    "title": "marshal",
+    "ratings": {
+      "influence": 5,
+      "lordship": 3,
+      "command": 3,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 3,
+      "longbow": 3,
+      "militia": 4
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 4,
+      "cart": 2
+    },
+    "heir": 4
+  },
+  "warwick_yorkist": {
+    "name": "Warwick (Yorkist)",
+    "side": "yorkist",
+    "seat": "calais",
+    "title": "lieutenant",
+    "ratings": {
+      "influence": 5,
+      "lordship": 3,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 3,
+      "longbow": 3
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "ship": 2
+    },
+    "heir": 5,
+    "third_war_only": true
+  },
+  "salisbury": {
+    "name": "Salisbury",
+    "side": "yorkist",
+    "seat": "york",
+    "title": null,
+    "ratings": {
+      "influence": 3,
+      "lordship": 3,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 1,
+      "cart": 1
+    }
+  },
+  "devon": {
+    "name": "Devon",
+    "side": "yorkist",
+    "seat": "exeter",
+    "title": null,
+    "ratings": {
+      "influence": 4,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 1,
+      "longbow": 2,
+      "militia": 1
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 1,
+      "cart": 1
+    }
+  },
+  "pembroke": {
+    "name": "Pembroke",
+    "side": "yorkist",
+    "seat": "pembroke",
+    "title": null,
+    "ratings": {
+      "influence": 2,
+      "lordship": 2,
+      "command": 2,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 1,
+      "longbow": 3,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 1,
+      "coin": 2,
+      "cart": 1
+    }
+  },
+  "norfolk": {
+    "name": "Norfolk",
+    "side": "yorkist",
+    "seat": "arundel",
+    "title": null,
+    "ratings": {
+      "influence": 3,
+      "lordship": 3,
+      "command": 3,
+      "valour": 2
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  },
+  "northumberland_1": {
+    "name": "Northumberland (1)",
+    "side": "yorkist",
+    "seat": "carlisle",
+    "title": null,
+    "ratings": {
+      "influence": 4,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 4
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  },
+  "northumberland_2": {
+    "name": "Northumberland (2)",
+    "side": "yorkist",
+    "seat": "carlisle",
+    "title": null,
+    "ratings": {
+      "influence": 4,
+      "lordship": 2,
+      "command": 2,
+      "valour": 1
+    },
+    "forces": {
+      "retinue": 1,
+      "men_at_arms": 2,
+      "longbow": 2,
+      "militia": 2
+    },
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 2
+    }
+  }
+}

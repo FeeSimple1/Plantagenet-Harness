@@ -1,0 +1,153 @@
+{
+  "id": "towton",
+  "title": "Scenario Ib. Towton, 1461",
+  "years": "1461",
+  "turns": {
+    "first_box": 1,
+    "last_box": 1,
+    "levy_box": 1,
+    "end_marker_box": 2
+  },
+  "arts_of_war": "Each side: its 13 no-rose and 9 one-rose Arts of War cards.",
+  "sides": {
+    "lancastrian": {
+      "role": "king",
+      "lord_cards": [
+        "somerset_1",
+        "exeter_1",
+        "northumberland_lancastrian"
+      ],
+      "mustered": [
+        "somerset_1",
+        "exeter_1",
+        "northumberland_lancastrian"
+      ]
+    },
+    "yorkist": {
+      "role": "rebel",
+      "lord_cards": [
+        "march",
+        "norfolk",
+        "warwick_yorkist"
+      ],
+      "mustered": [
+        "march",
+        "norfolk",
+        "warwick_yorkist"
+      ]
+    }
+  },
+  "setup": {
+    "exile_alignment": {},
+    "_exile_note": "No need to mark Exile boxes; the scenario is too short for Lords to end up there.",
+    "favour": {
+      "lancastrian": [
+        "appleby",
+        "bamburgh",
+        "carlisle",
+        "hexham",
+        "newcastle",
+        "scarborough",
+        "st_albans"
+      ],
+      "yorkist": [
+        "arundel",
+        "calais",
+        "canterbury",
+        "dover",
+        "gloucester",
+        "guildford",
+        "hastings",
+        "hereford",
+        "london",
+        "oxford",
+        "rochester",
+        "salisbury",
+        "southampton",
+        "winchester"
+      ]
+    },
+    "vassals_on_map": {
+      "mode": "all_except",
+      "except": [
+        "fauconberg",
+        "norfolk"
+      ],
+      "on_lord_mat": [
+        {
+          "vassal": "fauconberg",
+          "lord": "march"
+        }
+      ]
+    },
+    "on_map": [
+      {
+        "lord": "somerset_1",
+        "locale": "newcastle",
+        "color": "red",
+        "ring": "silver"
+      },
+      {
+        "lord": "exeter_1",
+        "locale": "newcastle",
+        "color": "red"
+      },
+      {
+        "lord": "northumberland_lancastrian",
+        "locale": "carlisle",
+        "color": "red"
+      },
+      {
+        "lord": "march",
+        "locale": "london",
+        "color": "white"
+      },
+      {
+        "lord": "norfolk",
+        "locale": "london",
+        "color": "white"
+      },
+      {
+        "lord": "warwick_yorkist",
+        "locale": "london",
+        "color": "white"
+      }
+    ],
+    "calendar": [
+      {
+        "box": 1,
+        "markers": [
+          "levy"
+        ]
+      },
+      {
+        "box": 2,
+        "markers": [
+          "end"
+        ]
+      },
+      {
+        "box": 4,
+        "vassals": [
+          "fauconberg"
+        ]
+      }
+    ],
+    "influence": {
+      "marker_at": 0,
+      "marker_side": "yorkist",
+      "stronghold_markers": {}
+    }
+  },
+  "special_rules": [
+    {
+      "name": "Norfolk is Late",
+      "text": "In the first Battle that includes Norfolk and any other Yorkist Lord(s), Norfolk Arrays and stays in Reserve until Round 2."
+    },
+    {
+      "name": "Test of Arms",
+      "text": "After each and any Battle at York, set it to Favour the winning side. A side with Favour at York at the end of the Campaign wins the Scenario. The sides draw if neither has Favour there."
+    }
+  ],
+  "victory_thresholds": []
+}

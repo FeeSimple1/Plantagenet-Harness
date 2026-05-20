@@ -1,0 +1,46 @@
+{
+  "_source": "Plantagenet Forces reference (reference/Plantagenet Reference info.md). Card/Capability effects may modify these profiles; that is applied in later phases, not encoded here.",
+  "_schema": {
+    "strikes": "list of {kind: melee|archery|gun, count: number} — counts may be fractional (e.g. 0.5 for Militia/Mercenaries)",
+    "protection": "[low, high] inclusive die range on which Armour protects (blocks a Hit); null = no Armour protection"
+  },
+  "retinue": {
+    "name": "Retinue",
+    "strikes": [{"kind": "melee", "count": 3}],
+    "protection": [1, 4],
+    "_note": "Standard Retinue is the same on every Lord mat: 3 strikes, Armour 1-4."
+  },
+  "vassal": {
+    "name": "Vassal",
+    "strikes": [{"kind": "melee", "count": 2}],
+    "protection": [1, 4]
+  },
+  "men_at_arms": {
+    "name": "Men-at-Arms",
+    "strikes": [{"kind": "melee", "count": 1}],
+    "protection": [1, 3]
+  },
+  "longbow": {
+    "name": "Longbowman",
+    "strikes": [{"kind": "archery", "count": 2}],
+    "protection": [1, 1],
+    "_note": "Two archery strikes only; Armour protects at 1."
+  },
+  "militia": {
+    "name": "Militia",
+    "strikes": [{"kind": "archery", "count": 0.5}, {"kind": "melee", "count": 0.5}],
+    "protection": [1, 1],
+    "_note": "Half a strike of archery, half a strike of melee."
+  },
+  "mercenaries": {
+    "name": "Mercenaries",
+    "strikes": [{"kind": "archery", "count": 0.5}, {"kind": "melee", "count": 0.5}],
+    "protection": [1, 3],
+    "_note": "Half a strike of archery, half a strike of melee."
+  },
+  "handgunners": {
+    "name": "Handgunners",
+    "strikes": [{"kind": "melee", "count": 1}, {"kind": "gun", "count": 2}],
+    "protection": [1, 3]
+  }
+}
