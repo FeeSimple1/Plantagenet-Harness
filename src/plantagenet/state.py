@@ -77,6 +77,7 @@ class LordState(_Model):
 class VassalStatus(str, Enum):
     AT_SEAT = "at_seat"        # marker pair on the map at its Seat
     MUSTERED = "mustered"      # Levied onto a Lord's mat; service marker on Calendar
+    DISBANDED = "disbanded"    # facedown on the Calendar; returns to Seat (3.3.2)
     OFF_MAP = "off_map"        # not set up this scenario
     REMOVED = "removed"
 

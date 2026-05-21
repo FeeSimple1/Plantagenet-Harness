@@ -140,3 +140,16 @@ intervening Way); Exile-box Lords Supply by Ship from a same-Sea Port
 SMOKEs. Note: cross-Lord Cart Sharing (1.5.3) for Supply uses the acting
 Lord's own Carts for now (Sharing is a follow-on). Deferred: Pay (3.2) and
 the Turn-2 Levy flow -> Phase 3a-iv.
+
+## Round 9 (Phase 3a-iv - Pay; Phase 3a complete)
+
+Implemented the Levy Pay step (3.2) in pay.py, run Rebel then King on a
+rolled-over Turn: Pay Troops (3.2.1 - 1 Coin/6 Troops, Sharing within a
+Locale, Pillage an Unexhausted Stronghold then re-Pay, else Unpaid-Disband
+with the -Influence-1/Vassal penalty), Pay Lords (3.2.2 - voluntary Disband,
+then -1 inf/Stronghold and -2/Exile box), Pay Vassals (3.2.3 - pay+shift or
+Disband). Added VassalStatus.DISBANDED with a Calendar return box and Ready
+Vassals (3.3.2). Turn rollover now lands at the Pay step; the full Levy +
+Campaign cycle runs across Turns. No SMOKEs. Deferred: Muster Exiles (3.3.1,
+needs scenario Exile-box mapping), Arts-of-War draw (3.1, Phase 4),
+cross-Lord Cart Sharing for Supply. Combat -> Phase 3b.

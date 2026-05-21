@@ -263,12 +263,7 @@ def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     current Turn (Exile-marked if Disbanding from an Exile box)."""
     inf = static_data.load_lords()[lord.lord_id]["ratings"]["influence"]
     for vid in list(lord.vassals):
-        vs = state.vassals.get(vid)
-        if vs is not None:
-            from plantagenet.state import VassalStatus
-            vs.status = VassalStatus.OFF_MAP   # Ready-Vassals return (3.3.2) is a later phase
-            vs.on_lord = None
-            vs.service_box = None
+        _disband_vassal(state, vid)
     lord.vassals = []
     lord.forces = {}
     lord.assets = {}
@@ -277,6 +272,35 @@ def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     lord.status = LordStatus.CALENDAR
     lord.calendar_box = state.turn_box + (6 - inf)
     lord.calendar_exile = from_exile
+
+
+def _disband_vassal(state: GameState, vid: str) -> None:
+    """Disband a Vassal (3.2.4): place it facedown on the Calendar
+    6-minus-Service boxes right of the current Turn; it returns to its Seat
+    when the Turn reaches that box (3.3.2)."""
+    from plantagenet.state import VassalStatus
+    vs = state.vassals.get(vid)
+    if vs is None:
+        return
+    service = static_data.load_vassals()["regular"].get(vid, {}).get("service", 0)
+    vs.status = VassalStatus.DISBANDED
+    vs.on_lord = None
+    vs.service_box = state.turn_box + (6 - service)
+
+
+def ready_vassals(state: GameState) -> list[str]:
+    """Ready Vassals (3.3.2): return Disbanded Vassals from the current Turn
+    box to their Seat, face up."""
+    from plantagenet.state import VassalStatus
+    regular = static_data.load_vassals()["regular"]
+    returned = []
+    for vid, vs in state.vassals.items():
+        if vs.status == VassalStatus.DISBANDED and vs.service_box == state.turn_box:
+            vs.status = VassalStatus.AT_SEAT
+            vs.location = regular[vid]["seat"]
+            vs.service_box = None
+            returned.append(vid)
+    return returned
 
 
 # ----------------------------------------------------------------- 4.7 Feed
@@ -480,7 +504,10 @@ def _waste(state: GameState) -> None:
 def _reset_to_next_levy(state: GameState) -> None:
     state.turn_box += 1
     state.phase = "levy"
-    state.levy_step = "muster"   # NB: Pay (3.2) and Arts-of-War draw (3.1) deferred
+    # A rolled-over Turn begins at Pay (3.2). The Arts-of-War draw (3.1, Events)
+    # is Phase 4; Muster Exiles (3.3.1) is deferred (needs scenario Exile-box
+    # mapping and is a no-op without due Exile cylinders).
+    state.levy_step = "pay"
     state.campaign = None
     state.active_side = _rebel(state)
     for lord in state.lords.values():
