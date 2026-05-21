@@ -32,7 +32,7 @@ The special stronghold of London is connected to Rochester by Road, and to Guild
  
 The city of Rochester is connected to Canterbury, London, and Hastings by Road.  This location is in the South region.
  
-The city of Bristol is connected to Wells by Road and to Gloucester by Highway.
+The city of Bristol is connected to Wells by Road and to Gloucester by Highway.  This location is a port.
  
 The town of Newbury is connected to Salisbury and Oxford by Road.
  
@@ -54,7 +54,7 @@ The city of Ely is connected to Lynn and Bury St. Edmunds by Road, and is connec
  
 The fortress of Lynn is connected to Norwich and Ely by Road.  This location is a port.
  
-The city of Peterborough is connected to Northampton by Road and to Ely and Lincoln by Highway.
+The city of Peterborough is connected to Northampton and Leicester by Road and to Ely and Lincoln by Highway.
  
 The town of Northampton is connected to Oxford, Coventry, and Peterborough by Road and to Bedford and Leicester by Highway.
  
@@ -84,7 +84,7 @@ The town of Leicester (seat of Dudley) is connected to Peterborough and Lichfiel
  
 The town of Derby (seat of Stanley) is connected to Nottingham and Lichfield by Road.
  
-The town of Nottingham is connected to Lincoln and Derby by Road.
+The town of Nottingham is connected to Lincoln and Derby by Road and to Leicester by Highway.
  
 The city of Lincoln (seat of Beaumont) is connected to Ravenspur and Nottingham by Road and to Peterborough and York by Highway.
  
@@ -109,3 +109,47 @@ The fortress of Bamburgh is connected to Newcastle by Highway.  This location is
 The special stronghold of Calais is not connected to any other space by land, but is a port.  Lord seat: Warwick (Lancastrian), Warwick (Yorkist).
  
 Scotland is a special exile box - lords can move out of it by land to Carlisle or Bamburgh, but this is a one-way move.
+
+
+================================================================
+SEA ADJACENCY (Sail - Rules 4.6.1, FAQ #1)
+================================================================
+Source: user adjudication 2026-05-20 (resolves harness question Q-001),
+citing Rules of Play 1.3.1, 4.6.1, and Errata & Clarification FAQ #1.
+
+Ports are grouped into three Seas. Exile boxes act similarly to a Port
+(1.3.1) and belong to a Sea as noted.
+
+Irish Sea:
+  - Bristol
+  - Pembroke
+  - Harlech
+  - Ireland (Exile box; acts similarly to a Port per 1.3.1)
+
+English Channel:
+  - Truro
+  - Plymouth
+  - Exeter
+  - Dorchester
+  - Southampton
+  - Hastings
+  - Dover
+  - Calais
+  - France (Exile box; acts similarly to a Port)
+  - Burgundy (Exile box; acts similarly to a Port)
+
+North Sea:
+  - Ipswich
+  - Lynn
+  - Ravenspur
+  - Scarborough
+  - Newcastle
+  - Scotland (Exile box; 1.3.1 explicitly assigns Scotland to the North Sea)
+
+Sea adjacency for Sail:
+  - Irish Sea <-> English Channel
+  - English Channel <-> North Sea
+  - Irish Sea and North Sea are NOT directly adjacent (must transit via the
+    English Channel).
+  - Great Ships (Y6) does NOT shortcut this for the Sail action; it only
+    collapses cross-Sea distance for Parley, Tax, and Supply.

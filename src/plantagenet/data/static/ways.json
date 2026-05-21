@@ -1,19 +1,8 @@
 {
   "_meta": {
     "_source": "reference/Plantagenet Map Reference.txt",
-    "_note": "Sea adjacency between ports is not enumerated in the Map Reference; see RULES_QUESTIONS.md Q-001. Only land Ways (Road/Highway/Path) are encoded.",
-    "disputed_pending_adjudication": [
-      [
-        "leicester",
-        "nottingham",
-        "highway"
-      ],
-      [
-        "leicester",
-        "peterborough",
-        "road"
-      ]
-    ]
+    "_note": "Only land Ways (Road/Highway/Path) are encoded here. Sea movement is zone-based (see seas.json), not point-to-point, per Rules 4.6.1 / FAQ #1.",
+    "disputed_pending_adjudication": []
   },
   "ways": [
     {
@@ -285,6 +274,16 @@
       "from": "leicester",
       "to": "northampton",
       "type": "highway"
+    },
+    {
+      "from": "leicester",
+      "to": "nottingham",
+      "type": "highway"
+    },
+    {
+      "from": "leicester",
+      "to": "peterborough",
+      "type": "road"
     },
     {
       "from": "lichfield",

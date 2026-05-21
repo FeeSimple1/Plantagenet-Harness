@@ -67,6 +67,13 @@ def load_vassals() -> dict[str, Any]:
 
 
 @cache
+def load_seas() -> dict[str, Any]:
+    """Sea zones (Irish Sea / English Channel / North Sea), their Port and
+    Exile-box membership, and zone adjacency for Sail (4.6.1 / FAQ #1)."""
+    return _strip_meta(_load_json(_STATIC_PKG, "seas.json"))
+
+
+@cache
 def load_exile_boxes() -> dict[str, Any]:
     """Exile boxes (Scotland, France, Ireland, Burgundy, Calais) metadata."""
     return _strip_meta(_load_json(_STATIC_PKG, "exile_boxes.json"))

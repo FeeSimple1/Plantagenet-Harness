@@ -1,0 +1,26 @@
+{
+  "_source": "User adjudication 2026-05-20 (resolves Q-001), citing Rules of Play 1.3.1, 4.6.1, and Errata FAQ #1.",
+  "_note": "Sail (4.6.1) moves between Ports of the same Sea or of directly-adjacent Seas; Irish Sea and North Sea are NOT directly adjacent (transit via the English Channel). Exile boxes act similarly to a Port per 1.3.1. Great Ships (Y6) collapses cross-Sea distance only for Parley, Tax, and Supply - NOT for Sail (FAQ #1).",
+  "zones": {
+    "irish_sea": {
+      "name": "Irish Sea",
+      "ports": ["bristol", "pembroke", "harlech"],
+      "exile_boxes": ["ireland"]
+    },
+    "english_channel": {
+      "name": "English Channel",
+      "ports": ["truro", "plymouth", "exeter", "dorchester", "southampton",
+                "hastings", "dover", "calais"],
+      "exile_boxes": ["france", "burgundy"]
+    },
+    "north_sea": {
+      "name": "North Sea",
+      "ports": ["ipswich", "lynn", "ravenspur", "scarborough", "newcastle"],
+      "exile_boxes": ["scotland"]
+    }
+  },
+  "adjacency": [
+    ["irish_sea", "english_channel"],
+    ["english_channel", "north_sea"]
+  ]
+}
