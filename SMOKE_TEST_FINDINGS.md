@@ -222,3 +222,14 @@ at arts_of_war. This Levy events cleared after Muster, This Campaign after
 Campaign. The flow reorder churned ~56 tests (advancing through the draw via
 a tests/_helpers.to_muster helper); all updated. Card EFFECTS remain
 consumer-applied until coded. No SMOKEs. 170 tests pass; round-trip clean.
+
+## Round 15 (Phase 4-iv - battle-modifier card effects, batch 1)
+
+Wired the first card effects into battle.py via the decisions payload:
+- Culverins and Falconets (Y1&Y2/L1&L2 Capability): at Round 1, a named Lord
+  discards it to add 1 d6 of Missile Hits to its side's outgoing total.
+- Leeward Battle Line (Y1/L1 Hold Event): a side plays its held copy to halve
+  (round up) the Missile Hits it receives; if both sides play, neither has
+  effect (4.4.1 Event step). Adds card helpers (find/consume capability and
+  held event). Validated against held/mat cards (no_culverins/no_leeward).
+  Verified the hit math from the round logs. No SMOKEs. 174 tests pass.
