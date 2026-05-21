@@ -57,11 +57,11 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     way_kind, whole_card = cost
 
-    # Enemy contact (Approach 4.3.5 / Intercept 4.3.4) is Phase 3b.
-    _require(not enemy_lord_at(state, dest, lord.side), "approach_phase_3b",
-             f"{dest} holds an Enemy Lord; Approach/Battle is Phase 3b (4.3.5)")
-    _require(not _enemy_adjacent_by_land(state, dest, lord.side), "intercept_phase_3b",
-             f"{dest} is adjacent to an Enemy Lord; Intercept is Phase 3b (4.3.4)")
+    # Marching adjacent to an Enemy permits Intercept (4.3.4) -> Phase 3b-ii.
+    dest_has_enemy = enemy_lord_at(state, dest, lord.side)
+    if not dest_has_enemy:
+        _require(not _enemy_adjacent_by_land(state, dest, lord.side), "intercept_phase_3b",
+                 f"{dest} is adjacent to an Enemy Lord; Intercept is Phase 3b-ii (4.3.4)")
 
     # Group March (4.3.1): a Marshal brings any; a Lieutenant all but a Marshal.
     movers = [lord]
@@ -90,12 +90,19 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         m.exile_box = None
         m.moved_fought = True
 
-    if whole_card:
+    approach = None
+    if dest_has_enemy:
+        from plantagenet import battle
+        approach = battle.approach(state, dest, [m.lord_id for m in movers],
+                                   action.get("decisions"))
+        state.campaign.actions_remaining = 0   # Approach ends the card (4.3.5)
+    elif whole_card:
         state.campaign.actions_remaining = 0
     else:
         state.campaign.actions_remaining -= 1
     return {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
-            "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card}
+            "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
+            "approach": approach}
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str):

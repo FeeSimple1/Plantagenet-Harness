@@ -153,3 +153,20 @@ Vassals (3.3.2). Turn rollover now lands at the Pay step; the full Levy +
 Campaign cycle runs across Turns. No SMOKEs. Deferred: Muster Exiles (3.3.1,
 needs scenario Exile-box mapping), Arts-of-War draw (3.1, Phase 4),
 cross-Lord Cart Sharing for Supply. Combat -> Phase 3b.
+
+## Round 10 (Phase 3b-i - combat, 1v1)
+
+Implemented Approach (4.3.5) and the single-Lord-per-side Battle engine
+(4.4) in battle.py. A March into an Enemy Locale triggers Approach; each
+Defender Exiles (lose Influence rating+Vassals, give Carts/Provender Spoils
+by Favour, Disband to Calendar Exile) or fights a Battle. Battle: per-Round
+Flee, Missile then Melee Strikes (total Hits from the Forces table - verified
+against the Background Book's 5 Longbow + 4 Militia = 12 Missile Hits
+example), per-Hit Protection rolls with Valour rerolls, unit Rout, Lord Rout
+(all Troops or Retinue Routed), multi-Round; Ending (4.4.3): winner Influence
+(losers' ratings +1/Vassal), Spoils (Favour-based Carts/Provender), Losses
+(recover/lose Routed Troops; Disband if all own Troops Lost), Death check
+(3-6, -2 if Fled) -> Death (permanent removal) or Disband. Decisions via an
+optional payload with deterministic defaults. No SMOKEs. Deferred:
+multi-Lord Battles/Arrays/Flanking/Reposition and Intercept (4.3.4) ->
+Phase 3b-ii; "in Battle" Held Events -> Phase 4.

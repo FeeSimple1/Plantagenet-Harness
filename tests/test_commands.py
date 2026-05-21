@@ -53,14 +53,26 @@ def test_march_path_takes_whole_card():
     assert s.campaign.actions_remaining == 0
 
 
-def test_march_into_enemy_locale_is_deferred_to_3b():
+def test_march_into_enemy_locale_triggers_approach():
     s = _to_campaign("henry_vi")
-    # Put a Lancastrian Lord at Cambridge so a York march there would Approach.
+    # Put a Lancastrian Lord at Cambridge; the Defender Exiles on Approach.
     s.lords["henry_vi"].location = "cambridge"
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"responses": {"henry_vi": "exile"}}})
+    assert r["approach"] is not None
+    assert "henry_vi" in r["approach"]["exiles"]
+    assert s.campaign.actions_remaining == 0   # Approach ends the card (4.3.5)
+
+
+def test_march_adjacent_to_enemy_still_deferred_to_3b_ii():
+    s = _to_campaign("henry_vi")
+    # Henry VI at Bedford, adjacent to Cambridge by Highway -> Intercept zone.
+    s.lords["henry_vi"].location = "bedford"
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "march", "side": "yorkist",
                                  "by_lord": "york", "to": "cambridge"})
-    assert e.value.code in ("approach_phase_3b", "intercept_phase_3b")
+    assert e.value.code == "intercept_phase_3b"
 
 
 def test_haul_discards_provender_over_carts():
