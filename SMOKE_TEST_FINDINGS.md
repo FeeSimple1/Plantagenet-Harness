@@ -63,3 +63,27 @@ schema matches the model so it cannot silently drift. Initial
 `active_side` is set to the King's side as a provisional pointer; precise
 turn order per the Sequence of Play is a Phase 2 concern (documented in
 `scenarios.py`).
+
+## Round 4 (Phase 2 — Levy mechanics)
+
+**SMOKE-001 (Pattern: card-text/setup fidelity).** The Phase 1 scenario
+loader marked Scenario III's Henry Tudor, Jasper Tudor (2), and Oxford as a
+no-mat `EXILE` status because their setup placement names an Exile box. But
+the Scenario Reference lists them under "Mustered Lord Mats," and 3.4 lets
+Lords in Exile boxes take Levy actions (except Levy Troops). They are
+Mustered Lords *located in* the France Exile box. Surfaced while reading the
+3.4 Muster requirements. Fixed in `scenarios.py` (`_lord_state`): an
+Exile-box placement now yields `MUSTERED` with `exile_box` set and starting
+Forces/Assets. Regression: `test_iii_exile_lords_mustered_in_france_*`.
+
+Also corrected (rules-grounded, not a bug per se): initial `active_side` is
+now the Rebel side, since the Levy sequence is "Rebel then King's" (3.1-3.4);
+Phase 1 had used a provisional King-side pointer.
+
+Data gap logged as **Q-003**: the Strongholds table (Troop-Levy and Pillage
+yields per Stronghold type) is not in the repo sources, so Levy Troops
+(3.4.4) is deferred (raises `needs_strongholds_table`) rather than guessed.
+
+Round-trip discipline: `scripts/roundtrip_sweep.py` plus
+`test_round_trip_every_emitted_move_applies` confirm every enumerated Levy
+move is accepted by the handler across all scenarios and seeds.

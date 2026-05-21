@@ -105,15 +105,37 @@ def state(file: str, mode: str = "summary", focus: str | None = None) -> None:
 
 
 @app.command("legal-moves")
-def legal_moves(file: str, side: str | None = None) -> None:
-    """Enumerate legal actions for the active player. (Phase 2+)"""
-    raise typer.Exit(_stub("legal-moves"))
+def legal_moves(file: str) -> None:
+    """Enumerate legal actions for the active player (Levy Muster, 3.4)."""
+    from plantagenet import legal_moves as lm
+    from plantagenet.state import GameState
+
+    gs = GameState.load(file)
+    moves = lm.legal_moves(gs)
+    typer.echo(json.dumps({"active_side": gs.active_side, "levy_step": gs.levy_step,
+                           "count": len(moves), "moves": moves}, indent=2))
 
 
 @app.command()
 def do(file: str, action: str) -> None:
-    """Execute a submitted JSON action. (Phase 2+)"""
-    raise typer.Exit(_stub("do"))
+    """Execute a submitted JSON action and save the updated state."""
+    from plantagenet import actions
+    from plantagenet.errors import IllegalAction
+    from plantagenet.state import GameState
+
+    try:
+        parsed = json.loads(action)
+    except json.JSONDecodeError as e:
+        typer.echo(f"action is not valid JSON: {e}")
+        raise typer.Exit(code=1) from e
+    gs = GameState.load(file)
+    try:
+        result = actions.apply_action(gs, parsed)
+    except IllegalAction as e:
+        typer.echo(json.dumps({"error": {"code": e.code, "message": e.message}}, indent=2))
+        raise typer.Exit(code=1) from e
+    gs.save(file)
+    typer.echo(json.dumps(result, indent=2))
 
 
 @app.command()

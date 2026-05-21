@@ -12,8 +12,8 @@ The conditional Succession that selects later Wars' setups is game logic
 deferred to a later phase; `grand_scenario` metadata records the current
 War so that logic has what it needs.
 
-Initial `active_side` is set to the King's side as a provisional pointer;
-turn-order enforcement per the Sequence of Play is a Phase 2 concern.
+Initial `active_side` is the Rebel side: the Levy sequence (cards, Pay,
+Muster) proceeds "Rebel then King's" each Turn (3.1-3.4).
 """
 
 from __future__ import annotations
@@ -57,6 +57,13 @@ def _king_side(scn: dict[str, Any]) -> str:
         if scn["sides"][side]["role"] == "king":
             return side
     raise DataError(f"scenario {scn.get('id')} has no King side")
+
+
+def _rebel_side(scn: dict[str, Any]) -> str:
+    for side in SIDES:
+        if scn["sides"][side]["role"] == "rebel":
+            return side
+    raise DataError(f"scenario {scn.get('id')} has no Rebel side")
 
 
 def _placement_index(setup: dict[str, Any]) -> tuple[dict, dict]:
@@ -137,12 +144,13 @@ def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> Gam
     cal = CalendarState(levy_box=turns.get("levy_box"), end_box=end_box,
                         first_box=turns.get("first_box"), last_box=turns.get("last_box"))
 
-    king = _king_side(scn)
+    # Levy proceeds Rebel side then King's side (3.1-3.4); Rebel acts first.
+    first = _rebel_side(scn) if not battle_only else _king_side(scn)
     state = GameState(
         scenario=scenario_id,
         title=title,
         seed=seed,
-        active_side=Side(king),
+        active_side=Side(first),
         turn_box=turns.get("levy_box", turns.get("first_box", 1)) or 1,
         phase="battle" if battle_only else "levy",
         roles=roles,
@@ -175,14 +183,17 @@ def _lord_state(lord_id, side, static, on_map_entry, cal_entry,
         assets = dict(static.get("assets", {}))
     elif on_map_entry is not None:
         ring = on_map_entry.get("ring")
+        # A Lord set up in an Exile box is Mustered there (has a mat and may
+        # take Levy actions except Levy Troops, 3.4); the Exile box is just
+        # its location. A bare Exile cylinder lives on the Calendar instead
+        # (handled via cal_entry with calendar_exile).
+        status = LordStatus.MUSTERED
+        forces = dict(static.get("forces", {}))
+        assets = dict(static.get("assets", {}))
         if on_map_entry.get("exile_box"):
-            status = LordStatus.EXILE
             exile_box = on_map_entry["exile_box"]
         else:
-            status = LordStatus.MUSTERED
             location = on_map_entry.get("locale")
-            forces = dict(static.get("forces", {}))
-            assets = dict(static.get("assets", {}))
         if on_map_entry.get("capability"):
             caps.append(on_map_entry["capability"])
         if on_map_entry.get("special_vassal"):
