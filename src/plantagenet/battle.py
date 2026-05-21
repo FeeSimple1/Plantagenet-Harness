@@ -31,6 +31,11 @@ _TROOP_TYPES = {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners
 _FILL_ORDER = [1, 0, 2]   # center, left, right (4.4.1)
 
 
+def _require(cond: bool, code: str, msg: str) -> None:
+    if not cond:
+        raise IllegalAction(code, msg)
+
+
 def _strike_profile() -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for fid, f in static_data.load_forces().items():
@@ -40,6 +45,39 @@ def _strike_profile() -> dict[str, dict[str, Any]]:
         melee = sum(s["count"] for s in f["strikes"] if s["kind"] == "melee")
         out[fid] = {"missile": missile, "melee": melee, "prot": f["protection"]}
     return out
+
+
+
+CULVERINS = "CULVERINS AND FALCONETS"
+LEEWARD = "LEEWARD BATTLE LINE"
+
+
+def _lord_has_capability(state: GameState, lord_id: str, title: str) -> str | None:
+    for cid in state.lords[lord_id].capabilities:
+        if static_data.load_cards()[cid]["capability"]["title"] == title:
+            return cid
+    return None
+
+
+def _side_held_event(state: GameState, side: str, title: str) -> str | None:
+    for cid in state.decks.get(side, {}).get("held", []):
+        if static_data.load_cards()[cid]["event"]["title"] == title:
+            return cid
+    return None
+
+
+def _discard_capability(state: GameState, lord_id: str, card_id: str) -> None:
+    lord = state.lords[lord_id]
+    if card_id in lord.capabilities:
+        lord.capabilities.remove(card_id)
+    state.decks.setdefault(lord.side, {}).setdefault("discard", []).append(card_id)
+
+
+def _use_held_event(state: GameState, side: str, card_id: str) -> None:
+    held = state.decks.get(side, {}).get("held", [])
+    if card_id in held:
+        held.remove(card_id)
+    state.decks.setdefault(side, {}).setdefault("discard", []).append(card_id)
 
 
 class _Force:
@@ -201,6 +239,23 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     use_valour = decisions.get("valour", True)
     dice = state.dice()
 
+    aside = state.lords[attackers[0]].side
+    dside = state.lords[defenders[0]].side
+    # Card plays (4.4.1 Event step): Leeward Battle Line (Hold Event) and
+    # Culverins and Falconets (Capability discarded at Round 1).
+    culverins = set(decisions.get("culverins", []))
+    for lid in culverins:
+        _require(lid in attackers + defenders and _lord_has_capability(state, lid, CULVERINS),
+                 "no_culverins", f"{lid} has no Culverins and Falconets Capability (4.4.1)")
+    leeward = set()
+    for sd in decisions.get("leeward", []):
+        cid = _side_held_event(state, sd, LEEWARD)
+        _require(sd in (aside, dside) and cid is not None, "no_leeward",
+                 f"{sd} has no Leeward Battle Line Held Event to play (4.4.1)")
+        _use_held_event(state, sd, cid)
+        leeward.add(sd)
+    both_leeward = {aside, dside} <= leeward    # both played -> neither has effect
+
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
     positions, reserves = _initial_array(attackers, defenders, decisions)
     rounds: list[dict[str, Any]] = []
@@ -227,6 +282,25 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
             for phase in ("missile", "melee"):
                 a_hits = ceil(sum(f.raw_hits(phase) for f in a_forces))
                 d_hits = ceil(sum(f.raw_hits(phase) for f in d_forces))
+                if phase == "missile":
+                    if n == 1:                      # Culverins: +1 d6 Missile Hit, Round 1
+                        for lid in eng["attacker"]:
+                            if lid in culverins:
+                                a_hits += dice.d6()
+                                _discard_capability(state, lid,
+                                                    _lord_has_capability(state, lid, CULVERINS))
+                                culverins.discard(lid)
+                        for lid in eng["defender"]:
+                            if lid in culverins:
+                                d_hits += dice.d6()
+                                _discard_capability(state, lid,
+                                                    _lord_has_capability(state, lid, CULVERINS))
+                                culverins.discard(lid)
+                    if not both_leeward:            # Leeward: halve incoming Missile Hits
+                        if dside in leeward:
+                            a_hits = ceil(a_hits / 2)
+                        if aside in leeward:
+                            d_hits = ceil(d_hits / 2)
                 dlog: list = []
                 alog: list = []
                 _absorb_side(d_forces, a_hits, dice, order, use_valour, dlog)
