@@ -57,11 +57,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     way_kind, whole_card = cost
 
-    # Marching adjacent to an Enemy permits Intercept (4.3.4) -> Phase 3b-ii.
     dest_has_enemy = enemy_lord_at(state, dest, lord.side)
-    if not dest_has_enemy:
-        _require(not _enemy_adjacent_by_land(state, dest, lord.side), "intercept_phase_3b",
-                 f"{dest} is adjacent to an Enemy Lord; Intercept is Phase 3b-ii (4.3.4)")
 
     # Group March (4.3.1): a Marshal brings any; a Lieutenant all but a Marshal.
     movers = [lord]
@@ -90,11 +86,16 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         m.exile_box = None
         m.moved_fought = True
 
+    decisions = action.get("decisions") or {}
+    intercept_log = (None if dest_has_enemy
+                     else _try_intercept(state, dest, lord.side, decisions))
+    if intercept_log and intercept_log["success"]:
+        dest_has_enemy = True
+
     approach = None
     if dest_has_enemy:
         from plantagenet import battle
-        approach = battle.approach(state, dest, [m.lord_id for m in movers],
-                                   action.get("decisions"))
+        approach = battle.approach(state, dest, [m.lord_id for m in movers], decisions)
         state.campaign.actions_remaining = 0   # Approach ends the card (4.3.5)
     elif whole_card:
         state.campaign.actions_remaining = 0
@@ -102,7 +103,36 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.campaign.actions_remaining -= 1
     return {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
             "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
-            "approach": approach}
+            "intercept": intercept_log, "approach": approach}
+
+
+def _try_intercept(state: GameState, dest: str, side: str,
+                   decisions: dict[str, Any]) -> dict[str, Any] | None:
+    """Intercept (4.3.4): a named Enemy Lord at a Locale adjacent to ``dest``
+    by Road/Highway may roll <= its Valour to move to ``dest`` (then the
+    Marching Lord Approaches it there)."""
+    iid = decisions.get("intercept")
+    if not iid:
+        return None
+    itc = state.lords.get(iid)
+    eligible = (itc is not None and itc.status == LordStatus.MUSTERED and itc.side != side
+                and itc.location is not None
+                and any(n == dest and t in ("road", "highway")
+                        for n, t in _adjacency().get(itc.location, [])))
+    _require(eligible, "bad_intercept",
+             f"{iid} cannot Intercept at {dest} (must be an Enemy adjacent by Road/Highway, 4.3.4)")
+    roller = state.dice()
+    roll = roller.d6()
+    state.store_dice(roller)
+    valour = static_data.load_lords()[iid]["ratings"]["valour"]
+    success = roll <= valour
+    if success:                          # the Interceptor Marches to dest (Carts limit Provender)
+        carts = itc.assets.get("cart", 0)
+        if itc.assets.get("provender", 0) > carts:
+            itc.assets["provender"] = carts
+        itc.location = dest
+        itc.moved_fought = True
+    return {"interceptor": iid, "roll": roll, "valour": valour, "success": success}
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str):

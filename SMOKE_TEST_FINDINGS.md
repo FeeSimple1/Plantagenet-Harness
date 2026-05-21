@@ -170,3 +170,18 @@ example), per-Hit Protection rolls with Valour rerolls, unit Rout, Lord Rout
 optional payload with deterministic defaults. No SMOKEs. Deferred:
 multi-Lord Battles/Arrays/Flanking/Reposition and Intercept (4.3.4) ->
 Phase 3b-ii; "in Battle" Held Events -> Phase 4.
+
+## Round 11 (Phase 3b-ii - multi-Lord Battles + Intercept; Phase 3b complete)
+
+Generalized battle.py to N Lords per side: Array (4.4.1; center-first fill,
+Attacker opposite; overridable), per-Round Reposition (Rout removal, Reserve
+Advance, Center fill), Flanking Engagements (union-find over opposite/nearest
+targets), per-Engagement Strikes totaling both sides, and multi-Lord Ending
+(Influence/Spoils/Losses/Death). approach() now allows multiple Defenders.
+Intercept (4.3.4): a March with decisions.intercept names a Road/Highway-
+adjacent Enemy that rolls <= Valour to move to the destination, then is
+Approached. The intercept_phase_3b March rejection is removed (adjacent-to-
+enemy Marches are legal). No SMOKEs. Phase 3b (combat) is COMPLETE.
+Remaining: Phase 4 (Arts-of-War card draw + Event/Capability effects +
+Succession); small deferrals (Muster Exiles 3.3.1, Disembark 4.8.2, Supply
+Cart Sharing 1.5.3).
