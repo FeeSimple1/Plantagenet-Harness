@@ -14,14 +14,15 @@ is an operator's guide to the codebase as it stands.
 
 ## Status
 
-**Phase 1 (current): state model + scenario loader + display.** On top of
-the Phase 0 skeleton and static data, the harness now has a Pydantic
-`GameState` (single-file JSON, save/load, seeded-dice wiring), a scenario
-loader that fully sets up all six standalone scenarios plus the Wars of
-the Roses grand scenario (initialized at War I), and `state` display in
-summary / verbose / focused modes. Still no *rules* logic (no actions,
-turn order, or victory math); cards remain deferred to Phase 4. See the
-phasing plan in `BRIEF.md`.
+**Phase 2 (current): Levy Muster mechanics.** The harness now enforces the
+Levy Muster segment (3.4): `parley`, `levy_lord`, `levy_vassal`, and
+`levy_transport`, each gated by the Influence check (1.4.2) and Lordship,
+with `legal-moves` enumerating the active side's options and `do` executing
+actions. Turn order is "Rebel then King's" (3.1-3.4). Two Muster actions are
+deferred with explicit reasons: `levy_troops` (needs the Strongholds table,
+RULES_QUESTIONS Q-003) and `levy_capability` (Arts of War cards, Phase 4).
+The Pay step (3.2) is skipped on Turn 1 and its Pillage detail also awaits
+the Strongholds table. See the phasing plan in `BRIEF.md`.
 
 ## Where things are
 
@@ -33,8 +34,11 @@ phasing plan in `BRIEF.md`.
   - `state.py` — the Pydantic `GameState` model (save/load, dice wiring).
   - `scenarios.py` — `build_initial_state(scenario_id, seed)` loader.
   - `render.py` — summary / verbose / focused renderings.
-  - `cli.py` — the `plantagenet` CLI (typer). `new`, `state`, and the data
-    commands work; `legal-moves`/`do`/`pending` are stubs until their phase.
+  - `influence.py` — Influence points and the Influence check (1.4.x).
+  - `actions.py` — Levy Muster action handlers + dispatcher (3.4).
+  - `legal_moves.py` — Levy Muster enumerator (mirrors handler pre-checks).
+  - `cli.py` — the CLI. `new`, `state`, `legal-moves`, `do`, and the data
+    commands work; `pending`/`history` are stubs until their phase.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,
     `lords.json`, `vassals.json`, `exile_boxes.json`.
   - `data/scenarios/` — one file per scenario plus `index.json`.

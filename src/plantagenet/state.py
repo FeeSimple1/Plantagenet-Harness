@@ -68,6 +68,9 @@ class LordState(_Model):
     capabilities: list[str] = Field(default_factory=list)
     vassals: list[str] = Field(default_factory=list)
     special_vassals: list[str] = Field(default_factory=list)
+    # Per-Levy Muster bookkeeping (reset each Levy):
+    lordship_spent: int = 0            # Levy actions taken this Muster (3.4)
+    mustered_this_segment: bool = False  # brought on this Muster -> may not Levy (3.4)
 
 
 class VassalStatus(str, Enum):
@@ -124,6 +127,7 @@ class GameState(_Model):
     active_side: Side
     turn_box: int
     phase: str = "levy"
+    levy_step: str = "muster"   # arts_of_war | pay | exiles_vassals | muster | done
     grand_scenario: dict[str, Any] | None = None
     roles: dict[str, Role] = Field(default_factory=dict)   # side -> king/rebel
     lords: dict[str, LordState] = Field(default_factory=dict)

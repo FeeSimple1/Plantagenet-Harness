@@ -213,6 +213,16 @@
           },
           "title": "Special Vassals",
           "type": "array"
+        },
+        "lordship_spent": {
+          "default": 0,
+          "title": "Lordship Spent",
+          "type": "integer"
+        },
+        "mustered_this_segment": {
+          "default": false,
+          "title": "Mustered This Segment",
+          "type": "boolean"
         }
       },
       "required": [
@@ -376,6 +386,11 @@
     "phase": {
       "default": "levy",
       "title": "Phase",
+      "type": "string"
+    },
+    "levy_step": {
+      "default": "muster",
+      "title": "Levy Step",
       "type": "string"
     },
     "grand_scenario": {

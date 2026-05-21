@@ -32,16 +32,29 @@ The catalog is the action requirements summary from the Errata (corrected
 table), to be filled in with concrete JSON schemas as each phase
 implements them.
 
-### Levy (Phase 2)
+### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 
-| Action | At Friendly Locale? | Route? | Check Influence? | Deplete/Exhaust? | Special |
-|---|---|---|---|---|---|
-| `levy_lord` (3.4.2) | Yes | — | Yes | — | Target Lord's or Friendly Seat, free of Enemy |
-| `levy_vassal` (3.4.3) | Yes | — | Yes | — | Vassal's Seat Friendly, free of Enemy |
-| `levy_troops` (3.4.4) | Yes | — | — | Yes | At Stronghold (not in Exile box) |
-| `levy_transport` (3.4.5) | Yes | — | — | — | At Port or in Exile box: may add Ship instead of Cart |
-| `levy_capability` (3.4.6) | Yes | — | — | — | Until 2 cards / Lord (no discard) |
-| `parley` (3.4.1, 4.6.4) | — | Yes | Yes | — | Target Stronghold: Neutral or Enemy Favour |
+All Muster actions take `{"type", "side", "by_lord", ...}` and spend one
+point of the acting Lord's Lordship (3.4). Optional `"extra_spend": 0|1|3`
+adds +0/+1/+2 to the Influence rating for that check (1.4.2).
+
+| Action | Args | Rule | Status |
+|---|---|---|---|
+| `parley` | `target` (Stronghold; default current), `extra_spend` | 3.4.1 | done |
+| `levy_lord` | `target` (Ready Lord id), `extra_spend` | 3.4.2 | done |
+| `levy_vassal` | `target` (regular Vassal id), `extra_spend` | 3.4.3 | done |
+| `levy_transport` | `transport`: `"cart"` (2 Carts) or `"ship"` (1 Ship) | 3.4.5 | done |
+| `levy_troops` | — | 3.4.4 | **deferred — needs Strongholds table (Q-003)** |
+| `levy_capability` | — | 3.4.6 | **deferred — Arts of War cards (Phase 4)** |
+| `end_muster` | — | 3.4 | done (passes the segment Rebel -> King -> done) |
+
+Influence check (1.4.2): spends 1 base point + `extra_spend` + Way distance
+(Parley only), toward the opponent; success on a d6 roll <= the modified
+rating, with "1" always succeeding and "6" always failing.
+
+The Levy sequence proceeds Rebel side then King's side (3.1-3.4). Arts of
+War draw (3.1) and Pay (3.2; skipped on Turn 1) are Phase 4 / later-turn
+concerns; a freshly loaded scenario begins at the Muster step.
 
 ### Campaign (Phase 3)
 

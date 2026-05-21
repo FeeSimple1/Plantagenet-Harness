@@ -28,8 +28,10 @@ def test_data_check_passes():
     assert '"errors": []' in result.stdout
 
 
-def test_game_command_stub_is_not_yet_implemented():
-    result = runner.invoke(app, ["do", "game.state.json", "{}"])
+def test_pending_command_still_stubbed(tmp_path):
+    out = tmp_path / "g.state.json"
+    runner.invoke(app, ["new", "henry_vi", "--out", str(out)])
+    result = runner.invoke(app, ["pending", str(out)])
     assert result.exit_code != 0
     assert "not yet implemented" in result.stdout
 

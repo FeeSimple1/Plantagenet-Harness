@@ -45,11 +45,17 @@ def test_ia_favour_and_influence():
     assert inf.stronghold_markers["fortress"].side == "yorkist"
 
 
-def test_iii_exile_lords_and_available_richard():
+def test_iii_exile_lords_mustered_in_france_and_available_richard():
+    # III's Henry Tudor / Jasper Tudor / Oxford are Mustered Lord mats located
+    # in the France Exile box (3.4 lets exile-box Lords take Levy actions
+    # except Levy Troops), not bare Exile cylinders.
     s = build_initial_state("my_kingdom_for_a_horse")
-    exile = {k for k, v in s.lords.items() if v.status == LordStatus.EXILE}
-    assert exile == {"henry_tudor", "jasper_tudor_2", "oxford"}
-    assert all(s.lords[x].exile_box == "france" for x in exile)
+    in_france = {"henry_tudor", "jasper_tudor_2", "oxford"}
+    for x in in_france:
+        assert s.lords[x].status == LordStatus.MUSTERED
+        assert s.lords[x].exile_box == "france"
+        assert s.lords[x].location is None
+        assert s.lords[x].forces  # has a mat with starting Forces
     # Richard III is a Lord card but starts neither mustered nor placed.
     assert s.lords["richard_iii"].status == LordStatus.AVAILABLE
 
