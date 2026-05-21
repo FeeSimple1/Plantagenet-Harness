@@ -71,6 +71,7 @@ class LordState(_Model):
     # Per-Levy Muster bookkeeping (reset each Levy):
     lordship_spent: int = 0            # Levy actions taken this Muster (3.4)
     mustered_this_segment: bool = False  # brought on this Muster -> may not Levy (3.4)
+    moved_fought: bool = False         # took part in March/Intercept/Battle/Sail -> Feed (4.7)
 
 
 class VassalStatus(str, Enum):
@@ -119,6 +120,18 @@ class CalendarState(_Model):
     last_box: int | None = None
 
 
+class CampaignState(_Model):
+    """Per-Campaign flow state (4.1-4.2): Plan stacks and Activation pointers."""
+
+    step: str = "plan"   # plan | activation | end
+    cards_required: int = 0                       # Plan size for the season (4.1)
+    plans: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)  # side -> [entry]
+    plan_built: dict[str, bool] = Field(default_factory=dict)             # side -> bool
+    plan_index: dict[str, int] = Field(default_factory=dict)             # side -> next card
+    active_lord: str | None = None                # Lord currently Activated
+    actions_remaining: int = 0                    # Command actions left this card
+
+
 class GameState(_Model):
     schema_version: int = SCHEMA_VERSION
     scenario: str
@@ -137,6 +150,8 @@ class GameState(_Model):
     exile_alignment: dict[str, Side] = Field(default_factory=dict)
     influence: dict[str, InfluenceState] = Field(default_factory=dict)
     calendar: CalendarState = Field(default_factory=CalendarState)
+    campaign: CampaignState | None = None
+    victory: dict[str, Any] | None = None   # set when the game ends (4.8.3, 5.x)
     arts_of_war: dict[str, str] = Field(default_factory=dict)   # side -> deck composition text
     history: list[dict[str, Any]] = Field(default_factory=list)
     pending: list[dict[str, Any]] = Field(default_factory=list)

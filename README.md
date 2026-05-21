@@ -14,15 +14,23 @@ is an operator's guide to the codebase as it stands.
 
 ## Status
 
-**Phase 2 (current): Levy Muster mechanics.** The harness now enforces the
+**Phase 2 (done): Levy Muster mechanics.** The harness now enforces the
 Levy Muster segment (3.4): `parley`, `levy_lord`, `levy_vassal`,
 `levy_transport`, and `levy_troops`, each gated by the Influence check (1.4.2) and Lordship,
 with `legal-moves` enumerating the active side's options and `do` executing
 actions. Turn order is "Rebel then King's" (3.1-3.4). Two Muster actions are
 (`levy_troops` uses the Strongholds table, D-004, and Depletes/Exhausts the
 Locale.) The one remaining deferred Muster action is `levy_capability`
-(Arts of War cards, Phase 4). The Pay step (3.2) is skipped on Turn 1. See
-the phasing plan in `BRIEF.md`.
+(Arts of War cards, Phase 4).
+
+**Phase 3a-i (current): Campaign backbone.** The Campaign turn now runs:
+`begin_campaign` -> Plan (4.1, season-sized) -> Activation (4.2, Rebel/King
+alternating) with the `forage` (4.6.2) and `pass` (4.6.5) Commands and Feed
+(4.7) -> `end_campaign` (4.8): Tides of War scoring (4.8.1), Victory check
+(4.8.3/5.x), Grow (4.8.4), Waste (4.8.5), and advance to the next Turn's
+Levy. Deferred to 3a-ii: the movement/route Commands `march`/`sail`/
+`supply`/`tax`/campaign-`parley`, and Pay (3.2) on Turn rollover; combat is
+Phase 3b. See the phasing plan in `BRIEF.md`.
 
 ## Where things are
 
@@ -36,7 +44,9 @@ the phasing plan in `BRIEF.md`.
   - `render.py` — summary / verbose / focused renderings.
   - `influence.py` — Influence points and the Influence check (1.4.x).
   - `actions.py` — Levy Muster action handlers + dispatcher (3.4).
-  - `legal_moves.py` — Levy Muster enumerator (mirrors handler pre-checks).
+  - `legal_moves.py` — phase-aware enumerator (Levy Muster + Campaign).
+  - `campaign.py` — Campaign flow, Forage/Feed, and End-Campaign (Tides of
+    War, Grow, Waste, Victory, Turn advance).
   - `cli.py` — the CLI. `new`, `state`, `legal-moves`, `do`, and the data
     commands work; `pending`/`history` are stubs until their phase.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,

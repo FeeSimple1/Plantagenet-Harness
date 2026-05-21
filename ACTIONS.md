@@ -56,7 +56,33 @@ The Levy sequence proceeds Rebel side then King's side (3.1-3.4). Arts of
 War draw (3.1) and Pay (3.2; skipped on Turn 1) are Phase 4 / later-turn
 concerns; a freshly loaded scenario begins at the Muster step.
 
-### Campaign (Phase 3)
+### Campaign — Phase 3a-i (IMPLEMENTED): framework + Forage
+
+The Campaign turn (4.0): `begin_campaign` (after Levy) -> Plan -> Activation
+-> End Campaign. Turn order is Rebel then King throughout (4.2).
+
+| Action | Args | Rule | Status |
+|---|---|---|---|
+| `begin_campaign` | — | 4.0/4.1 | done (enters Plan; sizes the stack by season) |
+| `build_plan` | `side`, `plan`: ordered list of `{"lord": id}` / `{"pass": true}` | 4.1 | done (size = season cards; <=3 per Lord) |
+| `forage` | `side`, `by_lord` | 4.6.2 | done (Friendly auto; Neutral 1-4; Enemy/adj 1-3; Depletes) |
+| `pass` | `side`, `by_lord` | 4.6.5 | done (consumes one Command action) |
+| `end_activation` | `side` | 4.2/4.7 | done (Feed, then reveal the other side's next card) |
+| `end_campaign` | — | 4.8 | done (Tides of War, Victory check, Grow, Waste, advance Turn) |
+
+Activation: a revealed Lord takes up to its Command rating in actions; a
+Pass card or off-map Lord does nothing (4.2.3). Feed (4.7) runs at each
+card's end (a no-op until movement lands in 3a-ii). End Campaign computes
+Tides of War (4.8.1: Areas/Dominance, Special-Stronghold Favour,
+Most-Favour by type, Gain-Lords-Influence), checks Victory (4.8.3 / 5.x),
+runs Grow (4.8.4) and Waste (4.8.5), then advances to the next Turn's Levy.
+
+DEFERRED to Phase 3a-ii: `march` (4.3), `sail` (4.6.1), `supply` (4.5),
+`tax` (4.6.3), campaign `parley` (4.6.4); and Pay (3.2) on Turn rollover.
+A rolled-over Turn currently lands at the Muster step (Pay / Arts-of-War
+draw not yet executed). Combat (Intercept/Approach/Battle) is Phase 3b.
+
+### Campaign (later phases)
 
 | Action | At Friendly Locale? | Route? | Check Influence? | Deplete/Exhaust? | Special |
 |---|---|---|---|---|---|

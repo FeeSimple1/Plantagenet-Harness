@@ -399,7 +399,19 @@ def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     return {"type": "end_muster", "next": "levy_complete"}
 
 
+def _campaign_handler(name):
+    # Imported lazily to avoid a circular import (campaign imports actions).
+    from plantagenet import campaign
+    return getattr(campaign, name)
+
+
 _HANDLERS = {
+    "begin_campaign": lambda st, a: _campaign_handler("begin_campaign")(st, a),
+    "build_plan": lambda st, a: _campaign_handler("build_plan")(st, a),
+    "forage": lambda st, a: _campaign_handler("forage")(st, a),
+    "pass": lambda st, a: _campaign_handler("pass_command")(st, a),
+    "end_activation": lambda st, a: _campaign_handler("end_activation")(st, a),
+    "end_campaign": lambda st, a: _campaign_handler("end_campaign")(st, a),
     "parley": _h_parley,
     "levy_lord": _h_levy_lord,
     "levy_vassal": _h_levy_vassal,

@@ -98,3 +98,17 @@ Implemented Levy Troops (3.4.4): adds the Stronghold's Troops (pool-limited),
 then Depletes/Exhausts the Locale (new `LocaleState.depletion`). Enumerator
 now offers levy_troops; round-trip sweep stays clean. Levy Troops verified
 against the Background Book example (Ely City -> 1 Longbow + 1 Militia).
+
+## Round 6 (Phase 3a-i — Campaign backbone)
+
+Implemented the Campaign turn structure (4.0-4.2, 4.6.2, 4.6.5, 4.7, 4.8):
+Plan (season-sized stacks, <=3 activations/Lord), Activation (Rebel/King
+alternation; up to Command rating actions; Pass card / off-map Lord = do
+nothing), Forage, Feed (no-op until movement), and End Campaign — full
+Tides of War scoring (Areas/Dominance, Special-Stronghold Favour,
+Most-Favour by type, Gain-Lords-Influence), Victory check (5.1-5.3), Grow,
+Waste, and Turn advance. No SMOKEs. The enumerator is now phase-aware
+(Levy Muster vs Campaign). Deferred (tracked, not guessed): movement/route
+Commands (March/Sail/Supply/Tax/campaign-Parley) and Pay (3.2) -> Phase
+3a-ii; combat -> Phase 3b; a rolled-over Turn lands at the Muster step
+until Pay/Arts-of-War-draw land.
