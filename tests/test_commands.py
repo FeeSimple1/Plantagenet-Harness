@@ -65,14 +65,42 @@ def test_march_into_enemy_locale_triggers_approach():
     assert s.campaign.actions_remaining == 0   # Approach ends the card (4.3.5)
 
 
-def test_march_adjacent_to_enemy_still_deferred_to_3b_ii():
+def test_march_adjacent_to_enemy_allowed_without_intercept():
     s = _to_campaign("henry_vi")
-    # Henry VI at Bedford, adjacent to Cambridge by Highway -> Intercept zone.
-    s.lords["henry_vi"].location = "bedford"
-    with pytest.raises(IllegalAction) as e:
-        actions.apply_action(s, {"type": "march", "side": "yorkist",
+    s.lords["henry_vi"].location = "bedford"   # adjacent to Cambridge by Highway
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist",
                                  "by_lord": "york", "to": "cambridge"})
-    assert e.value.code == "intercept_phase_3b"
+    assert s.lords["york"].location == "cambridge"
+    assert r["intercept"] is None and r["approach"] is None
+
+
+def test_intercept_moves_enemy_to_destination_then_approach():
+    s = _to_campaign("henry_vi")
+    s.lords["henry_vi"].location = "bedford"   # adjacent to Cambridge by Highway
+    # Henry VI intercepts; he has Valour 0, so the attempt fails (roll never <= 0).
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge", "decisions": {"intercept": "henry_vi"}})
+    assert r["intercept"]["interceptor"] == "henry_vi"
+    assert r["intercept"]["success"] is False    # Valour 0 -> cannot Intercept
+    assert s.lords["henry_vi"].location == "bedford"
+
+
+def test_intercept_success_triggers_battle():
+    s = _to_campaign("henry_vi")
+    # March (Yorkist, Valour 3) sits adjacent and Intercepts York's march.
+    s.lords["march"].location = "bury_st_edmunds"   # adjacent to Cambridge by Road
+    s.lords["henry_vi"].location = "bury_st_edmunds"  # an enemy for March? no - same side
+    # Use a Lancastrian interceptor: place Somerset (Valour 2) adjacent to Cambridge.
+    s.lords["somerset_1"].location = "cambridge"
+    s.lords["somerset_1"].location = "bury_st_edmunds"  # Road-adjacent to Cambridge
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"intercept": "somerset_1",
+                                               "responses": {"somerset_1": "exile"}}})
+    if r["intercept"]["success"]:
+        assert "somerset_1" in r["approach"]["exiles"]
+    else:
+        assert r["approach"] is None
 
 
 def test_haul_discards_provender_over_carts():

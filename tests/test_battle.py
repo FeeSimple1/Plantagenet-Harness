@@ -42,7 +42,7 @@ def test_flee_routs_immediately_and_other_side_wins():
     s = _two_lords_at("cambridge", seed=2)
     # Attacker (York) Flees -> immediately Routs; Defender (Henry VI) wins.
     r = battle.resolve_battle(s, "cambridge", "york", "henry_vi", {"flee": ["york"]})
-    assert r["winner"] == "henry_vi"
+    assert r["winner_side"] == "lancastrian"
     # Winner gains the loser's printed Influence + 1 per Vassal.
     assert r["influence_award"]["lancastrian"] == 5   # York's Influence rating
 
@@ -86,15 +86,28 @@ def test_approach_battle_resolves_when_defender_defends():
     s = _two_lords_at("cambridge", seed=5)
     r = battle.approach(s, "cambridge", ["york"], {"responses": {"henry_vi": "battle"}})
     assert r["battle"] is not None
-    assert r["battle"]["attacker"] == "york" and r["battle"]["defender"] == "henry_vi"
+    assert r["battle"]["attackers"] == ["york"] and r["battle"]["defenders"] == ["henry_vi"]
 
 
-def test_multi_lord_battle_deferred_to_3b_ii():
-    import pytest
+def test_multi_lord_battle_two_defenders():
+    # Two Defenders vs one Attacker: an Engagement forms and the Battle
+    # resolves to a winner (or mutual Rout).
+    s = _two_lords_at("cambridge", seed=4)
+    s.lords["somerset_1"].location = "cambridge"   # second Lancastrian Defender
+    r = battle.approach(s, "cambridge", ["york"], {})
+    assert r["battle"] is not None
+    assert set(r["battle"]["defenders"]) == {"henry_vi", "somerset_1"}
+    assert r["battle"]["rounds"]
 
-    from plantagenet.errors import IllegalAction
+
+def test_flanking_merges_into_one_engagement():
+    from plantagenet import battle as bt
     s = _two_lords_at("cambridge")
-    s.lords["somerset_1"].location = "cambridge"   # a second Lancastrian Defender
-    with pytest.raises(IllegalAction) as e:
-        battle.approach(s, "cambridge", ["york"], {})
-    assert e.value.code == "multi_lord_battle_phase_3b_ii"
+    s.lords["somerset_1"].location = "cambridge"
+    forces = {lid: bt._Force(s, lid) for lid in ("york", "henry_vi", "somerset_1")}
+    # Defender center+left, Attacker only center -> the left Defender Flanks.
+    positions = {"attacker": {1: "york"}, "defender": {1: "henry_vi", 0: "somerset_1"}}
+    engs = bt._engagements(positions, forces)
+    assert len(engs) == 1
+    assert set(engs[0]["defender"]) == {"henry_vi", "somerset_1"}
+    assert engs[0]["attacker"] == ["york"]
