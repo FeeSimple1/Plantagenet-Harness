@@ -1,6 +1,6 @@
 {
   "_source": "reference/Plantagenet Map Reference.txt + Scenario Reference + Errata FAQ #3.",
-  "_note": "Per-scenario side alignment (which side may use each box) is scenario data, not encoded here. Sea connectivity for exile boxes is not enumerated in the references; see RULES_QUESTIONS.md Q-001.",
+  "_note": "Per-scenario side alignment (which side may use each box) is scenario data, not encoded here. Each Exile box acts similarly to a Port for Sail (Rules 1.3.1) and belongs to a Sea zone (see seas.json).",
   "scotland": {
     "name": "Scotland",
     "land_exits": [
@@ -8,21 +8,29 @@
       "bamburgh"
     ],
     "land_exit_one_way": true,
-    "note": "Lords can move out of Scotland by land to Carlisle or Bamburgh, but this is a one-way move."
+    "note": "Lords can move out of Scotland by land to Carlisle or Bamburgh, but this is a one-way move.",
+    "sea_zone": "north_sea",
+    "acts_as_port": true
   },
   "france": {
     "name": "France",
     "land_exits": [],
-    "note": "Exile box."
+    "note": "Exile box.",
+    "sea_zone": "english_channel",
+    "acts_as_port": true
   },
   "ireland": {
     "name": "Ireland",
     "land_exits": [],
-    "note": "Exile box."
+    "note": "Exile box.",
+    "sea_zone": "irish_sea",
+    "acts_as_port": true
   },
   "burgundy": {
     "name": "Burgundy",
     "land_exits": [],
-    "note": "Exile box."
+    "note": "Exile box.",
+    "sea_zone": "english_channel",
+    "acts_as_port": true
   }
 }

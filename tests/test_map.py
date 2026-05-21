@@ -30,21 +30,24 @@ def test_calais_has_no_land_ways(ways):
         assert "calais" not in (w["from"], w["to"]), w
 
 
-def test_disputed_edges_are_excluded_and_recorded():
-    # Q-002: Leicester-Peterborough (road) and Leicester-Nottingham
-    # (highway) are non-reciprocated in the reference; held out pending
-    # adjudication.
+def test_leicester_edges_present_and_no_disputed_edges():
+    # D-002: Leicester-Peterborough (Road) and Leicester-Nottingham
+    # (Highway) are confirmed bidirectional and now emitted; no edges
+    # remain disputed.
     import json
     from importlib import resources
 
     with resources.files("plantagenet.data.static").joinpath("ways.json").open() as fh:
         doc = json.load(fh)
-    disputed = {tuple(x) for x in doc["_meta"]["disputed_pending_adjudication"]}
-    assert ("leicester", "peterborough", "road") in disputed
-    assert ("leicester", "nottingham", "highway") in disputed
-    for w in doc["ways"]:
-        key = tuple(sorted((w["from"], w["to"]))) + (w["type"],)
-        assert key not in disputed
+    pairs = {tuple(sorted((w["from"], w["to"]))) + (w["type"],) for w in doc["ways"]}
+    assert ("leicester", "peterborough", "road") in pairs
+    assert ("leicester", "nottingham", "highway") in pairs
+    assert doc["_meta"].get("disputed_pending_adjudication", []) == []
+
+
+def test_bristol_is_a_port(locales):
+    # D-003: Bristol's Port designation (Irish Sea).
+    assert locales["bristol"]["port"] is True
 
 
 def test_region_strongholds_match_scenario_reference(locales):

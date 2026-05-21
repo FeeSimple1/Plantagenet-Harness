@@ -27,6 +27,8 @@ def check_all() -> dict[str, Any]:
     ways = static_data.load_ways()
     lords = static_data.load_lords()
     vassals = static_data.load_vassals()
+    seas = static_data.load_seas()
+    exile_boxes = static_data.load_exile_boxes()
 
     locale_ids = set(locales)
     force_ids = set(forces)
@@ -73,6 +75,31 @@ def check_all() -> dict[str, Any]:
         if seat is not None and seat not in locale_ids:
             errors.append(f"vassal {v_id} seat {seat!r} is not a locale")
 
+    # Sea zones: every member Port is a real Locale with port=True; every
+    # member Exile box exists; each Port belongs to exactly one zone; zone
+    # adjacency references real zones. (Q-001 / Rules 4.6.1.)
+    zones = seas.get("zones", {})
+    port_zone_count: dict[str, int] = {}
+    for zid, zone in zones.items():
+        for port in zone.get("ports", []):
+            if port not in locale_ids:
+                errors.append(f"sea zone {zid} lists port {port!r} not a locale")
+            elif not locales[port].get("port"):
+                errors.append(f"sea zone {zid} lists {port!r} which is not a Port")
+            port_zone_count[port] = port_zone_count.get(port, 0) + 1
+        for box in zone.get("exile_boxes", []):
+            if box not in exile_boxes:
+                errors.append(f"sea zone {zid} lists exile box {box!r} not in exile_boxes.json")
+    # Every Port locale must be assigned to exactly one sea zone.
+    for loc_id, loc in locales.items():
+        if loc.get("port") and port_zone_count.get(loc_id, 0) != 1:
+            errors.append(
+                f"port {loc_id} is in {port_zone_count.get(loc_id, 0)} sea zones (expected 1)"
+            )
+    for a, b in seas.get("adjacency", []):
+        if a not in zones or b not in zones:
+            errors.append(f"sea adjacency references unknown zone: {a!r}-{b!r}")
+
     # Scenarios: referenced lords/vassals/locales resolve.
     for sid in static_data.list_scenario_ids():
         scn = static_data.load_scenario(sid)
@@ -96,6 +123,7 @@ def check_all() -> dict[str, Any]:
             "vassals_regular": len(vassals.get("regular", {})),
             "vassals_special": len(vassals.get("special", {})),
             "scenarios": len(static_data.list_scenario_ids()),
+            "sea_zones": len(seas.get("zones", {})),
         },
         "errors": errors,
         "warnings": warnings,

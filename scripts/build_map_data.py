@@ -39,7 +39,7 @@ LOCALES = [
     ("london", "London", "special_stronghold", False, None,
         ["henry_vi", "margaret", "henry_tudor", "edward_iv", "gloucester_2", "richard_iii"], []),
     ("rochester", "Rochester", "city", False, "south", [], []),
-    ("bristol", "Bristol", "city", False, None, [], []),
+    ("bristol", "Bristol", "city", True, None, [], []),
     ("newbury", "Newbury", "town", False, None, [], []),
     ("oxford", "Oxford", "city", False, None, ["oxford"], ["oxford"]),
     ("st_albans", "St. Albans", "town", False, None, [], ["essex"]),
@@ -119,7 +119,7 @@ ADJ = {
     "ely": [("lynn", "road"), ("bury_st_edmunds", "road"), ("cambridge", "highway"),
             ("peterborough", "highway")],
     "lynn": [("norwich", "road"), ("ely", "road")],
-    "peterborough": [("northampton", "road"), ("ely", "highway"), ("lincoln", "highway")],
+    "peterborough": [("northampton", "road"), ("leicester", "road"), ("ely", "highway"), ("lincoln", "highway")],
     "northampton": [("oxford", "road"), ("coventry", "road"), ("peterborough", "road"),
                     ("bedford", "highway"), ("leicester", "highway")],
     "gloucester": [("cardiff", "road"), ("oxford", "highway"), ("hereford", "highway"),
@@ -139,7 +139,7 @@ ADJ = {
     "leicester": [("peterborough", "road"), ("lichfield", "road"), ("nottingham", "highway"),
                   ("northampton", "highway")],
     "derby": [("nottingham", "road"), ("lichfield", "road")],
-    "nottingham": [("lincoln", "road"), ("derby", "road")],
+    "nottingham": [("lincoln", "road"), ("derby", "road"), ("leicester", "highway")],
     "lincoln": [("ravenspur", "road"), ("nottingham", "road"), ("peterborough", "highway"),
                 ("york", "highway")],
     "ravenspur": [("lincoln", "road"), ("york", "road")],
@@ -161,10 +161,10 @@ ADJ = {
 # Edges declared from one endpoint only in the Map Reference (an internal
 # inconsistency in the source). Recorded as disputed and EXCLUDED from the
 # emitted ways pending user adjudication. See RULES_QUESTIONS.md Q-001.
-PENDING_ASYMMETRIC = {
-    ("leicester", "peterborough", "road"),
-    ("leicester", "nottingham", "highway"),
-}
+# Previously-disputed Leicester edges were confirmed bidirectional by user
+# adjudication (RULES_DECISIONS.md D-002); they are now reciprocated in ADJ
+# and emitted normally. No pending asymmetric edges remain.
+PENDING_ASYMMETRIC = set()
 
 
 def main() -> int:
@@ -217,8 +217,7 @@ def main() -> int:
 
     out = {
         "_source": "reference/Plantagenet Map Reference.txt",
-        "_note": "Sea adjacency between ports is not enumerated in the Map Reference; "
-                 "see RULES_QUESTIONS.md Q-001. Only land Ways (Road/Highway/Path) are encoded.",
+        "_note": "Only land Ways (Road/Highway/Path) are encoded here. Sea movement is zone-based (see seas.json), not point-to-point, per Rules 4.6.1 / FAQ #1.",
     }
     locales_doc = {"_source": "reference/Plantagenet Map Reference.txt", **locales}
 

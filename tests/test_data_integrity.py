@@ -32,3 +32,6 @@ def test_expected_counts():
     # Six standalone scenarios + the Wars of the Roses grand scenario.
     assert counts["scenarios"] == 7
     assert counts["forces"] == 7
+    # 79 base land Ways + 2 confirmed Leicester edges (D-002).
+    assert counts["ways"] == 81
+    assert counts["sea_zones"] == 3

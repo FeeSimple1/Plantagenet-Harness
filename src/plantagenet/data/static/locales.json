@@ -127,7 +127,7 @@
   "bristol": {
     "name": "Bristol",
     "type": "city",
-    "port": false
+    "port": true
   },
   "newbury": {
     "name": "Newbury",
