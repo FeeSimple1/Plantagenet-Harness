@@ -163,3 +163,42 @@ def test_campaign_activation_round_trip():
             nxt = next((m for m in moves if m["type"] != "end_activation"), moves[-1])
             actions.apply_action(s, nxt)
             steps += 1
+
+
+def test_supply_from_current_location_no_carts():
+    s = _to_campaign("henry_vi")          # York at Ely (City, own Seat, Friendly)
+    prov = s.lords["york"].assets.get("provender", 0)
+    r = actions.apply_action(s, {"type": "supply", "side": "yorkist",
+                                 "by_lord": "york", "source": "ely"})
+    assert r["ways"] == 0 and r["provender_added"] == 2     # City Supply = 2 Provender
+    assert s.lords["york"].assets["provender"] == prov + 2
+    assert s.locales["ely"].depletion == "depleted"
+
+
+def test_supply_over_one_way_needs_a_cart_per_provender():
+    s = _to_campaign("henry_vi")
+    s.locales["lynn"].favour = "yorkist"   # Fortress (1 Provender), one Way from Ely
+    s.lords["york"].assets["cart"] = 0
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "supply", "side": "yorkist",
+                                 "by_lord": "york", "source": "lynn"})
+    assert e.value.code == "insufficient_carts"
+    s.lords["york"].assets["cart"] = 1
+    r = actions.apply_action(s, {"type": "supply", "side": "yorkist",
+                                 "by_lord": "york", "source": "lynn"})
+    assert r["provender_added"] == 1
+
+
+def test_supply_exile_box_lord_needs_ship_and_port():
+    s = _to_campaign("my_kingdom_for_a_horse")   # Lancastrian Rebel in France
+    lid = s.campaign.active_lord
+    # No ship: a Stronghold Supply Source from the Exile box is illegal.
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "supply", "side": "lancastrian",
+                                 "by_lord": lid, "source": "ludlow"})
+    assert e.value.code in ("exile_needs_ship_port", "no_route")
+    # With a Ship and a same-Sea Port Source (Southampton, English Channel): ships-many.
+    s.lords[lid].assets["ship"] = 2
+    r = actions.apply_action(s, {"type": "supply", "side": "lancastrian",
+                                 "by_lord": lid, "source": "southampton", "use_ships": True})
+    assert r["via"] == "ship" and r["provender_added"] == 2   # equals Ships

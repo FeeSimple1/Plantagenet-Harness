@@ -128,3 +128,15 @@ The campaign-activation round-trip test caught one enumerator bug
 the handler rejects (4.6.2). Fixed by gating the forage option on
 non-Exhaustion. No shipped SMOKEs. Deferred (tracked): Supply (4.5) and Pay
 (3.2) -> Phase 3a-iii.
+
+## Round 8 (Phase 3a-iii - Supply)
+
+Implemented Supply (4.5): a Friendly Stronghold Source yields its table
+Provender then Depletes (or a Port Source yields Ships-many Provender,
+ignoring Depletion); the land Supply Route is a Friendly chain free of Enemy
+Lords (not across Sea), limited by Carts (one Cart per Provender per
+intervening Way); Exile-box Lords Supply by Ship from a same-Sea Port
+(Scotland by Path). This completes the Campaign Command menu (4.2.2). No
+SMOKEs. Note: cross-Lord Cart Sharing (1.5.3) for Supply uses the acting
+Lord's own Carts for now (Sharing is a follow-on). Deferred: Pay (3.2) and
+the Turn-2 Levy flow -> Phase 3a-iv.

@@ -222,6 +222,36 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     except (KeyError, AttributeError, IndexError):
         pass
 
+    # Supply (4.5): Friendly non-Exhausted Stronghold Sources reachable with
+    # enough Carts; Port Sources via Ship.
+    try:
+        carts = lord.assets.get("cart", 0)
+        for src in state.locales:
+            if src == here:
+                base = static_data.stronghold_yields(src).get("supply", {}).get("provender", 0)
+                if base and state.locales[src].depletion != "exhausted":
+                    out.append({"type": "supply", "side": side, "by_lord": lord_id,
+                                "source": src})
+                continue
+            if state.locales[src].depletion == "exhausted":
+                continue
+            ways = commands._supply_route_cost(state, here, src, side)
+            if ways is None:
+                continue
+            base = static_data.stronghold_yields(src).get("supply", {}).get("provender", 0)
+            if base and (carts // ways) >= 1:
+                out.append({"type": "supply", "side": side, "by_lord": lord_id,
+                            "source": src})
+        if lord.assets.get("ship", 0) > 0:
+            seas = static_data.load_seas()
+            ports = {p for zone in seas["zones"].values() for p in zone.get("ports", [])}
+            for src in ports:
+                if src != here and commands._same_sea_port_or_box(here, src):
+                    out.append({"type": "supply", "side": side, "by_lord": lord_id,
+                                "source": src, "use_ships": True})
+    except (KeyError, AttributeError, IndexError):
+        pass
+
     # Parley (4.6.4): own location (if not Friendly) or adjacent / same-Sea Port.
     try:
         if kind == "stronghold" and state.locales[here].favour != side:

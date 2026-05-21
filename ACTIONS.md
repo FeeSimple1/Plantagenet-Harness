@@ -85,6 +85,7 @@ Phase 3a-ii adds the movement/economy Commands:
 | `sail` | `side`, `by_lord`, `to` (Port) | 4.6.1 | done (same/adjacent Sea, free of enemy; Ship per 6 Forces / 2 Prov / 2 Cart; whole card) |
 | `tax` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.3 | done (own Seat auto; Vassal Seat / Special via Route + Influence; strongholds Coin; Depletes) |
 | `parley` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.4 | done (own location auto; else adjacent / same-Sea Port + Influence) |
+| `supply` | `side`, `by_lord`, `source`, optional `use_ships` | 4.5 | done (Stronghold table Provender + Deplete, or Port via Ships; land Route with 1 Cart/Provender/Way; Exile box uses Ship+same-Sea Port) |
 
 Feed (4.7) is now live: a Moved-Fought Lord removes 1 Provender per 6 Troops;
 if short it Pillages an Unexhausted Stronghold (3.2.1) and Feeds from the
@@ -92,10 +93,14 @@ gain, else Unfed-Disbands (3.2.4). March into an Enemy Locale (Approach
 4.3.5) or adjacent to an Enemy by land (Intercept 4.3.4) is rejected with a
 `*_phase_3b` code (Battle is Phase 3b).
 
-DEFERRED to Phase 3a-iii: `supply` (4.5) and Pay (3.2) on Turn rollover (a
-rolled-over Turn lands at the Muster step until Pay / the Arts-of-War draw
-land). Combat (Intercept/Approach/Battle) is Phase 3b; Arts-of-War card
-effects are Phase 4.
+The Campaign Command menu (4.2.2) is now complete: March, Sail, Supply,
+Forage, Tax, Parley, Pass.
+
+DEFERRED to Phase 3a-iv: Pay (3.2: Pay Troops with Sharing/Pillage, Pay
+Lords, Pay Vassals, Disband) and the Turn-2 Levy flow (3.3 Exiles/Vassals).
+A rolled-over Turn currently lands at the Muster step until Pay / the
+Arts-of-War draw (3.1, Phase 4) land. Combat (Intercept/Approach/Battle) is
+Phase 3b; Arts-of-War card effects are Phase 4.
 
 ### Campaign (later phases)
 

@@ -17,6 +17,7 @@ from plantagenet import campaign, influence, static_data
 from plantagenet.actions import (
     _adjacency,
     enemy_lord_at,
+    is_friendly_stronghold,
     lord_at_friendly_locale,
     lord_location,
     other_side,
@@ -290,3 +291,95 @@ def _shift_favour(state: GameState, target: str, side: str) -> None:
 def _fav_desc(target: str, before: str, side: str) -> str:
     after = side if before == "neutral" else "neutral"
     return f"{target}: {before} -> {after}"
+
+
+# --------------------------------------------------------------- 4.5 Supply
+def _supply_route_cost(state: GameState, here: str, source: str, side: str) -> int | None:
+    """Shortest land Supply Route (Friendly chain free of Enemy Lords, NOT
+    across any Sea), including both the Lord's Locale and the Source, which
+    must itself be Friendly (4.5.1). Returns the Way count, or None."""
+    from collections import deque
+    if source == here:
+        return 0
+    if not is_friendly_stronghold(state, source, side) or enemy_lord_at(state, source, side):
+        return None
+    seen = {here}
+    q = deque([(here, 0)])
+    while q:
+        node, dist = q.popleft()
+        for nxt, _t in _adjacency().get(node, []):
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            if nxt == source:
+                return dist + 1
+            if is_friendly_stronghold(state, nxt, side) and not enemy_lord_at(state, nxt, side):
+                q.append((nxt, dist + 1))
+    return None
+
+
+def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    lord = campaign._active_command_lord(state, action)
+    _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
+             "Supply requires the acting Lord at a Friendly Locale (4.5)")
+    loc = lord_location(lord)
+    kind, here = loc
+    source = action.get("source")
+    _require(source in state.locales, "unknown_source", f"no such Stronghold/Port {source!r}")
+    _require(source not in static_data.load_exile_boxes(), "exile_not_source",
+             "an Exile box is never a Supply Source (4.5.1)")
+    use_ships = bool(action.get("use_ships", False))
+    carts = lord.assets.get("cart", 0)
+    is_port = bool(static_data.load_locales()[source].get("port"))
+
+    # Exile-box Lords must Supply by Ship from a same-Sea Port (Scotland: Path).
+    if kind == "exile" and here != "scotland":
+        _require(use_ships and is_port and _same_sea_port_or_box(here, source),
+                 "exile_needs_ship_port",
+                 "an Exile-box Lord must Supply via Ship from a Port on the same Sea (4.5.1)")
+
+    if use_ships:
+        _require(is_port, "ships_need_port", "Ship Supply requires a Port Source (4.5.1)")
+        ships = lord.assets.get("ship", 0)
+        _require(ships > 0, "no_ships", "Ship Supply requires at least one Ship (4.5.1)")
+        sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \
+            and _same_sea_port_or_box(here, source)
+        if sea_direct:
+            added = ships                          # by Sea: no Carts (4.5.2)
+        else:
+            ways = _supply_route_cost(state, here, source, lord.side)
+            _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
+            added = ships if ways == 0 else min(ships, carts // ways)
+            _require(added > 0, "insufficient_carts",
+                     "need one Cart per Provender per intervening Way (4.5.1)")
+        lord.assets["provender"] = lord.assets.get("provender", 0) + added
+        state.campaign.actions_remaining -= 1
+        return {"type": "supply", "by_lord": lord.lord_id, "source": source,
+                "via": "ship", "provender_added": added}
+
+    # Stronghold Source: table Provender, Cart-limited, then Deplete (4.5.2).
+    _require(state.locales[source].depletion != "exhausted", "exhausted",
+             f"{source} is Exhausted and may not be a Supply Source (4.5.1)")
+    ways = _supply_route_cost(state, here, source, lord.side)
+    _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
+    base = static_data.stronghold_yields(source).get("supply", {}).get("provender", 0)
+    added = base if ways == 0 else min(base, carts // ways)
+    _require(added > 0, "insufficient_carts",
+             "need one Cart per Provender per intervening Way to a Source (4.5.1)")
+    lord.assets["provender"] = lord.assets.get("provender", 0) + added
+    src = state.locales[source]
+    src.depletion = "exhausted" if src.depletion == "depleted" else "depleted"
+    state.campaign.actions_remaining -= 1
+    return {"type": "supply", "by_lord": lord.lord_id, "source": source,
+            "via": "stronghold", "ways": ways, "provender_added": added}
+
+
+def _same_sea_port_or_box(a: str, b: str) -> bool:
+    seas = static_data.load_seas()
+    where = {}
+    for z, zone in seas["zones"].items():
+        for p in zone.get("ports", []):
+            where[p] = z
+        for bx in zone.get("exile_boxes", []):
+            where[bx] = z
+    return a in where and b in where and where[a] == where[b]
