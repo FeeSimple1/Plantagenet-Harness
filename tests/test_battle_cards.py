@@ -64,3 +64,64 @@ def test_invalid_card_plays_rejected():
     with pytest.raises(IllegalAction) as e:       # Lancastrians hold no Leeward Event
         battle.resolve_battle(s2, "cambridge", "york", "henry_vi", {"leeward": ["lancastrian"]})
     assert e.value.code == "no_leeward"
+
+
+def _round_melee(result, rnd, key="attacker_hits"):
+    eng = result["rounds"][rnd]["engagements"][0]
+    return next(st for st in eng["strikes"] if st["phase"] == "melee")[key]
+
+
+def test_caltrops_adds_two_melee_each_round():
+    base = _round_melee(battle.resolve_battle(_duel(), "cambridge", "york", "henry_vi", {}), 0)
+    s = _duel()
+    s.decks["yorkist"]["held"] = ["Y19"]          # Yorkist holds Caltrops
+    r = battle.resolve_battle(s, "cambridge", "york", "henry_vi", {"caltrops": ["yorkist"]})
+    assert _round_melee(r, 0) == base + 2
+    assert "Y19" not in s.decks["yorkist"]["held"]   # Hold Event consumed
+
+
+def test_barricades_buffs_armour_at_friendly_stronghold():
+    s = _duel()
+    s.locales["cambridge"].favour = "yorkist"
+    s.lords["york"].capabilities = ["Y9"]         # Barricades
+    forces = {lid: battle._Force(s, lid) for lid in ("york", "henry_vi")}
+    battle._apply_barricades(s, forces, "cambridge")
+    assert forces["york"].prof["men_at_arms"]["prot"] == [1, 4]
+    assert forces["york"].prof["longbow"]["prot"] == [1, 2]
+    assert forces["york"].prof["militia"]["prot"] == [1, 2]
+    # Not at a Friendly Stronghold -> no buff.
+    s2 = _duel()
+    s2.locales["cambridge"].favour = "neutral"
+    s2.lords["york"].capabilities = ["Y9"]
+    f2 = {lid: battle._Force(s2, lid) for lid in ("york", "henry_vi")}
+    battle._apply_barricades(s2, f2, "cambridge")
+    assert f2["york"].prof["men_at_arms"]["prot"] == [1, 3]
+
+
+def test_ravine_ignores_enemy_lord_round_one():
+    s = _duel()
+    s.decks["lancastrian"]["held"] = ["L12"]      # Lancastrians hold Ravine
+    # Play Ravine on York (the only Attacker) -> Round 1 has no Engagement.
+    r = battle.resolve_battle(s, "cambridge", "york", "henry_vi", {"ravine": "york"})
+    assert r["rounds"][0]["engagements"] == []
+    assert "L12" not in s.decks["lancastrian"]["held"]
+
+
+def test_blocked_ford_forbids_exile():
+    s = _duel()
+    s.decks["yorkist"]["held"] = ["Y11"]          # Blocked Ford
+    r = battle.approach(s, "cambridge", ["york"],
+                        {"responses": {"henry_vi": "exile"}, "blocked_ford": ["yorkist"]})
+    assert r["blocked_ford"] is True
+    assert r["exiles"] == [] and r["battle"] is not None   # Exile forbidden -> Battle
+
+
+def test_invalid_combat_card_plays_rejected():
+    s = _duel()
+    with pytest.raises(IllegalAction) as e:
+        battle.resolve_battle(s, "cambridge", "york", "henry_vi", {"caltrops": ["yorkist"]})
+    assert e.value.code == "no_caltrops"
+    s2 = _duel()
+    with pytest.raises(IllegalAction) as e:
+        battle.resolve_battle(s2, "cambridge", "york", "henry_vi", {"ravine": "york"})
+    assert e.value.code == "no_ravine"

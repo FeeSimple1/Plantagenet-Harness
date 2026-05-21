@@ -50,6 +50,10 @@ def _strike_profile() -> dict[str, dict[str, Any]]:
 
 CULVERINS = "CULVERINS AND FALCONETS"
 LEEWARD = "LEEWARD BATTLE LINE"
+CALTROPS = "CALTROPS"
+RAVINE = "RAVINE"
+BARRICADES = "BARRICADES"
+BLOCKED_FORD = "BLOCKED FORD"
 
 
 def _lord_has_capability(state: GameState, lord_id: str, title: str) -> str | None:
@@ -78,6 +82,24 @@ def _use_held_event(state: GameState, side: str, card_id: str) -> None:
     if card_id in held:
         held.remove(card_id)
     state.decks.setdefault(side, {}).setdefault("discard", []).append(card_id)
+
+
+def _apply_barricades(state, forces, locale):
+    """Barricades (Y9 Capability): at a Friendly Stronghold, this Lord's
+    Men-at-Arms gain Armour 1-4 and Longbowmen/Militia Armour 1-2 (4.4.2).
+    Does not apply to Losses rolls (handled in _losses)."""
+    fav = state.locales[locale].favour
+    for f in forces.values():
+        lord = state.lords[f.lord_id]
+        if fav == lord.side and any(
+                static_data.load_cards()[c]["capability"]["title"] == BARRICADES
+                for c in lord.capabilities):
+            if "men_at_arms" in f.prof:
+                f.prof["men_at_arms"]["prot"] = [1, 4]
+            if "longbow" in f.prof:
+                f.prof["longbow"]["prot"] = [1, 2]
+            if "militia" in f.prof:
+                f.prof["militia"]["prot"] = [1, 2]
 
 
 class _Force:
@@ -256,7 +278,25 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         leeward.add(sd)
     both_leeward = {aside, dside} <= leeward    # both played -> neither has effect
 
+    caltrops = set()                            # Caltrops (Y19): +2 Melee Hits/Round
+    for sd in decisions.get("caltrops", []):
+        cid = _side_held_event(state, sd, CALTROPS)
+        _require(sd in (aside, dside) and cid is not None, "no_caltrops",
+                 f"{sd} has no Caltrops Held Event to play (4.4.1)")
+        _use_held_event(state, sd, cid)
+        caltrops.add(sd)
+    ravine_target = decisions.get("ravine")     # Ravine (L12): ignore an enemy Lord Round 1
+    if ravine_target is not None:
+        _require(ravine_target in attackers + defenders, "bad_ravine",
+                 "Ravine must target a Lord in the Battle (4.4.1)")
+        player_side = dside if ravine_target in attackers else aside
+        cid = _side_held_event(state, player_side, RAVINE)
+        _require(cid is not None, "no_ravine",
+                 f"{player_side} has no Ravine Held Event to play (4.4.1)")
+        _use_held_event(state, player_side, cid)
+
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
+    _apply_barricades(state, forces, locale)
     positions, reserves = _initial_array(attackers, defenders, decisions)
     rounds: list[dict[str, Any]] = []
 
@@ -275,13 +315,27 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
             rounds.append(rlog)
             break
         _reposition(positions, reserves, forces)               # REPOSITION
-        for eng in _engagements(positions, forces):            # ENGAGE + STRIKE
+        engs = _engagements(positions, forces)
+        if n == 1 and ravine_target is not None:               # Ravine: ignore Lord Round 1
+            for eng in engs:
+                eng["attacker"] = [x for x in eng["attacker"] if x != ravine_target]
+                eng["defender"] = [x for x in eng["defender"] if x != ravine_target]
+            engs = [e for e in engs if e["attacker"] and e["defender"]]
+        caltrops_done = set()
+        for eng in engs:                                       # ENGAGE + STRIKE
             elog = {"attacker": eng["attacker"], "defender": eng["defender"], "strikes": []}
             a_forces = [forces[lid] for lid in eng["attacker"]]
             d_forces = [forces[lid] for lid in eng["defender"]]
             for phase in ("missile", "melee"):
                 a_hits = ceil(sum(f.raw_hits(phase) for f in a_forces))
                 d_hits = ceil(sum(f.raw_hits(phase) for f in d_forces))
+                if phase == "melee":                # Caltrops: +2 Melee/Round (one Engagement)
+                    if aside in caltrops and aside not in caltrops_done:
+                        a_hits += 2
+                        caltrops_done.add(aside)
+                    if dside in caltrops and dside not in caltrops_done:
+                        d_hits += 2
+                        caltrops_done.add(dside)
                 if phase == "missile":
                     if n == 1:                      # Culverins: +1 d6 Missile Hit, Round 1
                         for lid in eng["attacker"]:
@@ -385,9 +439,11 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
 def _losses(state: GameState, winner: _Force, dice, result: dict) -> None:
     lord = state.lords[winner.lord_id]
     recovered = lost = 0
+    base_prot = {fid: f["protection"] for fid, f in static_data.load_forces().items()
+                 if not fid.startswith("_")}
     for t in [x for x in winner.count if x in _TROOP_TYPES]:
         for _ in range(winner.routed.get(t, 0)):
-            lo, hi = winner.prof[t]["prot"]
+            lo, hi = base_prot[t]            # unmodified Protection for Losses (4.4.3)
             if lo <= dice.d6() <= hi:
                 recovered += 1
             else:
@@ -418,10 +474,20 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
     aside = state.lords[attackers[0]].side
     defenders = [lid for lid, v in state.lords.items()
                  if v.status == LordStatus.MUSTERED and v.location == locale and v.side != aside]
-    result: dict[str, Any] = {"locale": locale, "exiles": [], "battle": None}
+    dside = state.lords[defenders[0]].side if defenders else None
+    # Blocked Ford (Y11/L11): either side may play to forbid Exile (all Battle, 4.3.5).
+    blocked_ford = False
+    for sd in decisions.get("blocked_ford", []):
+        cid = _side_held_event(state, sd, BLOCKED_FORD)
+        _require(sd in (aside, dside) and cid is not None, "no_blocked_ford",
+                 f"{sd} has no Blocked Ford Held Event to play (4.3.5)")
+        _use_held_event(state, sd, cid)
+        blocked_ford = True
+    result: dict[str, Any] = {"locale": locale, "exiles": [], "battle": None,
+                              "blocked_ford": blocked_ford}
     battling: list[str] = []
     for d in defenders:
-        if responses.get(d, "battle") == "exile":
+        if not blocked_ford and responses.get(d, "battle") == "exile":
             _exile(state, locale, d, attackers[0])
             result["exiles"].append(d)
         else:
