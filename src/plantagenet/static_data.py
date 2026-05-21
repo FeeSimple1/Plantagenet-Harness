@@ -67,6 +67,24 @@ def load_vassals() -> dict[str, Any]:
 
 
 @cache
+def load_strongholds() -> dict[str, Any]:
+    """Strongholds table: Levy-Troops / Supply / Tax / Pillage yields and the
+    Tides-of-War award (with favour vs most-favour basis) per type (Q-003/D-004)."""
+    return _strip_meta(_load_json(_STATIC_PKG, "strongholds.json"))
+
+
+def stronghold_yields(locale_id: str) -> dict[str, Any]:
+    """Return the Strongholds-table row for a Locale (by type, or by id for
+    Special Strongholds). Raises KeyError if the Locale is not a Stronghold."""
+    loc = load_locales()[locale_id]
+    table = load_strongholds()
+    typ = loc["type"]
+    if typ == "special_stronghold":
+        return table["special"][locale_id]
+    return table["by_type"][typ]
+
+
+@cache
 def load_seas() -> dict[str, Any]:
     """Sea zones (Irish Sea / English Channel / North Sea), their Port and
     Exile-box membership, and zone adjacency for Sail (4.6.1 / FAQ #1)."""

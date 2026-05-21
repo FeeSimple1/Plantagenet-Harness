@@ -77,3 +77,35 @@ designation.
 
 **Encoded in.** `data/static/locales.json` (bristol `port: true`),
 `scripts/build_map_data.py`, `data/static/seas.json` (Irish Sea), and the Map Reference (.txt). Commit: see the phase-0-map-corrections merge.
+
+## D-004 — Strongholds table (resolves Q-003)
+
+**Date.** 2026-05-20.
+
+**Question.** The Strongholds table (Troop-Levy and Pillage/Tax/Supply
+yields per Stronghold type, plus the Tides-of-War award) is on the
+player-aid foldout, absent from the repo sources; needed for Levy Troops
+(3.4.4) and later Pillage/Tax/Forage.
+
+**User adjudication.** Provided `reference/Plantagenet Strongholds
+Reference.txt` (transcribed foldout) and `reference/Plantagenet Influence
+Points & Parley Reference.txt`. Levy-Troops yields: City = 1 Longbow + 1
+Militia; Town = 2 Militia; Fortress = 1 Men-at-Arms + 1 Longbow; London = 1
+Men-at-Arms + 1 Longbow + 1 Militia; Calais = 2 Men-at-Arms + 1 Longbow;
+Harlech = 1 Men-at-Arms + 2 Longbow. Supply/Tax/Pillage and Tides-of-War
+awards per the reference.
+
+**Favour vs Most Favour (user emphasis).** Tides of War (4.8.1): REGULAR
+Strongholds (City/Town/Fortress) award Influence to the side with the MOST
+total Favour of that type (one award per type). SPECIAL Strongholds
+(London/Calais/Harlech) award INDIVIDUALLY to whichever side has Favour
+there. Encoded as `tides_of_war.basis` ("most_favour" vs "favour") in
+`strongholds.json`.
+
+**Citation.** Rules 3.4.4, 3.2.1, 4.6.2-.3, 4.8.1; player-aid foldout
+(transcribed). Background Book example confirms City = 1 Longbow + 1 Militia.
+
+**Encoded in.** `data/static/strongholds.json`; `forces.json` (troop pool
+counts, 1.6); `static_data.load_strongholds`/`stronghold_yields`;
+`actions.py` `_h_levy_troops` (3.4.4); `data_integrity.py`. Levy Troops is
+now executable. Pillage/Tax/Forage yields will use the same table in Phase 3.

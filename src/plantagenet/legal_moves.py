@@ -8,8 +8,8 @@ static data, it is wrapped so a data hiccup suppresses the option rather
 than crashing the enumerator (bias: miss a legal move over offering a
 phantom-legal one).
 
-Deferred Muster actions are intentionally NOT enumerated: levy_troops
-(needs the Strongholds table, Q-003) and levy_capability (Phase 4).
+The one deferred Muster action intentionally NOT enumerated is
+levy_capability (Arts of War cards, Phase 4).
 """
 
 from __future__ import annotations
@@ -76,6 +76,14 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str) -> list[dic
                 moves.append({"type": "levy_vassal", "side": side,
                               "by_lord": lord_id, "target": vid})
     except (KeyError, AttributeError):
+        pass
+
+    # --- Levy Troops (3.4.4): at a Friendly Stronghold (not Exile box), not Exhausted ---
+    try:
+        loc = actions.lord_location(lord)
+        if loc[0] == "stronghold" and state.locales[loc[1]].depletion != "exhausted":
+            moves.append({"type": "levy_troops", "side": side, "by_lord": lord_id})
+    except (KeyError, AttributeError, IndexError):
         pass
 
     # --- Levy Transport (3.4.5) ---

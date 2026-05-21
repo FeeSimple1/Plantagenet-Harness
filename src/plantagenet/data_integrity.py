@@ -28,6 +28,7 @@ def check_all() -> dict[str, Any]:
     lords = static_data.load_lords()
     vassals = static_data.load_vassals()
     seas = static_data.load_seas()
+    strongholds = static_data.load_strongholds()
     exile_boxes = static_data.load_exile_boxes()
 
     locale_ids = set(locales)
@@ -74,6 +75,25 @@ def check_all() -> dict[str, Any]:
         seat = v.get("seat")
         if seat is not None and seat not in locale_ids:
             errors.append(f"vassal {v_id} seat {seat!r} is not a locale")
+
+    # Strongholds table: every Locale's type resolves to a table row, and the
+    # Levy-Troops units reference real force types (Q-003 / D-004).
+    force_ids2 = set(forces)
+    for loc_id, loc in locales.items():
+        typ = loc["type"]
+        try:
+            row = (strongholds["special"][loc_id] if typ == "special_stronghold"
+                   else strongholds["by_type"][typ])
+        except KeyError:
+            errors.append(f"locale {loc_id} (type {typ}) has no Strongholds-table row")
+            continue
+        for unit in row.get("levy_troops", {}):
+            if unit not in force_ids2:
+                errors.append(f"strongholds row for {loc_id} levies unknown unit {unit!r}")
+    # Pooled wooden Troop types carry a pool count (1.6).
+    for fid in ("men_at_arms", "longbow", "militia", "mercenaries", "handgunners"):
+        if "pool" not in forces.get(fid, {}):
+            errors.append(f"force {fid} is missing its pool count")
 
     # Sea zones: every member Port is a real Locale with port=True; every
     # member Exile box exists; each Port belongs to exactly one zone; zone
@@ -124,6 +144,7 @@ def check_all() -> dict[str, Any]:
             "vassals_special": len(vassals.get("special", {})),
             "scenarios": len(static_data.list_scenario_ids()),
             "sea_zones": len(seas.get("zones", {})),
+            "troop_pool": sum(forces[f].get("pool", 0) for f in forces if not f.startswith("_")),
         },
         "errors": errors,
         "warnings": warnings,

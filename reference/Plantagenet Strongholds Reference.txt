@@ -1,0 +1,53 @@
+Plantagenet Strongholds Reference
+ 
+Note on Tides of War wording: For regular Strongholds (City, Town, Fortress), the side with the MOST total Favour markers of that type earns the Influence points (one award per type, regardless of how many Strongholds of that type the side holds). For Special Strongholds (London, Calais, Harlech), the Influence points are awarded INDIVIDUALLY to whichever side has Favour at that specific Stronghold. The rules wording in 4.8.1 reflects this distinction.
+ 
+================================================================
+REGULAR STRONGHOLDS
+================================================================
+ 
+CITY
+  Levy Troops:   1 Longbow + 1 Militia
+  Supply:        2 Provender
+  Tax:           2 Coin
+  Pillage:       2 Provender + 2 Coin
+  Tides of War:  +2 Influence for most Favour
+ 
+TOWN
+  Levy Troops:   2 Militia
+  Supply:        1 Provender
+  Tax:           1 Coin
+  Pillage:       1 Provender + 1 Coin
+  Tides of War:  +1 Influence for most Favour
+ 
+FORTRESS
+  Levy Troops:   1 Men-at-Arms + 1 Longbow
+  Supply:        1 Provender
+  Tax:           1 Coin
+  Pillage:       1 Provender + 1 Coin
+  Tides of War:  +1 Influence for most Favour
+ 
+================================================================
+SPECIAL STRONGHOLDS
+================================================================
+ 
+LONDON
+  Levy Troops:   1 Men-at-Arms + 1 Longbow + 1 Militia
+  Supply:        3 Provender
+  Tax:           3 Coin
+  Pillage:       3 Provender + 3 Coin
+  Tides of War:  +2 Influence for Favour
+ 
+CALAIS
+  Levy Troops:   2 Men-at-Arms + 1 Longbow
+  Supply:        3 Provender
+  Tax:           3 Coin
+  Pillage:       3 Provender + 3 Coin
+  Tides of War:  +2 Influence for Favour
+ 
+HARLECH
+  Levy Troops:   1 Men-at-Arms + 2 Longbow
+  Supply:        1 Provender
+  Tax:           1 Coin
+  Pillage:       1 Provender + 1 Coin
+  Tides of War:  +1 Influence for Favour

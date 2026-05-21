@@ -15,14 +15,14 @@ is an operator's guide to the codebase as it stands.
 ## Status
 
 **Phase 2 (current): Levy Muster mechanics.** The harness now enforces the
-Levy Muster segment (3.4): `parley`, `levy_lord`, `levy_vassal`, and
-`levy_transport`, each gated by the Influence check (1.4.2) and Lordship,
+Levy Muster segment (3.4): `parley`, `levy_lord`, `levy_vassal`,
+`levy_transport`, and `levy_troops`, each gated by the Influence check (1.4.2) and Lordship,
 with `legal-moves` enumerating the active side's options and `do` executing
 actions. Turn order is "Rebel then King's" (3.1-3.4). Two Muster actions are
-deferred with explicit reasons: `levy_troops` (needs the Strongholds table,
-RULES_QUESTIONS Q-003) and `levy_capability` (Arts of War cards, Phase 4).
-The Pay step (3.2) is skipped on Turn 1 and its Pillage detail also awaits
-the Strongholds table. See the phasing plan in `BRIEF.md`.
+(`levy_troops` uses the Strongholds table, D-004, and Depletes/Exhausts the
+Locale.) The one remaining deferred Muster action is `levy_capability`
+(Arts of War cards, Phase 4). The Pay step (3.2) is skipped on Turn 1. See
+the phasing plan in `BRIEF.md`.
 
 ## Where things are
 

@@ -15,8 +15,8 @@ def test_enumerator_only_for_active_side_during_muster():
     s = build_initial_state("henry_vi")
     moves = legal_moves.legal_moves(s)
     assert moves and all(m["side"] == s.active_side for m in moves)
-    # No deferred actions are ever offered.
-    assert not any(m["type"] in ("levy_troops", "levy_capability") for m in moves)
+    # The one deferred Muster action (cards) is never offered.
+    assert not any(m["type"] == "levy_capability" for m in moves)
     assert any(m["type"] == "end_muster" for m in moves)
 
 
