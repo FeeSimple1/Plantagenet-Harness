@@ -27,6 +27,8 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         return _campaign_moves(state)
     if state.phase == "levy" and state.levy_step == "done":
         return [{"type": "begin_campaign"}]
+    if state.phase == "levy" and state.levy_step == "arts_of_war":
+        return [{"type": "draw", "side": state.active_side}]
     if state.phase == "levy" and state.levy_step == "pay":
         return [{"type": "pay", "side": state.active_side}]
     if state.levy_step != "muster":

@@ -153,6 +153,10 @@ class GameState(_Model):
     calendar: CalendarState = Field(default_factory=CalendarState)
     campaign: CampaignState | None = None
     victory: dict[str, Any] | None = None   # set when the game ends (4.8.3, 5.x)
+    # side -> {"draw": [...], "discard": [...], "held": [...]} Arts of War piles:
+    decks: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
+    # This Levy / This Campaign Events currently in effect:
+    active_events: list[dict[str, Any]] = Field(default_factory=list)
     arts_of_war: dict[str, str] = Field(default_factory=dict)   # side -> deck composition text
     history: list[dict[str, Any]] = Field(default_factory=list)
     pending: list[dict[str, Any]] = Field(default_factory=list)

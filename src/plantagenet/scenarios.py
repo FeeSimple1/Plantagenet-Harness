@@ -162,7 +162,16 @@ def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> Gam
         calendar=cal,
         arts_of_war={"description": scn.get("arts_of_war", "")},
     )
-    state.store_dice(DiceRoller(seed))
+    roller = DiceRoller(seed)
+    if not battle_only:
+        state.levy_step = "arts_of_war"      # the Levy begins with the Arts of War draw (3.1)
+        in_play = {c for ls in lords.values() for c in ls.capabilities}
+        for s_side in SIDES:
+            draw = [cid for cid in static_data.scenario_card_deck(scenario_id, s_side)
+                    if cid not in in_play]
+            roller.shuffle(draw)
+            state.decks[s_side] = {"draw": draw, "discard": [], "held": []}
+    state.store_dice(roller)
     return state
 
 

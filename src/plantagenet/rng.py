@@ -30,6 +30,10 @@ class DiceRoller:
         """Roll a single six-sided die (1-6)."""
         return self._rng.randint(1, 6)
 
+    def shuffle(self, seq: list) -> None:
+        """Shuffle a list in place (used to order Arts of War draw piles)."""
+        self._rng.shuffle(seq)
+
     def roll(self, n: int) -> list[int]:
         """Roll ``n`` six-sided dice, returning each result in order."""
         if n < 0:

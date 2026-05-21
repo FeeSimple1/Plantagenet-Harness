@@ -7,9 +7,11 @@ import pytest
 from plantagenet import actions, campaign
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
+from tests._helpers import to_muster
 
 
 def _finish_levy(s):
+    to_muster(s)
     actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
     actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
 
@@ -139,8 +141,8 @@ def test_end_campaign_advances_turn_on_multi_turn_scenario():
     r = actions.apply_action(s, {"type": "end_campaign"})
     assert r["victory"] is None
     assert s.turn_box == 2
-    # A rolled-over Turn begins at the Pay step (3.2), Rebel first.
-    assert s.phase == "levy" and s.levy_step == "pay"
+    # A rolled-over Turn begins at the Arts of War draw (3.1), Rebel first.
+    assert s.phase == "levy" and s.levy_step == "arts_of_war"
     assert s.active_side == "yorkist"
 
 

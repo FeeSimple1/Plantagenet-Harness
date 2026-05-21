@@ -7,10 +7,12 @@ import pytest
 from plantagenet import actions, campaign, legal_moves
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
+from tests._helpers import to_muster
 
 
 def _to_campaign(sid, seed=1):
     s = build_initial_state(sid, seed=seed)
+    to_muster(s)
     actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
     actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
     actions.apply_action(s, {"type": "begin_campaign"})

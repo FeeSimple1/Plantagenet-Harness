@@ -502,12 +502,13 @@ def _waste(state: GameState) -> None:
 
 
 def _reset_to_next_levy(state: GameState) -> None:
+    state.active_events = [e for e in state.active_events if e.get("scope") != "this_campaign"]
     state.turn_box += 1
     state.phase = "levy"
-    # A rolled-over Turn begins at Pay (3.2). The Arts-of-War draw (3.1, Events)
-    # is Phase 4; Muster Exiles (3.3.1) is deferred (needs scenario Exile-box
-    # mapping and is a no-op without due Exile cylinders).
-    state.levy_step = "pay"
+    # A rolled-over Turn begins at the Arts of War draw (3.1), then Pay (3.2).
+    # Muster Exiles (3.3.1) is deferred (needs scenario Exile-box mapping and
+    # is a no-op without due Exile cylinders).
+    state.levy_step = "arts_of_war"
     state.campaign = None
     state.active_side = _rebel(state)
     for lord in state.lords.values():
