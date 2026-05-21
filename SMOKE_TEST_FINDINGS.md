@@ -39,3 +39,10 @@ Re-ran the reciprocity discipline two ways and they agree: the
 `ways.json` builder symmetry check passes with no pending edges, and an
 independent prose parse of the Map Reference (`scripts/reciprocity_sweep.py`)
 reports 81 reciprocal pairs and zero one-sided edges or type mismatches.
+
+## Round 2 (Phase 0 cleanup)
+
+Removed `reference/Plantagenet map.rtf` (a duplicate of `Plantagenet Map
+Reference.txt`) to eliminate the two-sources-of-truth drift risk flagged
+after the map corrections. The `.txt` is now the single canonical map
+reference.
