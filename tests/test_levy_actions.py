@@ -161,13 +161,6 @@ def test_levy_troops_pool_limited():
     assert r["added"].get("longbow") == 1   # Longbow still available
 
 
-def test_levy_capability_deferred_to_phase_4():
-    s = build_initial_state("henry_vi")
-    with pytest.raises(IllegalAction) as e:
-        actions.apply_action(s, {"type": "levy_capability", "side": "yorkist", "by_lord": "york"})
-    assert e.value.code == "deferred_phase_4"
-
-
 def test_end_muster_passes_rebel_to_king_then_completes():
     s = build_initial_state("henry_vi")
     r1 = actions.apply_action(s, {"type": "end_muster", "side": "yorkist"})
@@ -189,3 +182,50 @@ def test_exile_box_lord_may_levy_transport_but_not_troops():
         actions.apply_action(s, {"type": "levy_troops", "side": "lancastrian",
                                  "by_lord": "henry_tudor"})
     assert e.value.code == "in_exile_box"  # Exile-box Lords may not Levy Troops (3.4.4)
+
+
+def test_levy_capability_attaches_eligible_card():
+    s = build_initial_state("henry_vi")          # Yorkist Rebel; York at Ely (Friendly)
+    r = actions.apply_action(s, {"type": "levy_capability", "side": "yorkist",
+                                 "by_lord": "york", "card": "Y1"})
+    assert r["title"] == "CULVERINS AND FALCONETS"
+    assert s.lords["york"].capabilities == ["Y1"]
+    assert s.lords["york"].lordship_spent == 1
+
+
+def test_levy_capability_blocks_duplicate_name_and_third_card():
+    s = build_initial_state("henry_vi")
+    actions.apply_action(s, {"type": "levy_capability", "side": "yorkist",
+                             "by_lord": "york", "card": "Y1"})
+    # Y2 shares the CULVERINS AND FALCONETS Capability name -> duplicate.
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "levy_capability", "side": "yorkist",
+                                 "by_lord": "york", "card": "Y2"})
+    assert e.value.code == "duplicate_capability"
+    actions.apply_action(s, {"type": "levy_capability", "side": "yorkist",
+                             "by_lord": "york", "card": "Y3"})
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "levy_capability", "side": "yorkist",
+                                 "by_lord": "york", "card": "Y9"})
+    assert e.value.code == "two_capabilities"
+
+
+def test_levy_capability_rejects_card_not_in_scenario_deck():
+    s = build_initial_state("henry_vi")          # Ia uses rose-1 cards, not rose-2/3
+    with pytest.raises(IllegalAction) as e:       # Y32 is a rose-3 (Scenario III) card
+        actions.apply_action(s, {"type": "levy_capability", "side": "yorkist",
+                                 "by_lord": "york", "card": "Y32"})
+    assert e.value.code == "card_not_in_scenario"
+
+
+def test_levy_capability_eligibility_by_name():
+    # L35 THOMAS STANLEY: eligible for Jasper Tudor or Henry Tudor only.
+    s = build_initial_state("my_kingdom_for_a_horse")   # Lancastrian Rebel; Henry/Jasper in France
+    r = actions.apply_action(s, {"type": "levy_capability", "side": "lancastrian",
+                                 "by_lord": "jasper_tudor_2", "card": "L35"})
+    assert r["title"] == "THOMAS STANLEY"
+    s2 = build_initial_state("my_kingdom_for_a_horse")
+    with pytest.raises(IllegalAction) as e:        # Oxford is not eligible for L35
+        actions.apply_action(s2, {"type": "levy_capability", "side": "lancastrian",
+                                  "by_lord": "oxford", "card": "L35"})
+    assert e.value.code == "ineligible_lord"

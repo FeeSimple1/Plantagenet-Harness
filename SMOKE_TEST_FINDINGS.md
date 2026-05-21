@@ -197,3 +197,15 @@ rose; II excludes L4) + data_integrity checks. Verified the rose
 distribution (13/9/9/6 per side) and deck sizes (Ia 22/22, II 21 Lanc /22
 Yorkist, III 19/19) against the Scenario Reference. No SMOKEs. Card effects,
 the draw (3.1), and Levy Capability (3.4.6) come in later Phase-4 increments.
+
+## Round 13 (Phase 4-ii - Levy Capability 3.4.6)
+
+Implemented Levy Capability as a Muster action: a Lord at a Friendly Locale
+attaches one unused, eligible scenario Capability card to its mat (<=2 per
+Lord, no duplicate Capability name; card must be in the scenario deck and of
+the Lord's side). Eligibility: "Any", a Special-Vassal Capability's eligible
+Lords, or a base-name match of the card's Lords line. Enumerated during
+Muster; round-trip sweep stays clean. The Capability is tracked as data; its
+mechanical effect is the consumer's to apply until implemented in a later
+Phase-4 increment (per BRIEF interim). No SMOKEs. Remaining Phase 4: the
+mandatory 3.1 draw (Events/Capabilities), per-card effects, and Succession.
