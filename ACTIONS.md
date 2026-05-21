@@ -81,7 +81,7 @@ Phase 3a-ii adds the movement/economy Commands:
 
 | Action | Args | Rule | Status |
 |---|---|---|---|
-| `march` | `side`, `by_lord`, `to`, optional `group` | 4.3 | done (Highway 1 + 2-for-1 chain, Road 1, Path whole card; Haul; Moved-Fought; Group) |
+| `march` | `side`, `by_lord`, `to`, optional `group`, `decisions` | 4.3 | done (speeds + Haul + Group; into an Enemy Locale -> Approach 4.3.5) |
 | `sail` | `side`, `by_lord`, `to` (Port) | 4.6.1 | done (same/adjacent Sea, free of enemy; Ship per 6 Forces / 2 Prov / 2 Cart; whole card) |
 | `tax` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.3 | done (own Seat auto; Vassal Seat / Special via Route + Influence; strongholds Coin; Depletes) |
 | `parley` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.4 | done (own location auto; else adjacent / same-Sea Port + Influence) |
