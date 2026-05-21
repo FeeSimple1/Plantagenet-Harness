@@ -55,6 +55,66 @@
       "title": "CalendarState",
       "type": "object"
     },
+    "CampaignState": {
+      "additionalProperties": false,
+      "description": "Per-Campaign flow state (4.1-4.2): Plan stacks and Activation pointers.",
+      "properties": {
+        "step": {
+          "default": "plan",
+          "title": "Step",
+          "type": "string"
+        },
+        "cards_required": {
+          "default": 0,
+          "title": "Cards Required",
+          "type": "integer"
+        },
+        "plans": {
+          "additionalProperties": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "title": "Plans",
+          "type": "object"
+        },
+        "plan_built": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "title": "Plan Built",
+          "type": "object"
+        },
+        "plan_index": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Plan Index",
+          "type": "object"
+        },
+        "active_lord": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Lord"
+        },
+        "actions_remaining": {
+          "default": 0,
+          "title": "Actions Remaining",
+          "type": "integer"
+        }
+      },
+      "title": "CampaignState",
+      "type": "object"
+    },
     "Favour": {
       "enum": [
         "lancastrian",
@@ -234,6 +294,11 @@
         "mustered_this_segment": {
           "default": false,
           "title": "Mustered This Segment",
+          "type": "boolean"
+        },
+        "moved_fought": {
+          "default": false,
+          "title": "Moved Fought",
           "type": "boolean"
         }
       },
@@ -462,6 +527,30 @@
     },
     "calendar": {
       "$ref": "#/$defs/CalendarState"
+    },
+    "campaign": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CampaignState"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "victory": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Victory"
     },
     "arts_of_war": {
       "additionalProperties": {

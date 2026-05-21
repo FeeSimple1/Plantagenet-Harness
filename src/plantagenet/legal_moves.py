@@ -21,6 +21,12 @@ from plantagenet.state import GameState, LordStatus, VassalStatus
 
 
 def legal_moves(state: GameState) -> list[dict[str, Any]]:
+    if state.phase == "over":
+        return []
+    if state.phase == "campaign":
+        return _campaign_moves(state)
+    if state.phase == "levy" and state.levy_step == "done":
+        return [{"type": "begin_campaign"}]
     if state.levy_step != "muster":
         return []
     side = state.active_side
@@ -117,3 +123,26 @@ def _parley_moves(state, lord_id, lord, side, friendly_here) -> list[dict[str, A
         if actions._parley_route_cost(state, loc, tid, side, has_ship) is not None:
             moves.append({"type": "parley", "side": side, "by_lord": lord_id, "target": tid})
     return moves
+
+
+def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
+    c = state.campaign
+    if c is None:
+        return []
+    if c.step == "plan":
+        # The Plan is a free construction (4.1); the consumer submits it via
+        # build_plan. We surface the requirement rather than enumerate stacks.
+        pending = [s for s in ("lancastrian", "yorkist") if not c.plan_built.get(s)]
+        return [{"type": "build_plan", "side": s, "cards_required": c.cards_required}
+                for s in pending]
+    if c.step == "activation":
+        side = state.active_side
+        moves: list[dict[str, Any]] = []
+        if c.active_lord is not None and c.actions_remaining > 0:
+            moves.append({"type": "forage", "side": side, "by_lord": c.active_lord})
+            moves.append({"type": "pass", "side": side, "by_lord": c.active_lord})
+        moves.append({"type": "end_activation", "side": side})
+        return moves
+    if c.step == "end":
+        return [{"type": "end_campaign"}]
+    return []

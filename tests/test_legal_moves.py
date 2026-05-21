@@ -20,12 +20,12 @@ def test_enumerator_only_for_active_side_during_muster():
     assert any(m["type"] == "end_muster" for m in moves)
 
 
-def test_enumerator_empty_when_levy_done():
+def test_enumerator_offers_begin_campaign_when_levy_done():
     s = build_initial_state("henry_vi")
     actions.apply_action(s, {"type": "end_muster", "side": "yorkist"})
     actions.apply_action(s, {"type": "end_muster", "side": "lancastrian"})
     assert s.levy_step == "done"
-    assert legal_moves.legal_moves(s) == []
+    assert legal_moves.legal_moves(s) == [{"type": "begin_campaign"}]
 
 
 @pytest.mark.parametrize("sid", LEVY_SCENARIOS)

@@ -1,0 +1,430 @@
+"""Campaign phase: Plan, Activation, Commands, Feed, and End Campaign (4.x).
+
+Phase 3a-i scope — the Campaign backbone:
+  - Plan (4.1): build per-side ordered stacks of Command cards (Lord
+    activations + Pass), sized by the season.
+  - Activation (4.2): Rebel then King alternate revealing their top card;
+    the shown Lord takes up to its Command rating in Command actions.
+  - Commands: forage (4.6.2) and pass (4.6.5). [March/Sail/Supply and the
+    route-economy Commands Tax/Parley arrive in 3a-ii.]
+  - Feed (4.7): Moved-Fought Lords feed after each card (no movement yet in
+    3a-i, so this is a no-op until 3a-ii adds March/Sail).
+  - End Campaign (4.8): Tides of War (4.8.1), Victory check (4.8.3 / 5.x),
+    Grow (4.8.4), Waste (4.8.5), Reset / advance Turn (4.8.6).
+
+Pay (3.2) on Turn rollover and the Arts-of-War draw (3.1, Phase 4) are not
+yet executed: a rolled-over Turn lands at the Muster step (documented
+deferral). No combat (Approach/Battle) — that is Phase 3b.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from plantagenet import influence, static_data
+from plantagenet.errors import IllegalAction
+from plantagenet.state import GameState, LordStatus, Side
+
+SIDES = ("lancastrian", "yorkist")
+AREAS = ("north", "south", "wales")
+SPECIAL_TIDES = {"london": 2, "calais": 2, "harlech": 1}
+MOST_FAVOUR_TIDES = {"city": 2, "town": 1, "fortress": 1}
+
+
+def _require(cond: bool, code: str, msg: str) -> None:
+    if not cond:
+        raise IllegalAction(code, msg)
+
+
+def season_info(box: int) -> dict[str, Any]:
+    """Season facts for a Calendar box (4.1 card count, 4.8.1/.4/.5 flags)."""
+    idx = (box - 1) % 5
+    name, cards, gain = [
+        ("Jan-Feb-Mar", 4, True),
+        ("Apr-May", 6, False),
+        ("Jun-Jul", 7, False),
+        ("Aug-Sep", 6, True),
+        ("Oct-Nov-Dec", 4, False),
+    ][idx]
+    return {"season": name, "cards": cards, "gain_lords_influence": gain,
+            "grow": box in (4, 9, 14), "waste": box in (5, 10)}
+
+
+def _rebel(state: GameState) -> str:
+    return [s for s, r in state.roles.items() if r == "rebel"][0]
+
+
+def _king(state: GameState) -> str:
+    return [s for s, r in state.roles.items() if r == "king"][0]
+
+
+def _command_rating(lord_id: str) -> int:
+    return static_data.load_lords()[lord_id]["ratings"]["command"]
+
+
+# --------------------------------------------------------------- begin
+def begin_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    _require(state.phase == "levy" and state.levy_step == "done", "levy_not_done",
+             "the Levy must be complete before the Campaign (4.0)")
+    from plantagenet.state import CampaignState
+    info = season_info(state.turn_box)
+    state.phase = "campaign"
+    state.campaign = CampaignState(step="plan", cards_required=info["cards"],
+                                   plan_index={s: 0 for s in SIDES},
+                                   plan_built={s: False for s in SIDES})
+    return {"type": "begin_campaign", "season": info["season"],
+            "cards_required": info["cards"]}
+
+
+# ---------------------------------------------------------------- 4.1 Plan
+def build_plan(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    side = action.get("side")
+    _require(side in SIDES, "bad_side", "side must be a valid side")
+    c = state.campaign
+    _require(c is not None and c.step == "plan", "wrong_step", "not in the Plan step (4.1)")
+    _require(not c.plan_built.get(side), "plan_already_built", f"{side} already built its Plan")
+    plan = action.get("plan")
+    _require(isinstance(plan, list), "bad_plan", "plan must be a list of entries")
+    _require(len(plan) == c.cards_required, "wrong_plan_size",
+             f"Plan must use exactly {c.cards_required} cards this season (4.1)")
+    per_lord: dict[str, int] = {}
+    norm: list[dict[str, Any]] = []
+    for entry in plan:
+        if entry.get("pass"):
+            norm.append({"pass": True})
+            continue
+        lid = entry.get("lord")
+        _require(lid in state.lords and state.lords[lid].side == side, "bad_plan_lord",
+                 f"{lid!r} is not a {side} Lord")
+        per_lord[lid] = per_lord.get(lid, 0) + 1
+        _require(per_lord[lid] <= 3, "too_many_activations",
+                 f"each Lord has only three Command cards (4.1.1): {lid}")
+        norm.append({"lord": lid})
+    c.plans[side] = norm
+    c.plan_built[side] = True
+    if all(c.plan_built.get(s) for s in SIDES):
+        c.step = "activation"
+        state.active_side = _rebel(state)   # Rebels flip first (4.2)
+        _reveal(state)
+    return {"type": "build_plan", "side": side, "built": c.plan_built,
+            "step": c.step}
+
+
+# ------------------------------------------------------------ 4.2 Activation
+def _reveal(state: GameState) -> None:
+    """Reveal the active side's current top card and set up its Activation."""
+    c = state.campaign
+    side = state.active_side
+    entry = c.plans[side][c.plan_index[side]]
+    lid = entry.get("lord")
+    on_map = (lid is not None and lid in state.lords
+              and state.lords[lid].status == LordStatus.MUSTERED)
+    if entry.get("pass") or not on_map:
+        c.active_lord = None          # Pass card or off-map Lord -> do nothing (4.2.3)
+        c.actions_remaining = 0
+    else:
+        c.active_lord = lid
+        c.actions_remaining = _command_rating(lid)
+
+
+def _active_command_lord(state: GameState, action: dict[str, Any]):
+    side = action.get("side")
+    c = state.campaign
+    _require(c is not None and c.step == "activation", "wrong_step",
+             "Command actions require the Activation step (4.2)")
+    _require(side == state.active_side, "not_active_side",
+             f"it is the {state.active_side} side's Activation")
+    _require(c.active_lord is not None, "no_active_lord",
+             "no Lord is Activated (Pass card or off-map); end the Activation")
+    _require(c.actions_remaining > 0, "no_actions_left",
+             "the Active Lord has no Command actions remaining (4.2.1)")
+    by = action.get("by_lord", c.active_lord)
+    _require(by == c.active_lord, "wrong_lord", f"the Active Lord is {c.active_lord}")
+    return state.lords[c.active_lord]
+
+
+def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    side = action.get("side")
+    c = state.campaign
+    _require(c is not None and c.step == "activation", "wrong_step", "not Activating")
+    _require(side == state.active_side, "not_active_side",
+             f"it is the {state.active_side} side's Activation")
+    _feed(state, side)                       # 4.7 Feed at end of each card
+    c.plan_index[side] += 1
+    c.active_lord = None
+    c.actions_remaining = 0
+    other = _other(side)
+    if c.plan_index[other] < c.cards_required:
+        state.active_side = other
+        _reveal(state)
+    elif c.plan_index[side] < c.cards_required:
+        _reveal(state)                        # other exhausted; continue this side
+    else:
+        c.step = "end"                        # both Plan stacks exhausted (4.8)
+    return {"type": "end_activation", "side": side, "step": c.step,
+            "next_side": state.active_side if c.step == "activation" else None}
+
+
+def _other(side: str) -> str:
+    return Side.YORKIST.value if side == Side.LANCASTRIAN.value else Side.LANCASTRIAN.value
+
+
+# ----------------------------------------------------------- 4.6.2 Forage
+def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    lord = _active_command_lord(state, action)
+    loc = _lord_locale(lord)
+    _require(loc is not None, "lord_not_on_locale", "the Lord must be at a Locale to Forage")
+    kind, here = loc
+    if kind == "exile":
+        ls = None  # Exile boxes can be Foraged (4.6.2) and Depleted
+    else:
+        ls = state.locales[here]
+        _require(ls.depletion != "exhausted", "exhausted",
+                 f"{here} is Exhausted and may not be Foraged (4.6.2)")
+    fav = "friendly" if (kind == "exile" or ls.favour == lord.side) else (
+        "enemy" if (kind == "stronghold" and ls.favour == _other(lord.side)) else "neutral")
+    enemy_adjacent = _enemy_lord_adjacent(state, here, lord.side) if kind == "stronghold" else False
+
+    roll = None
+    if fav == "friendly" and not enemy_adjacent:
+        success = True                              # automatic (4.6.2)
+    else:
+        roller = state.dice()
+        roll = roller.d6()
+        state.store_dice(roller)
+        threshold = 3 if (fav == "enemy" or enemy_adjacent) else 4
+        success = roll <= threshold
+    state.campaign.actions_remaining -= 1
+    added = 0
+    if success:
+        lord.assets["provender"] = lord.assets.get("provender", 0) + 1
+        added = 1
+        if ls is not None:
+            ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
+        elif kind == "exile":
+            pass  # exile-box depletion is not tracked separately in 3a-i
+    return {"type": "forage", "by_lord": lord.lord_id, "locale": here,
+            "favour": fav, "enemy_adjacent": enemy_adjacent, "roll": roll,
+            "success": success, "provender_added": added}
+
+
+def pass_command(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    lord = _active_command_lord(state, action)
+    state.campaign.actions_remaining -= 1
+    return {"type": "pass", "by_lord": lord.lord_id}
+
+
+# --------------------------------------------------------------- helpers
+def _lord_locale(lord):
+    if lord.location is not None:
+        return ("stronghold", lord.location)
+    if lord.exile_box is not None:
+        return ("exile", lord.exile_box)
+    return None
+
+
+def _enemy_lord_adjacent(state: GameState, locale_id: str, side: str) -> bool:
+    from plantagenet.actions import _adjacency, enemy_lord_at
+    for nbr, _t in _adjacency().get(locale_id, []):
+        if enemy_lord_at(state, nbr, side):
+            return True
+    return False
+
+
+# ----------------------------------------------------------------- 4.7 Feed
+def _feed(state: GameState, side: str) -> dict[str, Any]:
+    """Moved-Fought Lords remove 1 Provender per 6 Troops, rounded up (4.7).
+
+    In 3a-i no Command marks a Lord Moved-Fought (March/Sail are 3a-ii), so
+    this is a no-op; implemented for when movement lands.
+    """
+    fed = []
+    for lid, lord in state.lords.items():
+        if lord.side != side or not lord.moved_fought:
+            continue
+        troops = _troop_count(lord)
+        need = -(-troops // 6)  # ceil
+        have = lord.assets.get("provender", 0)
+        spend = min(need, have)
+        lord.assets["provender"] = have - spend
+        lord.moved_fought = False
+        fed.append({"lord": lid, "needed": need, "fed": spend,
+                    "short": need - spend})
+    return {"fed": fed}
+
+
+def _troop_count(lord) -> int:
+    forces_static = static_data.load_forces()
+    return sum(n for f, n in lord.forces.items()
+              if f != "retinue" and f in forces_static)  # Troops only (not Retinue/Vassal)
+
+
+# ----------------------------------------------------------- 4.8.1 Tides
+def tides_of_war(state: GameState) -> dict[str, Any]:
+    locales = static_data.load_locales()
+    lords_static = static_data.load_lords()
+    pts = {s: 0 for s in SIDES}
+    detail: list[str] = []
+
+    # Areas: +1 per side with a Lord present; +2 for Dominance (all Favour).
+    for area in AREAS:
+        in_area = [lid for lid in locales if locales[lid].get("region") == area]
+        for side in SIDES:
+            if any(v.status == LordStatus.MUSTERED and v.location in in_area
+                   and v.side == side for v in state.lords.values()):
+                pts[side] += 1
+                detail.append(f"{side} +1 Lord in {area}")
+            if in_area and all(state.locales[loc].favour == side for loc in in_area):
+                pts[side] += 2
+                detail.append(f"{side} +2 Dominates {area}")
+
+    # Special Strongholds: individual Favour award unless an Enemy Lord occupies.
+    for sp, amt in SPECIAL_TIDES.items():
+        fav = state.locales[sp].favour
+        if fav in SIDES:
+            foe = _other(fav)
+            occupied_by_enemy = any(v.status == LordStatus.MUSTERED and v.location == sp
+                                    and v.side == foe for v in state.lords.values())
+            if not occupied_by_enemy:
+                pts[fav] += amt
+                detail.append(f"{fav} +{amt} Favour at {sp}")
+
+    # Most Favour by regular type: +2 city, +1 town, +1 fortress.
+    for typ, amt in MOST_FAVOUR_TIDES.items():
+        counts = {s: sum(1 for lid, lc in locales.items()
+                         if lc["type"] == typ and state.locales[lid].favour == s)
+                  for s in SIDES}
+        if counts["lancastrian"] != counts["yorkist"]:
+            leader = max(SIDES, key=lambda s: counts[s])
+            pts[leader] += amt
+            detail.append(f"{leader} +{amt} most Favour {typ}s ({counts})")
+
+    # Gain Lords Influence (Jan-Feb-Mar and Aug-Sep Turns).
+    if season_info(state.turn_box)["gain_lords_influence"]:
+        for side in SIDES:
+            tot = sum(lords_static[lid]["ratings"]["influence"]
+                      for lid, v in state.lords.items()
+                      if v.side == side and v.status == LordStatus.MUSTERED)
+            pts[side] += tot
+            detail.append(f"{side} +{tot} Lords' Influence")
+
+    return {"points": pts, "detail": detail}
+
+
+# ----------------------------------------------------- 4.8.3 Victory check
+def _side_influence(state: GameState, side: str) -> int:
+    t = state.influence.get("track")
+    if t is None:
+        return 0
+    return t.marker_at if t.marker_side == side else 0
+
+
+def _current_threshold(state: GameState) -> int | None:
+    from plantagenet.static_data import load_scenario
+    scn = load_scenario(state.scenario if not state.grand_scenario else "henry_vi")
+    best = None
+    for vt in scn.get("victory_thresholds", []):
+        turns = vt["turns"]
+        if turns == "all":
+            best = vt["influence"]
+        else:
+            lo, hi = (int(x) for x in turns.split("-"))
+            if lo <= state.turn_box <= hi:
+                best = vt["influence"]
+    return best
+
+
+def _victory_check(state: GameState) -> dict[str, Any] | None:
+    # 5.1 Campaign Victory: a side with no Lords on map and no next-Turn Exiles loses.
+    def has_presence(side: str) -> bool:
+        on_map = any(v.side == side and v.status in (LordStatus.MUSTERED,)
+                     for v in state.lords.values())
+        next_exile = any(v.side == side and v.status == LordStatus.CALENDAR
+                         and v.calendar_exile and v.calendar_box == state.turn_box + 1
+                         for v in state.lords.values())
+        return on_map or next_exile
+    l_pres, y_pres = has_presence("lancastrian"), has_presence("yorkist")
+    if not l_pres or not y_pres:
+        if not l_pres and not y_pres:
+            return {"result": "draw", "rule": "5.1"}
+        return {"result": "yorkist" if l_pres else "lancastrian", "rule": "5.1"}
+    # 5.2 Threshold Victory.
+    thr = _current_threshold(state)
+    if thr is not None:
+        for side in SIDES:
+            if _side_influence(state, side) >= thr:
+                return {"result": side, "rule": "5.2", "threshold": thr}
+    # 5.3 Scenario End (final Turn).
+    if state.turn_box >= (state.calendar.last_box or state.turn_box):
+        li, yi = _side_influence(state, "lancastrian"), _side_influence(state, "yorkist")
+        if li == yi:
+            return {"result": "draw", "rule": "5.3"}
+        return {"result": "lancastrian" if li > yi else "yorkist", "rule": "5.3"}
+    return None
+
+
+# ------------------------------------------------------------ end_campaign
+def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    c = state.campaign
+    _require(c is not None and c.step == "end", "wrong_step",
+             "the Campaign ends only after both Plan stacks are exhausted (4.8)")
+    # 4.8.1 Tides of War
+    tow = tides_of_war(state)
+    influence.gain_influence(state, "lancastrian", tow["points"]["lancastrian"])
+    influence.gain_influence(state, "yorkist", tow["points"]["yorkist"])
+    # 4.8.2 Disembark: no Lords at Sea in 3a-i (no Sail) -> skip.
+    # 4.8.3 Victory check
+    victory = _victory_check(state)
+    info = season_info(state.turn_box)
+    grown = wasted = False
+    if victory is None:
+        if info["grow"]:                      # 4.8.4 Grow
+            _grow(state)
+            grown = True
+        if info["waste"]:                     # 4.8.5 Waste
+            _waste(state)
+            wasted = True
+        _reset_to_next_levy(state)            # 4.8.6
+    else:
+        state.phase = "over"
+        state.victory = victory
+    return {"type": "end_campaign", "tides_of_war": tow, "victory": victory,
+            "grow": grown, "waste": wasted, "turn_box": state.turn_box,
+            "phase": state.phase}
+
+
+def _grow(state: GameState) -> None:
+    for ls in state.locales.values():
+        if ls.depletion == "depleted":
+            ls.depletion = None
+        elif ls.depletion == "exhausted":
+            ls.depletion = "depleted"
+
+
+def _waste(state: GameState) -> None:
+    lords_static = static_data.load_lords()
+    for lid, lord in state.lords.items():
+        if lord.status != LordStatus.MUSTERED:
+            continue
+        for asset in ("provender", "cart", "ship"):
+            if lord.assets.get(asset):
+                lord.assets[asset] = -(-lord.assets[asset] // 2)  # halve, round up
+        start = lords_static[lid]
+        # Coin and Troops reset to setup; keep Mercenaries/Handgunners (4.8.5).
+        lord.assets["coin"] = start["assets"].get("coin", 0)
+        keep = {f: lord.forces[f] for f in ("mercenaries", "handgunners") if f in lord.forces}
+        lord.forces = dict(start.get("forces", {}))
+        for f, n in keep.items():
+            lord.forces[f] = max(lord.forces.get(f, 0), n)
+
+
+def _reset_to_next_levy(state: GameState) -> None:
+    state.turn_box += 1
+    state.phase = "levy"
+    state.levy_step = "muster"   # NB: Pay (3.2) and Arts-of-War draw (3.1) deferred
+    state.campaign = None
+    state.active_side = _rebel(state)
+    for lord in state.lords.values():
+        lord.lordship_spent = 0
+        lord.mustered_this_segment = False
+        lord.moved_fought = False
