@@ -93,14 +93,32 @@ gain, else Unfed-Disbands (3.2.4). March into an Enemy Locale (Approach
 4.3.5) or adjacent to an Enemy by land (Intercept 4.3.4) is rejected with a
 `*_phase_3b` code (Battle is Phase 3b).
 
-The Campaign Command menu (4.2.2) is now complete: March, Sail, Supply,
-Forage, Tax, Parley, Pass.
+The Campaign Command menu (4.2.2) is complete: March, Sail, Supply, Forage,
+Tax, Parley, Pass.
 
-DEFERRED to Phase 3a-iv: Pay (3.2: Pay Troops with Sharing/Pillage, Pay
-Lords, Pay Vassals, Disband) and the Turn-2 Levy flow (3.3 Exiles/Vassals).
-A rolled-over Turn currently lands at the Muster step until Pay / the
-Arts-of-War draw (3.1, Phase 4) land. Combat (Intercept/Approach/Battle) is
-Phase 3b; Arts-of-War card effects are Phase 4.
+### Levy Pay (3.2) — Phase 3a-iv (IMPLEMENTED)
+
+On a rolled-over Turn the Levy begins at Pay (skipped on Turn 1, 3.2),
+Rebel then King:
+
+| Action | Args | Rule | Status |
+|---|---|---|---|
+| `pay` | `side`, optional `disband_lords`, `pillage_by`, `unpay_vassals` | 3.2 | done |
+
+`pay` resolves Pay Troops (3.2.1: 1 Coin / 6 Troops, Sharing within a
+Locale, Pillage an Unexhausted Stronghold then re-Pay, else Unpaid-Disband
+with the −Influence−1/Vassal penalty), Pay Lords (3.2.2: optional voluntary
+Disband, then −1 Influence per Lord at a Stronghold and −2 per Lord in an
+Exile box), and Pay Vassals (3.2.3: −1 Influence per Mustered Vassal due in
+the current Turn box → shift right, else Disband). After King's Pay, Ready
+Vassals (3.3.2) returns due Disbanded Vassals to their Seats and play
+proceeds to Muster.
+
+Phase 3a is COMPLETE (full Levy + Campaign turn cycle). DEFERRED: Muster
+Exiles (3.3.1 — needs scenario Exile-box mapping; a no-op without due Exile
+cylinders), the Arts-of-War draw (3.1, Phase 4), cross-Lord Cart Sharing for
+Supply (1.5.3). Combat (Intercept/Approach/Battle) is Phase 3b; Arts-of-War
+card effects are Phase 4.
 
 ### Campaign (later phases)
 

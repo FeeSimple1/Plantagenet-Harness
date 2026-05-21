@@ -413,6 +413,7 @@
       "enum": [
         "at_seat",
         "mustered",
+        "disbanded",
         "off_map",
         "removed"
       ],

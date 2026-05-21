@@ -35,7 +35,7 @@ implemented, and Feed (4.7) is now live (Pillage / Unfed-Disband via the
 Strongholds table). March into enemy contact (Approach/Intercept) is
 rejected pending Phase 3b.
 
-**Phase 3a-iii (current): Supply.** `supply` (4.5) completes the Campaign
+**Phase 3a-iii (done): Supply.** `supply` (4.5) completes the Campaign
 Command menu (March, Sail, Supply, Forage, Tax, Parley, Pass): a Stronghold
 Source gives table Provender (then Depletes) or a Port Source gives
 Ships-many Provender, over a land Supply Route limited by Carts (one Cart
@@ -59,6 +59,7 @@ Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
   - `campaign.py` — Campaign flow, Forage/Feed/Pillage/Disband, End-Campaign
     (Tides of War, Grow, Waste, Victory, Turn advance).
   - `commands.py` — March, Sail, Supply, Tax, campaign Parley (4.3, 4.5, 4.6.1-.4).
+  - `pay.py` — Levy Pay step: Pay Troops/Lords/Vassals (3.2).
   - `cli.py` — the CLI. `new`, `state`, `legal-moves`, `do`, and the data
     commands work; `pending`/`history` are stubs until their phase.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,

@@ -139,8 +139,9 @@ def test_end_campaign_advances_turn_on_multi_turn_scenario():
     r = actions.apply_action(s, {"type": "end_campaign"})
     assert r["victory"] is None
     assert s.turn_box == 2
-    assert s.phase == "levy" and s.levy_step == "muster"
-    assert s.active_side == "yorkist"   # Rebel acts first next Levy
+    # A rolled-over Turn begins at the Pay step (3.2), Rebel first.
+    assert s.phase == "levy" and s.levy_step == "pay"
+    assert s.active_side == "yorkist"
 
 
 def test_tides_of_war_awards_gain_lords_influence_in_jan_feb_mar():

@@ -436,4 +436,5 @@ _HANDLERS = {
     "levy_troops": _h_levy_troops,
     "levy_capability": _h_levy_capability,
     "end_muster": _h_end_muster,
+    "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
 }
