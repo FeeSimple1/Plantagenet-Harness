@@ -29,6 +29,7 @@ def check_all() -> dict[str, Any]:
     vassals = static_data.load_vassals()
     seas = static_data.load_seas()
     strongholds = static_data.load_strongholds()
+    cards = static_data.load_cards()
     exile_boxes = static_data.load_exile_boxes()
 
     locale_ids = set(locales)
@@ -134,6 +135,15 @@ def check_all() -> dict[str, Any]:
                         f"scenario {sid}/{side} musters unknown lord {lord_id!r}"
                     )
 
+    # Arts of War cards: every card has both halves; rose in 0-3; valid side.
+    for cid, c in cards.items():
+        if "event" not in c or "capability" not in c:
+            errors.append(f"card {cid} missing an Event or Capability half")
+        if c.get("rose") not in (0, 1, 2, 3):
+            errors.append(f"card {cid} has bad rose {c.get('rose')!r}")
+        if c.get("side") not in ("lancastrian", "yorkist"):
+            errors.append(f"card {cid} has bad side {c.get('side')!r}")
+
     return {
         "counts": {
             "forces": len(forces),
@@ -144,6 +154,7 @@ def check_all() -> dict[str, Any]:
             "vassals_special": len(vassals.get("special", {})),
             "scenarios": len(static_data.list_scenario_ids()),
             "sea_zones": len(seas.get("zones", {})),
+            "cards": len(cards),
             "troop_pool": sum(forces[f].get("pool", 0) for f in forces if not f.startswith("_")),
         },
         "errors": errors,

@@ -185,3 +185,15 @@ enemy Marches are legal). No SMOKEs. Phase 3b (combat) is COMPLETE.
 Remaining: Phase 4 (Arts-of-War card draw + Event/Capability effects +
 Succession); small deferrals (Muster Exiles 3.3.1, Disembark 4.8.2, Supply
 Cart Sharing 1.5.3).
+
+## Round 12 (Phase 4-i - Arts of War card-data layer)
+
+Parsed the Arts of War Reference into data/static/cards.json via
+scripts/build_cards.py: 74 cards (37 Yorkist + 37 Lancastrian), each with
+its Event (type: hold/this_levy/this_campaign/immediate) and Capability
+(title + eligible-Lords line), and a rose group (0=all/1=I/2=II/3=III).
+Added static_data.load_cards() and scenario_card_deck() (no-rose + matching
+rose; II excludes L4) + data_integrity checks. Verified the rose
+distribution (13/9/9/6 per side) and deck sizes (Ia 22/22, II 21 Lanc /22
+Yorkist, III 19/19) against the Scenario Reference. No SMOKEs. Card effects,
+the draw (3.1), and Levy Capability (3.4.6) come in later Phase-4 increments.

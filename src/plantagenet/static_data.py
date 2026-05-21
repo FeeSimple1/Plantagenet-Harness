@@ -66,6 +66,34 @@ def load_vassals() -> dict[str, Any]:
     return _strip_meta(_load_json(_STATIC_PKG, "vassals.json"))
 
 
+SCENARIO_ROSE = {"henry_vi": 1, "towton": 1, "somersets_return": 1,
+                 "warwicks_rebellion": 2, "my_kingdom_for_a_horse": 3, "bosworth": 3}
+# Per-scenario deck exclusions beyond the rose rule (Scenario Reference / Errata).
+DECK_EXCLUDE = {("warwicks_rebellion", "lancastrian"): {"L4"}}   # II removes L4 (4.6.4 note)
+
+
+@cache
+def load_cards() -> dict[str, Any]:
+    """Arts of War cards (Y1..Y37, L1..L37): each with an Event and a
+    Capability, a rose group (0=all, 1=I, 2=II, 3=III), and metadata."""
+    return _strip_meta(_load_json(_STATIC_PKG, "cards.json"))
+
+
+def scenario_card_deck(scenario_id: str, side: str) -> list[str]:
+    """Assemble a side's Arts of War deck for a standalone scenario (6.0):
+    no-rose cards plus those whose rose matches the scenario number, minus
+    any scenario-specific exclusions. Grand-scenario (Wars) decks are set by
+    Succession (handled separately) and return []."""
+    rose = SCENARIO_ROSE.get(scenario_id)
+    if rose is None:
+        return []
+    excl = DECK_EXCLUDE.get((scenario_id, side), set())
+    return sorted(
+        cid for cid, c in load_cards().items()
+        if c["side"] == side and c["rose"] in (0, rose) and cid not in excl
+    )
+
+
 @cache
 def load_strongholds() -> dict[str, Any]:
     """Strongholds table: Levy-Troops / Supply / Tax / Pillage yields and the
