@@ -1,0 +1,1114 @@
+{
+  "_source": "reference/Plantagenet Arts of War Reference.txt (parsed). Effects implemented in later Phase-4 increments.",
+  "_rose": "0=no-rose (all scenarios), 1=I (Ia/Ib/Ic), 2=II, 3=III (6.0).",
+  "L1": {
+    "id": "L1",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "LEEWARD BATTLE LINE",
+      "text": "Hold: Play in Battle to halve all Missile hits (round up) to\nFriendly Lords, unless Enemy Leeward Battle Line.\nTips: See Y1.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CULVERINS AND FALCONETS",
+      "text": "At start of Round 1 of Battle, this Lord may discard this card to\nadd 1 die roll of Missile Hits.\nLords: Any.\nTips: See Y1 & Y2.",
+      "lords": "Any."
+    }
+  },
+  "L2": {
+    "id": "L2",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "FLANK ATTACK",
+      "text": "Hold: Play to Intercept without rolling and become the Attacker\nin that Battle.\nTips: See Y2.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CULVERINS AND FALCONETS",
+      "text": "At start of Round 1 of Battle, this Lord may discard this card to\nadd 1 die roll of Missile Hits.\nLords: Any.\nTips: See Y1 & Y2.",
+      "lords": "Any."
+    }
+  },
+  "L3": {
+    "id": "L3",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "ESCAPE SHIP",
+      "text": "Hold: Play upon Death check if Lancastrian Route (4.5.1) to Port\nfor any Routed Lancastrians to go into Exile instead.\nTips: See Y3 & Y9.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "MUSTER'D MY SOLDIERS",
+      "text": "Each Battle at a Friendly Stronghold, this Lord adds 2 Men-at-Arms\nand 1 Longbowmen. Remove them after Battle.\nLords: Any.\nTips: See Y3.",
+      "lords": "Any."
+    }
+  },
+  "L4": {
+    "id": "L4",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "BE SENT FOR",
+      "text": "This Levy Muster Lancastrian Exiles from anywhere on the Calendar.\nTips: Treat any/all Lancastrian Lords marked Exile on the Calendar\nas if in current Turn's box. Each chosen Lord Musters to a\nscenario-designated Exile box (3.3). Capability not available\nthis Turn (3.1.3).",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "HERALDS",
+      "text": "This Lord at Port may use full Command card for an Influence\ncheck. If successful, shift a Lord cylinder on Calendar to next\nTurn.\nLords: Any.\nTips: At any Port Stronghold (NOT Exile box), regardless of\nFavour/Depletion/Exhaustion, may use ALL actions of the Lord's\nCommand card to make an Influence check (1.4.3) \u2014 usual Influence\ncost, no Route. Success shifts a selected Lord cylinder on\nCalendar (typically Lancastrian, possibly marked Exile) to the\nnext Turn's box. May do so on multiple Command cards in a\nCampaign.",
+      "lords": "Any."
+    }
+  },
+  "L5": {
+    "id": "L5",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "SUSPICION",
+      "text": "Hold: Play in Battle for participating Lancastrian Lord to check\nInfluence. Success Disbands 1 Yorkist Lord at Battle with lower\nInfluence rating.\nTips: See Y5 (incl. ERRATA: PRINTED Influence rating only).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CHURCH BLESSING",
+      "text": "This Lord's Men-at-Arms have Armour 1-4.\nLords: Any.\nTips: MAA Protection roll succeeds on 1\u20134 instead of 1\u20133. Stacks\nwith L34 Piquiers (still cap at 1\u20134 \u2014 i.e., Armour 1-4 with\nboth). Modification does NOT apply when rolling for Losses\n(4.4.3).",
+      "lords": "Any."
+    }
+  },
+  "L6": {
+    "id": "L6",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "SEAMANSHIP",
+      "text": "This Campaign Lancastrians may Sail for just 1 Command action.\nTips: See Y6.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "GREAT SHIPS",
+      "text": "This Lord's Ships count double for Sail and Supply and connect\nall Ports of all Seas.\nLords: Any.\nTips: See Y6 (incl. FAQ #1: cross-Sea linkage applies to Parley,\nTax, Supply only \u2014 not Sail).",
+      "lords": "Any."
+    }
+  },
+  "L7": {
+    "id": "L7",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "FOR TRUST NOT HIM",
+      "text": "Hold: Play in Battle for a participating Lord to attempt to Levy\n(3.4.3) a regular Enemy Vassal at Battle onto the Lord's own mat.\nTips: Play at Event step after Battle Array (4.4.1). Choose a\nLancastrian Lord and a regular (not Special) Yorkist Vassal in\nthe Battle. Lord immediately attempts to Levy (3.4.3), ignoring\nRoutes and Favour of the Vassal's Seat. Influence cost is only\nfor the Influence check and modifiers (1.4.2). On success, move\nVassal marker from Yorkist mat to that Lancastrian Lord's mat,\nand shift Calendar marker to a box as if newly Levied.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "HARBINGERS",
+      "text": "This Lord's Supply actions draw twice the usual Provender.\nLords: Any.\nTips: See Y7.",
+      "lords": "Any."
+    }
+  },
+  "L8": {
+    "id": "L8",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "FORCED MARCHES",
+      "text": "This Campaign lone Lancastrian Lords (not Groups) March on Road\nas if Highway.\nTips: 1 March action moves 2 Ways if each is Highway or Road\n(4.3.3). Marshal/Lieutenant with other Lords must leave them\nbehind on Road. Does NOT affect Path March. Capability not\navailable this Turn.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "HAY WAINS",
+      "text": "This Lord's Carts count double for March and Supply.\nLords: Any.\nTips: Each of this Lord's Carts = 2 Carts for all March (Haul and\nIntercept, 4.3.2, 4.3.4) and Supply (4.5.1\u2013.2) ONLY. NOT for\nLevy Transport (3.4.5), Spoils (4.4.3), Sail (4.6.1), or Waste\n(4.8.5). When Shared with another Lord (1.5.3), this Lord's\nCarts still count double; another Lord's Carts shared TO this\nLord do NOT.",
+      "lords": "Any."
+    }
+  },
+  "L9": {
+    "id": "L9",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "RISING WAGES",
+      "text": "This Levy Yorkist Lords must pay 1 Coin per Levy Troops action.\nTips: For Yorkists to Levy Troops (3.4.4), spend 1 Coin per such\naction (may Share, 1.5.3). Penalty applies even if Levying via\nEvent/Capability requiring a Levy Troops action (e.g., Y16\nBeloved Warwick, Y18 Irishmen). Capability not available this\nTurn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "QUARTERMASTERS",
+      "text": "This Lord Levies Troops without Depleting or Exhausting\nStrongholds.\nLords: Any.\nTips: Same as Y31 Woodvilles.",
+      "lords": "Any."
+    }
+  },
+  "L10": {
+    "id": "L10",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "NEW ACT OF PARLIAMENT",
+      "text": "This Campaign Yorkist Parley takes entire Command card.\nTips: Any Yorkist Campaign Parley (4.6.4) requires ALL that\nLord's Command-card actions (instead of just one). Does NOT\naffect Levy Parley (3.4.1). Capability not available this Turn.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "CHAMBERLAINS",
+      "text": "This Lord's Supply and Levy Troops do not Deplete the Stronghold\nat his or her Vassals' Seats.\nLords: Any.\nTips: Lord can Levy Troops and Supply from Seats of any regular\nVassals on his mat without adding Depleted markers or flipping\nDepleted to Exhausted (3.4.4, 4.5). Applies to each Levy/Command\naction \u2014 repeated use of same Locales OK. All other Levy\nTroops/Supply rules still apply.",
+      "lords": "Any."
+    }
+  },
+  "L11": {
+    "id": "L11",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "BLOCKED FORD",
+      "text": "Hold: Play upon Approach to prevent Exile (all Lords there\nBattle).\nTips: See Y11.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "IN THE NAME OF THE KING",
+      "text": "This Lord has Influence +1 for Parley.\nLords: Any.\nTips: +1 Influence rating for Parley actions only (3.4.1, 4.6.4).",
+      "lords": "Any."
+    }
+  },
+  "L12": {
+    "id": "L12",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "RAVINE",
+      "text": "Hold: Play on an Enemy Lord in Battle. Round 1, ignore that Lord\nfor Engage and Strike.\nTips: Play at Event step after Battle Array (4.4.1). Choose one\nYorkist Lord. Conduct Round 1 (only) as if his Battle Array\nposition were empty. Place card under top edge of that Lord's\nmat as reminder; remove after Round 1.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "COMMISSION OF ARRAY",
+      "text": "This Lord can Levy Troops from adjacent Friendly Strongholds\nwhere no Enemy Lord.\nLords: Any.\nTips: Levy Troops in standard manner (3.4.4) except draw Troops\nand Deplete/Exhaust the action target on Strongholds adjacent by\nWay (1.3.1) to him, instead of his own location. All other\nrequirements (e.g., target not Exhausted) still apply.",
+      "lords": "Any."
+    }
+  },
+  "L13": {
+    "id": "L13",
+    "side": "lancastrian",
+    "rose": 0,
+    "event": {
+      "title": "ASPIELLES",
+      "text": "Hold: Play to inspect all Yorkist Held cards and 1 Hidden Yorkist\nLord mat (1.5.3).\nTips: See Y13.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "EXPERT COUNSELLORS",
+      "text": "This Lord has Valour +2.\nLords: Any.\nTips: +2 Valour rating: increases Intercept chances (4.3.4) and\nadds 2 extra Valour markers for re-rolls in Battle (4.4.1\u2013.2).",
+      "lords": "Any."
+    }
+  },
+  "L14": {
+    "id": "L14",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "SCOTS",
+      "text": "Each Lancastrian Lord on map may add up to 1 Men-at-Arms and 1\nMilitia to his or her mat.\nTips: Each Mustered Lancastrian Lord (even Exile box) may\noptionally take 1 MAA and/or 1 Militia (until pool runs out, 1.6).",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "PERCY'S POWER",
+      "text": "While this Lord is in the North, Lancastrian Pay (3.2) there is\nfree.\nLord: Northumberland.\nTips: While Northumberland is at any Stronghold in the North Area\n(1.3.1), neither he nor any other Lancastrian Lord at any\nStronghold in the North (regardless of Favour/Depletion/\nExhaustion) need Pay Coin to Troops (avoid Pillage), Pay\nInfluence (avoid Disband), or Pay to shift Vassals 1 box right\n(3.2.1\u2013.3).",
+      "lords": null
+    }
+  },
+  "L15": {
+    "id": "L15",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "HENRY PRESSURES PARLIAMENT",
+      "text": "Yorkists lose 1 Influence point per Vassal they currently have\nMustered.\nTips: Count all Mustered Vassals on Yorkist mats (including\nSpecial Vassal Hastings). Subtract that many Yorkist Influence\npoints.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "KING'S PARLEY",
+      "text": "Upon Yorkist Approach to this Lord, discard this card to cancel\nthat Approach and end Command card.\nLord: Henry VI.\nTips: If Henry VI is target of Approach (4.3.5), including via\nIntercept (4.3.4), BEFORE declaring any Exile, Lancastrian may\ndiscard this Capability and cancel the Approach. Moving Yorkist\nLord(s) return to previous location. Current Command card ends\nimmediately; play proceeds to Feed (4.7). Only Lords who moved\non that card BEFORE the cancelled Approach count as Moved/Fought.",
+      "lords": null
+    }
+  },
+  "L16": {
+    "id": "L16",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "WARDEN OF THE MARCHES",
+      "text": "Hold: Play upon Death check in the North. Move any Routed\nLancastrians to a Friendly Stronghold there instead of rolling\nDeath or Disband.\nTips: Play only at Battle in a Stronghold in the North Area\n(1.3.1), before rolling Death (4.4.3). Routed Lancastrian Lords\nmay choose (BEFORE rolling) to move cylinder to a Friendly\nStronghold in the North (other than the Battle Locale). If no\nsuch Stronghold exists, no effect. Movers keep Assets,\nCapabilities, and Unrouted Troops. If left without Troops, they\nDisband (1.6).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "NORTHMEN",
+      "text": "Each Tides of War, Lancastrians Dominate the North with this Lord\nand 3+ Friendly Strongholds there.\nLord: Northumberland.\nTips: Same as Y19 Welshmen for the North Area, listed Lord, and\n3+ Strongholds.",
+      "lords": null
+    }
+  },
+  "L17": {
+    "id": "L17",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "MY CROWN IS IN MY HEART",
+      "text": "This Levy Henry VI may Parley twice for 0 Lordship (with Influence\nchecks).\nLord: Henry VI.\nTips: This Levy only, Henry VI may take 2 additional Parley\nactions, paying usual Influence costs and rolling Influence\nchecks (3.4.1). Allows Parley on London even if Y15 London for\nYork placed double Favour markers there. No effect if Henry VI\nnot on map. Does NOT affect Campaign Parley (4.6.4). Capability\nnot available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "MARGARET TAKES THE REINS",
+      "text": "Each Tides of War, this Lord at a Stronghold outside London or in\nan Exile box adds +2 Lancastrian Influence points.\nLord: Henry VI.\nTips: Each Tides of War (4.8.1) that Henry VI with this Capability\nis on map outside London \u2014 at any Stronghold other than London\n(regardless of Favour) or in any Exile box \u2014 add +2 Lancastrian\nInfluence.",
+      "lords": null
+    }
+  },
+  "L18": {
+    "id": "L18",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "PARLIAMENT VOTES",
+      "text": "This Levy 1 Parley action by each Lancastrian Lord costs less by\n\u20131 Influence point and automatically succeeds.\nTips: This Levy only, each Lancastrian Lord may reduce cost of any\n1 Parley by 1 Influence and that Parley auto-succeeds (announce\nbefore rolling). Allows Parley on London even with Y15 London\nfor York's double Favour. Does NOT affect Campaign Parley.\nCapability not available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "COUNCIL MEMBER",
+      "text": "Each Tides of War, this Lord adds +1 Lancastrian Influence point.\nLord: Exeter, Buckingham, or Somerset.\nTips: Each Tides of War (4.8.1) that this Lord is anywhere on map\n(incl. Exile box), +1 Lancastrian Influence.",
+      "lords": null
+    }
+  },
+  "L19": {
+    "id": "L19",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "HENRY'S PROCLAMATION",
+      "text": "Yorkists shift all their Vassals' Calendar markers to the current\nTurn box.\nTips: All Yorkist Vassal Calendar markers move to current Turn\nbox (then discard). Pay or Disband (3.2.3\u2013.4) will affect those\nVassals this Levy.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "ANDREW TROLLOPE",
+      "text": "This Lord Levies Special Vassal Trollope (free) and has Valour\n+1.\nLords: Exeter, Buckingham, or Somerset.\nTips: Place named Special Vassal marker on Lord's mat (1.5.4).\nValour +1 applies as long as Lord retains both Capability and\nSpecial Vassal. If Special Vassal Disbands, discard this\nCapability.",
+      "lords": "Exeter, Buckingham, or Somerset."
+    }
+  },
+  "L20": {
+    "id": "L20",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "PARLIAMENT'S TRUCE",
+      "text": "Hold: Play to prohibit all Approach and Intercept for the rest of\nthis Campaign.\nTips: Play any moment in Campaign (only), including at the\nmoment of Enemy March triggering Approach (4.3.5) or Enemy\nIntercept. Forbids and CANCELS all Approach/Intercept by both\nsides for rest of Turn.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "VETERAN OF FRENCH WARS",
+      "text": "This Lord has Valour +2.\nLords: Exeter or Somerset.\nTips: +2 Valour: increases Intercept (4.3.4) and adds 2 Valour\nmarkers for re-rolls (4.4.1\u2013.2).",
+      "lords": "Exeter or Somerset."
+    }
+  },
+  "L21": {
+    "id": "L21",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "FRENCH FLEET",
+      "text": "This Campaign Yorkist Lords may not Sail.\nTips: Forbids Yorkist Sail this Campaign even if another card\n(e.g., Y6 Seamanship) would enable it. Capability not available\nthis Turn.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "MY FATHER'S BLOOD",
+      "text": "This Lord Levies Special Vassal Clifford (free) and has Valour\n+1.\nLords: Any.\nTips: See L19.",
+      "lords": "Any."
+    }
+  },
+  "L22": {
+    "id": "L22",
+    "side": "lancastrian",
+    "rose": 1,
+    "event": {
+      "title": "FRENCH TROOPS",
+      "text": "Add up to 2 Men-at-Arms and 2 Militia to a Lancastrian Lord at a\nPort.\nTips: Optional. Choose 1 Lancastrian Lord at a Port Stronghold\n(regardless of Favour, NOT Exile box) and add 0\u20132 MAA + 0\u20132\nMilitia to his mat (within pool, 1.6). No effect if no\nLancastrian Lord is at a Port.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "STAFFORD ESTATES",
+      "text": "At outset of each Campaign, this Lord receives 1 Coin and 1\nProvender.\nLord: Buckingham.\nTips: At each Campaign start (4.0), regardless of Locale,\nBuckingham gains 1 Coin and 1 Provender.",
+      "lords": null
+    }
+  },
+  "L23": {
+    "id": "L23",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "WARWICK'S PROPAGANDA",
+      "text": "Select 3 Yorkist Strongholds. For each, Yorkists either pay 2\nInfluence points or remove Favour.\nTips: Lancastrian player selects 3 Strongholds with Yorkist\nFavour (or all if fewer). May include Special Strongholds\n(London, Calais, Harlech). For each, Yorkist player chooses:\nlose 2 Influence OR remove that Yorkist Favour marker. Adjust\nStronghold markers on edge track.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "MONTAGU",
+      "text": "This Lord Levies Special Vassal Montagu (free), and his Retinue\nhas Armour 1-5.\nLord: Warwick.\nTips: See L19. Retinue Armour 1-5 applies as long as Warwick\nretains both Capability and Special Vassal \u2014 including for the\nremainder of a Battle in which Montagu Routs.",
+      "lords": null
+    }
+  },
+  "L24": {
+    "id": "L24",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "WARWICK'S PROPAGANDA",
+      "text": "Select 3 Yorkist Strongholds. For each, Yorkists either pay 2\nInfluence points or remove Favour.\nTips: Lancastrian player selects 3 Strongholds with Yorkist\nFavour (or all if fewer). May include Special Strongholds\n(London, Calais, Harlech). For each, Yorkist player chooses:\nlose 2 Influence OR remove that Yorkist Favour marker. Adjust\nStronghold markers on edge track.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "MARRIED TO A NEVILLE",
+      "text": "This Lord at a Friendly Locale with Warwick has Influence +2 and\nCommand +1.\nLord: Clarence.\nTips: While Clarence and Warwick are at the same Stronghold with\nLancastrian Favour or in same Exile box: Clarence +2 Influence,\n+1 Command. If they part at any moment, Capability ceases.\nEXCEPTION: If the LAST Command action of a card separates them,\nCapability still applies for that action (started together).",
+      "lords": null
+    }
+  },
+  "L25": {
+    "id": "L25",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "WELSH REBELLION",
+      "text": "Remove 2 Troops from each Yorkist Lord in Wales OR, if no Yorkist\nLords there, 2 Yorkist Favour from Wales.\nTips: If any Yorkist Lord cylinder is in Wales (1.3.1),\nLancastrian removes 2 wooden Troops units (NOT Retinues or\nVassals) from each. If left without Troops, that Lord Disbands\n(1.6, 3.2.4). If no Yorkist Lords in Wales, instead remove 2\nYorkist Favour markers from Wales (or 1 if only 1). Adjust\nmarkers on edge track. No effect if no Yorkist Lords or Favour\nin Wales.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "WELSH LORD",
+      "text": "Each Battle in Wales, this Lord adds 2 Longbowmen. Remove them\nafter Battle.\nLord: Jasper Tudor.\nTips: At Battle Array (4.4.1) at a Stronghold within Wales (1.3.1),\nadd 2 Longbow to mat. On Aftermath (4.4.4), remove. If left\nwithout Troops, Disbands (1.6, 3.2.4).",
+      "lords": null
+    }
+  },
+  "L26": {
+    "id": "L26",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "HENRY RELEASED",
+      "text": "If London Favours Lancastrians, add 5 Lancastrian Influence\npoints.\nTips: Immediate; can occur multiple times in a game. No effect if\nLondon has Yorkist Favour or no Favour marker.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "EDWARD PRINCE OF WALES",
+      "text": "This Lord Levies Special Vassal Edward (free) and has Valour +1.\nLord: Margaret.\nTips: See L19.",
+      "lords": null
+    }
+  },
+  "L27": {
+    "id": "L27",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "L'UNIVERSELLE ARAGNE",
+      "text": "Select 2 Yorkist Mustered Vassals. Their Lords check Influence\nfor each \u2014 failure Disbands the Vassal.\nTips: Lancastrian chooses 2 Vassals on Yorkist mats. May include\nSpecial Vassal Hastings. For each, the Yorkist Lord with that\nVassal makes an Influence check (Yorkist spends Influence as\nnormal, 1.4.3). On failure, Vassal Disbands (3.2.4). If Hastings\nDisbands, discard Capability Y24 Hastings from Edward IV's mat\n(1.5.4).",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "BARDED HORSE",
+      "text": "This Lord's Retinue and his or her Vassals have Armour 1-3\nagainst Missile but Armour 1-5 against Melee.\nLords: Exeter, Somerset, or Margaret.\nTips: Retinue and Vassals Protection: 1\u20133 vs Missile (\u20131 from\ndefault), 1\u20135 vs Melee (+1 from default). Modifications do NOT\napply when rolling for Losses (4.4.3).",
+      "lords": "Exeter, Somerset, or Margaret."
+    }
+  },
+  "L28": {
+    "id": "L28",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "REBEL SUPPLY DEPOT",
+      "text": "Hold: Play after a Lord or Group Marches or Sails to a Port for\nthem to receive 4 Provender and ignore their next Feed.\nTips: Play just after a March or Sail action that ends at a Port\n(only). Mover(s) receive 4 Provender distributed as desired.\nQualifying Lord(s) also remove Moved/Fought markers in the\nupcoming Feed (4.7) without spending Provender or Pillaging,\nregardless of further March, Sail, or Battle on that Command Card.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "LOYAL SOMERSET",
+      "text": "This Lord at the same Locale as Margaret has Influence +1 and\nValour +1.\nLord: Somerset.\nTips: While at the same Stronghold or in same Exile box as\nMargaret, Somerset +1 Influence and +1 Valour. Margaret's Rout\nin Battle does NOT remove the +1 on Somerset for that Battle.",
+      "lords": null
+    }
+  },
+  "L29": {
+    "id": "L29",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "TO WILFUL DISOBEDIENCE",
+      "text": "Remove Yorkist Favour from 2 Strongholds at or adjacent to a\nLancastrian Lord and not at or adjacent to Yorkist Lords.\nTips: Lancastrian removes Yorkist Favour markers from 2\nStrongholds (or 1 if only 1 qualifies) that:\n  \u2022 Are at, or adjacent by Way (1.3.1) to, a Lancastrian Lord, AND\n  \u2022 Have NO Yorkist Lord at the Stronghold or adjacent by Way.\nMay include Special Strongholds (London, Calais, Harlech).\nAdjust markers on edge track.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "HIGH ADMIRAL",
+      "text": "This Lord can Sail to Ports where Enemy Lord(s), triggering\nApproach (4.3.5).\nLord: Exeter.\nTips: Exeter Sails normally (4.6.1) except destination Port may\ncontain Yorkist Lords. If so, treat as Approach (4.3.5), as if\nMarched there from origin (incl. Exile box or at Sea). Exeter\nmust take the Sail action himself; since he is not\nMarshal/Lieutenant, this never applies to Group Sail. Y12/L20\nParliament's Truce prevents Exeter using High Admiral to\nApproach.",
+      "lords": null
+    }
+  },
+  "L30": {
+    "id": "L30",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "FRENCH WAR LOANS",
+      "text": "Add 1 Coin and 1 Provender to each Lancastrian Lord on map.\nTips: Immediate and mandatory. On-map Lords include Strongholds\nand Exile boxes; NOT those on Calendar.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "MERCHANTS",
+      "text": "This Lord for 1 Command action and successful Influence check\nremoves 2 Depleted or Exhausted at his location and/or adjacent.\nLord: Warwick.\nTips: For any Command action, Warwick may make an Influence Check\n(1.4.3); on success, Lancastrian removes 2 Depleted/Exhausted\nmarkers at Strongholds adjacent by Way (1.3.1) to Warwick (or at\nWarwick's location). Removal of Exhausted leaves the Stronghold\nneither Exhausted nor Depleted. If able, must remove 2; otherwise\n1. May use multiple times. Favour and Enemy Lords have no effect.",
+      "lords": null
+    }
+  },
+  "L31": {
+    "id": "L31",
+    "side": "lancastrian",
+    "rose": 2,
+    "event": {
+      "title": "ROBIN'S REBELLION",
+      "text": "Place and/or remove up to 3 Favour total in the North.\nTips: Lancastrian selects Strongholds in the North Area (1.3.1)\nand may remove Yorkist Favour and/or place Lancastrian Favour on\nneutral Strongholds there, in any combination, up to 3 markers\ntotal. Lords present have no effect. Adjust markers on edge track.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "YEOMEN OF THE CROWN",
+      "text": "If this Lord's Retinue fails an Armour roll, she may instead Rout\n1 of her Unrouted Men-at-Arms units.\nLord: Margaret.\nTips: Margaret's Retinue can take Hits without Routing,\noptionally Routing one of her MAA instead \u2014 effectively giving\nthe MAA Armour 1-4 (or 1-5 against Melee with L27 Barded Horse).\nOnce all Margaret's MAA are Routed, Yeomen has no further effect\nthat Battle. Does NOT apply when rolling for Losses (4.4.3).",
+      "lords": null
+    }
+  },
+  "L32": {
+    "id": "L32",
+    "side": "lancastrian",
+    "rose": 3,
+    "event": {
+      "title": "TUDOR BANNERS",
+      "text": "If Henry Tudor is at a Friendly Stronghold, mark all adjacent\nStrongholds that are free of Yorkist Lords with Lancastrian\nFavour.\nLord: Henry Tudor.\nTips: No effect unless Henry Tudor is on map at a Stronghold with\nLancastrian Favour. If so, remove Yorkist Favour from\nStrongholds that are both adjacent by Way (1.3.1) and have no\nYorkist Lord, then place Lancastrian Favour at all such\nStrongholds (whether or not they had a Yorkist marker). Adjust\nmarkers on edge track.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "TWO ROSES",
+      "text": "This Lord's Vassal Levy always succeeds.\nLord: Henry Tudor.\nTips: Henry Tudor's Vassal Levy auto-succeeds (no Influence-check\nroll). Stronghold requirements, Vassal eligibility, and Lordship\n+ Influence costs still apply (3.4.3).",
+      "lords": null
+    }
+  },
+  "L33": {
+    "id": "L33",
+    "side": "lancastrian",
+    "rose": 3,
+    "event": {
+      "title": "SURPRISE LANDING",
+      "text": "Hold: Play after Sailing to a Port to add a free March action.\nTips: Play just after a Lord/Group's Sail action that ends at a\nPort (only). Active Lord \u2014 plus, if Marshal/Lieutenant, any other\nLancastrian Lords there desired \u2014 may take 1 March action without\nusing Command. Since Path March uses all Command actions, this\nbonus March may NOT use a Path. Feed happens AFTER this free\nMarch, not after the Sail.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "PHILIBERT DE CHANDE\u00c9",
+      "text": "Each Battle at or adjacent to Friendly English Channel Port, this\nLord adds 2 Men-at-Arms. Remove them after Battle.\nLords: Oxford or Henry Tudor.\nTips: At Battle Array (4.4.1) at a Stronghold with Lancastrian\nFavour that IS or IS ADJACENT TO an English Channel Port (1.3.1),\nregardless of Yorkist Lords at that Port, add 2 MAA to mat. On\nAftermath (4.4.4), remove. If left without Troops, Disbands\n(1.6, 3.2.4).",
+      "lords": "Oxford or Henry Tudor."
+    }
+  },
+  "L34": {
+    "id": "L34",
+    "side": "lancastrian",
+    "rose": 3,
+    "event": {
+      "title": "BUCKINGHAM'S PLOT BACKFIRES",
+      "text": "This Levy each Yorkist Vassal Levy costs +2 extra Influence\npoints.\nTips: Each Yorkist Vassal Levy this Turn costs 2 more Influence\nthan usual. Any Vassal Levy Influence cost reduced to zero/free\nby other cards still costs 2 points. Capability not available\nthis Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "PIQUIERS",
+      "text": "This Lord's Men-at-Arms and Militia have Armour 1-4 until 3 of\nthem Rout.\nLords: Oxford or Henry Tudor.\nTips: All this Lord's MAA and Militia begin Battle as Armoured\nTroops with Armour 1-4. MAA with both Piquiers and L5 Church\nBlessing have Armour 1-4 (no further increase). Once the third\ncombined Rout among MAA + Militia happens, Piquiers loses\neffect for the rest of THAT Battle only. Does NOT apply when\nrolling for Losses (4.4.3).",
+      "lords": "Oxford or Henry Tudor."
+    }
+  },
+  "L35": {
+    "id": "L35",
+    "side": "lancastrian",
+    "rose": 3,
+    "event": {
+      "title": "MARGARET BEAUFORT",
+      "text": "This Levy Henry Tudor may attempt to Levy any Vassals on the map.\nTips: Eliminates Friendly-Stronghold and Enemy-Lord restrictions\non Henry Tudor's Levy Vassal actions this Turn. Henry Tudor must\nbe on map (incl. Exile box). Need not be at a Friendly\nStronghold; target Vassal's Seat need not have Lancastrian Favour\nor be free of Yorkist Lords. Lordship and Influence costs and\nInfluence check still apply (3.4.3). Cannot Levy already-Mustered\nVassals or Special Vassals (1.5.4). No effect if Henry Tudor not\non map. Capability not available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "THOMAS STANLEY",
+      "text": "This Lord Levies Special Vassal Stanley (free). Once per Levy, he\ncan Levy Troops for 0 Lordship.\nLords: Jasper Tudor or Henry Tudor.\nTips: See L19. Levy Troops benefit otherwise has same\nrequirements/effects as Levy Troops (3.4.4); applies as long as\nLord retains Capability and Special Vassal.",
+      "lords": "Jasper Tudor or Henry Tudor."
+    }
+  },
+  "L36": {
+    "id": "L36",
+    "side": "lancastrian",
+    "rose": 3,
+    "event": {
+      "title": "TALBOT TO THE RESCUE",
+      "text": "Hold: Play upon Death check to Disband any Routed Lancastrians\ninstead of rolling for Death.\nTips: Play during Battle, BEFORE rolling Death (4.4.3). Routed\nLancastrian Lords may choose (before rolling only) to Disband\n(3.2.4). BLOCKED by Y33 Bloody thou art (which skips Death\nchecks entirely).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CHEVALIERS",
+      "text": "This Lord's Men-at-Arms suffer \u20131 Armour against Missiles but\nMelee Strike x2.\nLords: Jasper Tudor, Oxford, or Henry Tudor.\nTips: All this Lord's MAA reduce Protection success range vs\nMissiles by 1 (e.g., from 1-3 to 1-2). Cumulative with L5 Church\nBlessing or L34 Piquiers. During Melee, this Lord's MAA each\ngenerate 2 Hits instead of 1. Armour modification does NOT apply\nwhen rolling for Losses (4.4.3).",
+      "lords": "Jasper Tudor, Oxford, or Henry Tudor."
+    }
+  },
+  "L37": {
+    "id": "L37",
+    "side": "lancastrian",
+    "rose": 3,
+    "event": {
+      "title": "THE EARL OF RICHMOND",
+      "text": "This Levy Lancastrian Vassal Levy always succeeds.\nTips: Lancastrian Vassal Levy this Turn need not roll for success.\nStronghold requirements, Vassal eligibility, and Lordship +\nInfluence costs still apply (3.4.3). Capability not available\nthis Turn.\n\n\n================================================================",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "MADAME LA GRANDE",
+      "text": "Each Pay segment (3.2) that this Lord at or adjacent to a Friendly\nEnglish Channel Port, he receives 1 Coin.\nLords: Jasper Tudor, Oxford, or Henry Tudor.\nTips: At each Pay segment start (3.2), if this Lord is at, or\nadjacent by Way to, an English Channel Port with Lancastrian\nFavour (regardless of Yorkist Lords), add 1 Coin to mat.\n\n\n================================================================\nERRATA & CLARIFICATIONS APPLIED ABOVE (cross-reference)\n================================================================\n\u2022 Y5 / L5 SUSPICION \u2014 \"higher PRINTED Influence rating than the\n  Enemy\"; modifications by other cards do NOT count for this\n  comparison. (Errata, p.31 Suspicion event)\n\u2022 Y6 / L6 GREAT SHIPS \u2014 Sail does NOT allow port-to-port across\n  different Seas; Great Ships' cross-Sea linkage applies only to\n  Parley, Tax, and Supply. (FAQ #1)\n\u2022 Y24 HASTINGS \u2014 the additional Men-at-Arms ARE removed during\n  Waste. (FAQ #6)\n\u2022 Y26 FALLEN BROTHER \u2014 Clarence removal via the Foreign Haven\n  scenario rule also counts to trigger this Capability. (FAQ #4)\n\n================================================================\nEND OF REFERENCE\n================================================================",
+      "lords": "Jasper Tudor, Oxford, or Henry Tudor."
+    }
+  },
+  "Y1": {
+    "id": "Y1",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "LEEWARD BATTLE LINE",
+      "text": "Hold: Play in Battle to halve all Missile hits (round up) to\nFriendly Lords, unless Enemy Leeward Battle Line.\nTips: Play at Event step after Battle Array (4.4.1). First add any\nMissile Hits from other cards, then halve the total (round up). If\nboth sides play this Event, neither has effect. Attacker may wait\nto see if Defender plays before deciding.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CULVERINS AND FALCONETS",
+      "text": "At start of Round 1 of Battle, this Lord may discard this card to\nadd 1 die roll of Missile Hits.\nLords: Any.\nTips: After both sides decide on Events and before Round 1,\nDefender then Attacker decide whether to expend Culverins and\nFalconets. Use only on Round 1; rolls a die at that side's\nMissile Strike step adding 1\u20136 extra Missile Hits, then discard.",
+      "lords": "Any."
+    }
+  },
+  "Y2": {
+    "id": "Y2",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "FLANK ATTACK",
+      "text": "Hold: Play to Intercept without rolling and become Attacker in\nthat Battle.\nTips: Play when attempting Intercept (4.3.4), including by Marshal\nor Lieutenant. Cannot be played while Y12/L20 Parliament's Truce\nis in effect. Intercept succeeds automatically; otherwise occurs\nnormally.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CULVERINS AND FALCONETS",
+      "text": "At start of Round 1 of Battle, this Lord may discard this card to\nadd 1 die roll of Missile Hits.\nLords: Any.\nTips: After both sides decide on Events and before Round 1,\nDefender then Attacker decide whether to expend Culverins and\nFalconets. Use only on Round 1; rolls a die at that side's\nMissile Strike step adding 1\u20136 extra Missile Hits, then discard.",
+      "lords": "Any."
+    }
+  },
+  "Y3": {
+    "id": "Y3",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "ESCAPE SHIP",
+      "text": "Hold: Play upon Death check if Yorkist Route (4.5.1) to Port for\nany Routed Yorkists to go into Exile instead.\nTips: Play before rolling for Death (4.4.3); playing side must be\nat, or trace overland Route to, a Friendly Port (4.5.1). Defender\nmust decide and play any Death-check Events before Attacker.\nSelected Routed Lords automatically apply Exile (4.3.5) instead of\nthe Death roll. Works even if Blocked Ford was played that\nBattle. Combines with Y8 England Is My Home: result is regular\nDisband instead of Exile.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "MUSTER'D MY SOLDIERS",
+      "text": "Each Battle at a Friendly Stronghold, this Lord adds 2 Men-at-Arms\nand 1 Longbowmen. Remove them after Battle.\nLords: Any.\nTips: At outset of Battle Array (4.4.1) at a Friendly Stronghold,\nadd 2 MAA and 1 Longbow to that Lord's mat. On Aftermath\n(4.4.4), remove those Troops (only, not the card). If Lord left\nwithout Troops, he Disbands (1.6).",
+      "lords": "Any."
+    }
+  },
+  "Y4": {
+    "id": "Y4",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "JACK CADE",
+      "text": "This Levy Yorkist Lords in or adjacent to Yorkist Dominated Areas\neach add 2 free successful Parleys.\nTips: At this turn's Muster (3.4), determine which Areas Yorkists\nDominate (Favour at all Locales in the Area, 1.3.1, 4.8.1). All\nYorkist Lords in those Areas, or in Locales adjacent (by Way) to a\nLocale within such an Area, must take two Parley Levy actions\n(3.4.1) \u2014 without spending Influence or Lordship and succeeding\nwithout rolling. Capability not available this Turn (3.1.3).",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "WE DONE DEEDS OF CHARITY",
+      "text": "Each Tides of War, this Lord may pay 1 or 2 Provender (may Share)\nfor +1 Influence point each.\nLords: Any.\nTips: Once during each Tides of War (4.8.1), discard 1 Provender\n(may Share, 1.5.3) for +1 Influence, or 2 Provender for +2.",
+      "lords": "Any."
+    }
+  },
+  "Y5": {
+    "id": "Y5",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "SUSPICION",
+      "text": "Hold: Play in Battle for participating Yorkist Lord to check\nInfluence. Success Disbands 1 Lancastrian Lord at Battle with\nlower Influence rating.\nTips: Play at Event step after Battle Array (4.4.1). Choose one\nFriendly Lord and one Enemy Lord. The Friendly Lord must have a\nhigher PRINTED Influence rating than the Enemy [ERRATA: ignore\nany modifications by other cards for this comparison]. Friendly\nLord checks Influence (1.4.2). On success, Disband the Enemy Lord\n(3.2.4) \u2014 no Influence-point loss. Disbanded Lord does not take\npart in the Battle; Reposition in Round 1 (4.4.2).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "THOMAS BOURCHIER",
+      "text": "This Lord starts in any Friendly City Command +1.\nLords: Any.\nTips: \"Command +1\" = a Lord with Command rating 2 instead takes 3\nCommand actions (1.5.2, 4.2.1). Applies only if this Lord, at\nSTART of his Command Card, is at a Friendly CITY (not Town,\nFortress, Special Locale such as London, or Exile box). Bonus\napplies for entire Command card, even if he later moves away.",
+      "lords": "Any."
+    }
+  },
+  "Y6": {
+    "id": "Y6",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "SEAMANSHIP",
+      "text": "This Campaign Yorkists may Sail for just 1 Command action.\nTips: Friendly Lords may Sail by usual rules (4.6.1) for one\nCommand action instead of an entire Command card. May combine\nSail with other actions on the same card (March, Tax, Supply,\nParley, more Sailing). Capability not available this Turn (3.1.3).",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "GREAT SHIPS",
+      "text": "This Lord's Ships count double for Sail and Supply and connect\nall Ports of all Seas.\nLords: Any.\nTips: This Lord's Ships (including when Shared TO others, but NOT\nothers' Ships shared TO this Lord) carry double on Sail: 12\nForces, 4 Provender, 4 Carts (4.6.1). On Supply from a Port, add\n2 Provender per Ship (4.5.1). Renders all Port Strongholds and\nExile boxes as 1 Way distance for PARLEY, SUPPLY, and TAX \u2014 as\nif all on the same Sea (1.3.1 Seas And Ports). This Lord Levies\nShips normally (3.4.5).\n[FAQ #1]: SAIL action does NOT allow going directly from a port to\nanother port on a different sea, even with Great Ships. Great\nShips affects only Parley, Tax and Supply for cross-Sea linkage.",
+      "lords": "Any."
+    }
+  },
+  "Y7": {
+    "id": "Y7",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "YORKISTS BLOCK PARLIAMENT",
+      "text": "This Levy Lancastrians may not Levy Vassals except by Event.\nTips: Blocks the Levy Vassal action this turn, including via\nCapability such as L32 Two Roses, and for Special Vassals such as\nL35 Thomas Stanley. Lancastrian Events that enable Vassal Levy\n(L7 For trust not him, L35 Margaret Beaufort, L37 The Earl of\nRichmond) supersede this card and allow Vassal Levy. Capability\nnot available this Turn (3.1.3).",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "HARBINGERS",
+      "text": "This Lord's Supply actions draw twice the usual Provender.\nLords: Any.\nTips: For any Supply by this Lord, calculate normal Provender\nadded (4.5.2), place double. Mandatory. Cumulative with cards\nthat affect Supply (e.g., Y6 Great Ships). Does NOT affect\nForage (4.6.2).",
+      "lords": "Any."
+    }
+  },
+  "Y8": {
+    "id": "Y8",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "EXILE PACT",
+      "text": "This Campaign Yorkist Lords may use a Command action to place\ntheir cylinder into a Friendly Exile box (at no Influence cost).\nTips: Allows voluntary Yorkist Exile without enemy Approach. Costs\n1 Command action; Active Yorkist Lord goes directly to a\nscenario-designated Exile box, no effect on Influence, Assets, or\nVassals.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "ENGLAND IS MY HOME",
+      "text": "When going into Exile, this Lord instead Disbands to the next\nCalendar box.\nLords: Any.\nTips: Whenever this Lord would go into Exile (including via Y3/Y9\nEscape Ship), instead Disbands (3.2.4) \u2014 cylinder placed\nautomatically into next Turn's Calendar box (no roll for\nposition). No Influence-point penalty. Blocked Ford prevents\nuse of England Is My Home.",
+      "lords": "Any."
+    }
+  },
+  "Y9": {
+    "id": "Y9",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "ESCAPE SHIP",
+      "text": "Hold: Play upon Death check if Yorkist Route (4.5.1) to Port for\nany Routed Yorkists to go into Exile instead.\nTips: Play before rolling for Death (4.4.3); playing side must be\nat, or trace overland Route to, a Friendly Port (4.5.1). Defender\nmust decide and play any Death-check Events before Attacker.\nSelected Routed Lords automatically apply Exile (4.3.5) instead of\nthe Death roll. Works even if Blocked Ford was played that\nBattle. Combines with Y8 England Is My Home: result is regular\nDisband instead of Exile.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "BARRICADES",
+      "text": "At Friendly Strongholds, this Lord's Men-at-Arms have Armour 1-4\nand Longbowmen and Militia have Armour 1-2.\nLords: Any.\nTips: Applies regardless of who is Attacker, whenever the\nStronghold where this Lord Battles is Friendly. Longbowmen and\nMilitia become Armoured Troops. Modification does NOT apply when\nrolling for Losses (4.4.3).",
+      "lords": "Any."
+    }
+  },
+  "Y10": {
+    "id": "Y10",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "TAX COLLECTORS",
+      "text": "Each Yorkist Lord may immediately conduct a Tax action to receive\ntwice the usual Coin.\nTips: Optional. Any on-map Yorkist Lord may Tax regardless of\nlocation, but must comply with the usual Tax procedure (4.6.3) \u2014\nInfluence check, selecting/tracing to/Depleting a qualifying\nStronghold \u2014 except Coin obtained is doubled.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "AGITATORS",
+      "text": "This Lord can use a Command action to Deplete an adjacent Neutral\nor Enemy Stronghold or flip Depleted there to Exhausted.\nLords: Any.\nTips: 1 Command action each; can Deplete/Exhaust multiple\nqualifying Strongholds on same Command card. Combinable with\nMarch, etc. Adds no Assets/Troops. Lancastrian Lords' presence\ndoes not affect this.",
+      "lords": "Any."
+    }
+  },
+  "Y11": {
+    "id": "Y11",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "BLOCKED FORD",
+      "text": "Hold: Play upon Approach to prevent Exile (all Lords there Battle).\nTips: Play at the moment of Approach by either side (including\nfrom Intercept, 4.3.4). Forbids any Lords there from choosing\nExile before Battle (4.3.5). Does NOT affect Escape Ship. When\nL15 King's Parley cancels an Approach, Yorkists cannot play\nBlocked Ford. Lancastrian play of Blocked Ford prevents use of\nY8 England Is My Home.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "YORKISTS NEVER WAIT",
+      "text": "This Lord Marches alone (not in a Group) on Road as if Highway.\nLords: Any.\nTips: 1 March action moves 2 Ways if each is Highway or Road\n(4.3.3). Marshal/Lieutenant with other Lords must leave them\nbehind on Road to use this. Does NOT affect Path March.",
+      "lords": "Any."
+    }
+  },
+  "Y12": {
+    "id": "Y12",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "PARLIAMENT'S TRUCE",
+      "text": "Hold: Play to prohibit all Approach and Intercept for the rest of\nthis Campaign.\nTips: Play at any moment during a Campaign. Forbids both sides'\nApproach and Intercept for the rest of the turn, including by\nY2/L2 Flank Attack or by L29 High Admiral. Return to deck on\nReset (4.8.6).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "SOLDIERS OF FORTUNE",
+      "text": "When Levying Troops, this Lord may pay 1 Coin to also add 2\nMercenaries (from pool).\nLords: Any.\nTips: Only way Mercenary units enter play. On Levy Troops (3.4.4),\nspend 1 Coin (may Share, 1.7) to add 2 Mercenary units in\naddition to normal Troops. Must meet usual Levy Troops\nrequirements/costs. Receive 0/1/2 Mercenaries depending on what\nremains in pool (1.6). Card stays with Lord until Disband, even\nwhen no Mercs remain.",
+      "lords": "Any."
+    }
+  },
+  "Y13": {
+    "id": "Y13",
+    "side": "yorkist",
+    "rose": 0,
+    "event": {
+      "title": "ASPIELLES",
+      "text": "Hold: Play to inspect all Lancastrian Held cards and 1 Hidden\nLancastrian Lord mat (1.5.3).\nTips: Play at any moment, even mid-Battle. Under Hidden mats\noption (1.5.3), select any one Enemy Lord's mat to inspect.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "SCOURERS",
+      "text": "This Lord's Forage actions always add +1 extra Provender.\nLords: Any.\nTips: Each Forage adds +1 Provender, even if unsuccessful (which\nwould yield 1 Provender instead of 0 and still NOT Deplete the\nLocale). Mandatory. Does NOT affect Supply (4.5).",
+      "lords": "Any."
+    }
+  },
+  "Y14": {
+    "id": "Y14",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "RICHARD OF YORK",
+      "text": "This Levy Yorkist Influence ratings +1 for Parley.\nTips: +1 affects all Yorkist Lords (not just York's), for Parley\nLevy (3.4.1) only \u2014 not for Levying Lords, Vassals, or Troops.\nCapability not available this Turn. Card discarded at end of\nLevy; no effect on Campaign Parley (4.6.4).",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "BURGUNDIANS",
+      "text": "This Lord at any Port adds 2 Handgunners (once, maximum).\nLords: York or March.\nTips: Y14/Y23 Burgundians is the only way Handgunners enter\nplay. The first time only that this Lord is at any Port\nStronghold (not Exile box, regardless of Favour) \u2014 including upon\nLevy of card if already there \u2014 must add 2 Handgunners units to\nhis mat; no Levy action required. Card stays with Lord until\nDisband, even if Handgunners are Lost (no replacement).",
+      "lords": "York or March."
+    }
+  },
+  "Y15": {
+    "id": "Y15",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "LONDON FOR YORK",
+      "text": "If Yorkist Favour at London, add a second Favour there. London\nchanges Favour only by Event or Pillage.\nTips: If London has one Yorkist Favour marker, add a second. If\nalready two, no effect. Double Favour means London is immune to\nLancastrian Parley actions (3.4.1, 4.6.4) unless enabled or aided\nby Events such as L17 My crown is in my heart or L18\nParliament Votes. Otherwise treat London as Yorkist Favour\nnormally (e.g., Tides of War, 4.8.1). Pillage (3.2.1) can remove\nor reverse Favour at London normally, removing both Yorkist\nmarkers.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "NAVAL BLOCKADE",
+      "text": "This Lord at a Port cancels Lancastrian actions using Ports on\nthat Sea unless a roll of 1-2.\nLord: Warwick.\nTips: Whenever Warwick (with this Capability) is at any Port\nStronghold (not Exile box, regardless of Favour), roll a die\nimmediately after any Lancastrian action using a Port on the same\nSea \u2014 that action only occurs on roll of 1 or 2. Such actions can\ninclude Parley, Levy Ship, Supply, Sail, and Tax (3.4.1, 4.6.4,\n3.4.5, 4.5, 4.6.1, 4.6.3). If action requires an Influence check\n(1.4.2), Lancastrians may wait to see roll before paying\nInfluence and rolling check. Lordship/Command cost is spent\nregardless. Does NOT impede use of a Stronghold itself that is\nalso a Port, nor card effects requiring a Port (Heralds, French\nTroops).",
+      "lords": null
+    }
+  },
+  "Y16": {
+    "id": "Y16",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "THE COMMONS",
+      "text": "This Levy each Yorkist Levy Troops action may add up to 2 Militia\nextra (from pool).\nTips: Each time a Yorkist Lord takes Levy Troops this Levy, may\nadd up to 2 Militia in addition to other Troops, so long as\nMilitia remain in pool (1.6). Capability not available this Turn.\nDiscarded at end of Levy; Militia remain.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "BELOVED WARWICK",
+      "text": "This Lord can Levy Troops for 5 Militia (from pool) instead of the\nStronghold's listed Troops.\nLord: Warwick.\nTips: Warwick Levies 5 Militia units instead of the Stronghold's\nTroops. Must meet usual Levy Troops requirements/costs. Must take\nthe full 5 (or what remains in pool, 1.6). Card stays with\nWarwick until Disband.",
+      "lords": null
+    }
+  },
+  "Y17": {
+    "id": "Y17",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "SHE-WOLF OF FRANCE",
+      "text": "Shift each Yorkist Vassal's Calendar marker 1 box right.\nTips: Identify Yorkist Vassal markers on the Calendar; shift each\none Calendar box right (delays Pay or Disband by one turn,\n3.2.3). Status of Lancastrian Lord Margaret does not affect this\nEvent.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "ALICE MONTAGU",
+      "text": "This Lord's Vassals have +1 Service and are immune to \"For trust\nnot him\".\nLord: Salisbury.\nTips: When Salisbury Musters a Vassal, place its Calendar counter\n1 box right of where it would normally go (3.4.3) \u2014 unless\nalready beyond box 15 (2.2.3). Lancastrians may not use L7 For\ntrust not him against Salisbury's Vassals.",
+      "lords": null
+    }
+  },
+  "Y18": {
+    "id": "Y18",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "SUCCESSION",
+      "text": "This Levy 1 Parley action by each Yorkist Lord costs less by \u20131\nInfluence point and automatically succeeds.\nTips: Each Yorkist Parley action this Levy phase only costs 1\nInfluence less (min zero) and succeeds without rolling. Does NOT\naffect Parley Levy actions already reduced to zero by other\ncards. Capability not available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "IRISHMEN",
+      "text": "This Lord in Ireland or at Port on Irish Sea can Levy Troops for\n5 Militia (from pool) total, no Depletion or Exhaustion.\nLords: Rutland or York.\nTips: When Levying Troops (3.4.4) in Ireland Exile box or at any\nPort Stronghold on Irish Sea, may add 5 Militia instead of normal\nTroops. Multiple actions allowed (5 each). No Depletion or\nExhaustion of the Locale. Other Levy Troops requirements still\napply (e.g., not Exhausted). Must take full 5 (or what remains in\npool). Y6 Great Ships does NOT alter the Irish Sea requirement.",
+      "lords": "Rutland or York."
+    }
+  },
+  "Y19": {
+    "id": "Y19",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "CALTROPS",
+      "text": "Hold: Play in Battle to add +2 Melee Hits against the Enemy each\nRound.\nTips: Play after Battle Array (4.4.1). Each Melee step of each\nRound, +2 Hits against Lancastrians. Yorkist player distributes\nbetween Engagements; Lancastrians among Lords/Forces within an\nEngagement.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "WELSHMEN",
+      "text": "Each Tides of War, Yorkists Dominate Wales with this Lord and 3+\nFriendly Strongholds there.\nLords: York or March.\nTips: Each Tides of War (4.8.1), if this Lord is at a Stronghold\nin Wales and at least 3 Strongholds in Wales have Yorkist\nFavour, Yorkists earn the Domination Influence point for Wales.\nReduces Domination requirement from \"all Strongholds Friendly\" to\n\"3+ Friendly\".",
+      "lords": "York or March."
+    }
+  },
+  "Y20": {
+    "id": "Y20",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "YORKIST PARADE",
+      "text": "Hold: Play if London Friendly and York or Warwick there. This\nLevy Yorkist Influence ratings +2.\nTips: Play any time London Favours Yorkists. If played during\nCampaign, takes effect during the FOLLOWING turn's Levy; the\ncard's Capability not available until thereafter (3.1.3).\nIncreases all Yorkist Influence ratings +2 during that Levy. Does\nNOT affect Tides of War \"Gain Lords Influence\" (4.8.1).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "YORK'S FAVOURED SON",
+      "text": "This Lord has Influence +1 and Command +1.\nLords: Rutland or March.\nTips: +1 Influence and +1 Command rating.",
+      "lords": "Rutland or March."
+    }
+  },
+  "Y21": {
+    "id": "Y21",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "SIR RICHARD LEIGH",
+      "text": "Remove Lancastrian Favour from London or, if neutral, place\nYorkist Favour there.\nTips: Occurs even if a Lancastrian Lord is present at London.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "SOUTHERNERS",
+      "text": "Each Tides of War, Yorkists Dominate the South with this Lord and\n5+ Friendly Strongholds there.\nLords: March, Rutland, or York.\nTips: Same as Y19 Welshmen for the South Area, listed Lords, and\n5+ Strongholds.",
+      "lords": "March, Rutland, or York."
+    }
+  },
+  "Y22": {
+    "id": "Y22",
+    "side": "yorkist",
+    "rose": 1,
+    "event": {
+      "title": "LOYALTY AND TRUST",
+      "text": "This Levy any 1 Yorkist Lord has Lordship +3.\nTips: Select any one Yorkist Lord. +3 is in addition to other\nEvent/Capability modifiers. Capability not available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "FAIR ARBITER",
+      "text": "This Lord at a Friendly Locale has Influence +1 and Lordship +1.\nLord: Salisbury.\nTips: While Salisbury is at any Friendly Locale (including Exile\nbox, 1.3.1), +1 Influence and +1 Lordship. He could start Levy in\na neutral Stronghold, Parley to make it Friendly, then use the\nadded Lordship/Influence that same Levy.",
+      "lords": null
+    }
+  },
+  "Y23": {
+    "id": "Y23",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "CHARLES THE BOLD",
+      "text": "Add 1 Coin and 1 Provender to each Yorkist Lord on map.\nTips: All on-map Yorkist Lords (including Exile boxes, but NOT\nCalendar) each receive the Assets.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "BURGUNDIANS",
+      "text": "This Lord at any Port adds 2 Handgunners (once, maximum).\nLords: Edward IV, Gloucester, or Richard III.\nTips: See Y14.",
+      "lords": "Edward IV, Gloucester, or Richard III."
+    }
+  },
+  "Y24": {
+    "id": "Y24",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "SUN IN SPLENDOUR",
+      "text": "Hold: Play in Levy if Edward IV on Calendar (even as Exile) to\nMuster him at any Friendly Locale free of Enemy Lords.\nLord: Edward IV.\nTips: Play any moment of Levy (including immediately after\ndrawing) while Edward IV's cylinder is anywhere on Calendar.\nAuto-Muster per usual rules (3.4.2) at any Friendly Locale free\nof Lancastrian Lords \u2014 either a Stronghold with Yorkist Favour or\na scenario-designated Yorkist Exile box. If Mustered before\nMuster segment (3.4), he can take part with his Lordship. Discard\nthis card when played; Capability immediately available for Levy\n(3.4.6).",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "HASTINGS",
+      "text": "This Lord Levies Special Vassal Hastings (free), adds 2\nMen-at-Arms units, and has Command +1.\nLord: Edward IV.\nTips: Place Hastings Special Vassal marker plus 2 MAA on Edward\nIV's mat (1.5.4). Command +1 applies as long as Edward IV retains\nHastings. If Hastings Disbands, discard this Capability; the 2\nMAA are not affected by Hastings Disband.\n[FAQ #6]: Hastings's additional Men-at-Arms ARE removed during\nWaste.",
+      "lords": null
+    }
+  },
+  "Y25": {
+    "id": "Y25",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "OWAIN GLYNDWR",
+      "text": "This Campaign no Lancastrian March or Sail to any Strongholds in\nWales.\nTips: Takes precedence over any other Event/Capability enabling\nMarch or Sail. Forbids March or Sail INTO any Stronghold in Wales\neven for Lancastrian Lords already in Wales. Capability not\navailable this Turn.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "PEMBROKE",
+      "text": "Each Battle in Wales, this Lord adds 2 Longbowmen. Remove them\nafter Battle.\nLord: Pembroke.\nTips: At Battle Array (4.4.1) within Wales, add 2 Longbow to mat.\nOn Aftermath (4.4.4), remove the added units (any remaining)\nregardless of outcome. If Lord left without Troops, he Disbands\n(1.6, 3.2.4).",
+      "lords": null
+    }
+  },
+  "Y26": {
+    "id": "Y26",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "DUBIOUS CLARENCE",
+      "text": "If Edward IV on map, he may check Influence to Disband Clarence.\nLords: Edward IV and Clarence.\nTips: Effect requires both Edward IV and Clarence cylinders at\nStrongholds or Exile boxes. Influence check at Yorkist's option.\nOn success, Disband Clarence (3.2.4) \u2014 no Influence-point penalty.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "FALLEN BROTHER",
+      "text": "If Clarence is Dead or Shipwrecked, this Lord has Influence +2 and\nLordship +1.\nLord: Gloucester or Richard III.\nTips: Only Gloucester (or Richard III in full-length) gets this\nCapability. Increases ratings only if Death (4.4.3) or Shipwreck\n(4.8.2) has permanently Disbanded Clarence.\n[FAQ #4]: Clarence removal through the Foreign Haven scenario rule\nALSO counts for triggering Fallen Brother.",
+      "lords": null
+    }
+  },
+  "Y27": {
+    "id": "Y27",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "YORKIST NORTH",
+      "text": "Gain 1 Influence point for each Yorkist Stronghold and each\nYorkist Lord in the North.\nTips: Immediately add 1 Yorkist Influence per Stronghold in the\nNorth Area (1.3.1) with Yorkist Favour, plus 1 per Yorkist Lord\nat a Stronghold within the North. Even if Influence then exceeds\nVictory Threshold (5.2), play continues; Victory Check happens\nat end of Campaign phase.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "PERCY'S NORTH",
+      "text": "Each Battle in the North, this Lord adds 4 Militia. Remove them\nafter Battle.\nLord: Northumberland.\nTips: Same as Y25 Pembroke for the North Area, units, and Lord\nshown.",
+      "lords": null
+    }
+  },
+  "Y28": {
+    "id": "Y28",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "GLOUCESTER AS HEIR",
+      "text": "This Levy Gloucester may Parley +3 times for 0 Lordship.\nLord: Gloucester or Richard III.\nTips: At Yorkist option, Gloucester (or Richard III in full-length\nscenario) if on map at the outset of Muster (3.4) takes up to 3\nParley actions that do not spend Lordship (in addition to any with\nhis Lordship). Otherwise follow Parley Levy rules (3.4.1),\nincluding Influence cost and rolls. Capability not available\nthis Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "FIRST SON",
+      "text": "Each Tides of War, Yorkists add +1 extra Influence point.\nLord: Edward IV.\nTips: Each Tides of War (4.8.1) that Edward IV is on map (even in\nExile box) with First Son, add 1 Yorkist Influence point.",
+      "lords": null
+    }
+  },
+  "Y29": {
+    "id": "Y29",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "DORSET",
+      "text": "This Campaign Devon at Exeter Parleys for no Influence cost and\nautomatic success.\nLord: Devon.\nTips: Does NOT affect Levy-phase Parley (3.4.1). Affects only\nDevon's Campaign Parley actions while at the City of Exeter. His\nParley Commands from there cost 0 Influence and auto-succeed,\notherwise follow rules (4.6.4) \u2014 costs Command actions and remain\nlimited to Exeter and adjacent Strongholds Wells, Dorchester,\nLaunceston, Plymouth, extended to other English Channel Ports if\nStafford has or Shares a Ship. Capability not available this Turn.",
+      "type": "this_campaign"
+    },
+    "capability": {
+      "title": "STAFFORD BRANCH",
+      "text": "Exeter and adjacent Strongholds add 1 more Provender or Coin than\nusual to this Lord's Supply or Tax.\nLord: Devon.\nTips: When Devon draws Supply from or Taxes Exeter, Launceston,\nPlymouth, Wells, or Dorchester as a Source: +1 Provender if\nSupply, +1 Coin if Tax. Adds NOTHING extra if Supply uses a Port\nSource and Ships (4.5.2).",
+      "lords": null
+    }
+  },
+  "Y30": {
+    "id": "Y30",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "REGROUP",
+      "text": "Hold: Play in Battle for a Lord once to roll each of his Routed\nTroops' (modified) Protection for them to recover.\nTips: Play after Battle Array (4.4.1). At any one moment of the\nBattle, choose a Lord. All that Lord's Routed Troops (wooden unit\npieces, NOT Retinue or Vassals) roll Protection. On success,\nslide them out of the Routed section \u2014 no longer Routed (can Rout\nagain normally). On failure, no effect; remain Routed.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "CAPTAIN",
+      "text": "This Lord is a Marshal in any Locales where no Friendly Marshal\nor Lieutenant.\nLords: Northumberland or Pembroke.\nTips: Locale may be an Exile box (1.3.1, for group Sail, 4.6.1).\nEffect blocked the instant a Yorkist Marshal or Lieutenant is at\nthe same Locale.",
+      "lords": "Northumberland or Pembroke."
+    }
+  },
+  "Y31": {
+    "id": "Y31",
+    "side": "yorkist",
+    "rose": 2,
+    "event": {
+      "title": "EARL RIVERS",
+      "text": "Add up to 2 Militia to each Yorkist Lord on map.\nTips: Optional; may include Yorkist Lords in Exile boxes (but NOT\non Calendar). Limited by Militia available in pool (1.6).",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "WOODVILLES",
+      "text": "This Lord Levies Troops without Depleting or Exhausting\nStrongholds.\nLords: Edward IV, Devon, Gloucester, or Richard III.\nTips: Levies Troops with usual restrictions/effects (Friendly\nStronghold, not Exhausted) except action does NOT Deplete or\nExhaust. Can Muster Troops repeatedly from same Stronghold.",
+      "lords": "Edward IV, Devon, Gloucester, or Richard III."
+    }
+  },
+  "Y32": {
+    "id": "Y32",
+    "side": "yorkist",
+    "rose": 3,
+    "event": {
+      "title": "THE KING'S NAME",
+      "text": "This Levy Gloucester (not Richard III) may cancel each successful\nLancastrian Levy action by paying 1 Influence point.\nLord: Gloucester.\nTips: After any successful Lancastrian Levy Action (3.4.1\u20133.4.6) \u2014\nParley by Levy action, Levy Lord, Levy Troops, Levy Vassal, Levy\nTransport, or Levy Capability \u2014 Yorkist may pay 1 Influence to\ncancel the action's result. Lancastrian Influence costs incurred\nremain spent, but Depletion/Exhaustion incurred is reversed.\nCapability not available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "FINAL CHARGE",
+      "text": "As Richard III (not Gloucester) this Lord's Retinue once per Melee\nStrike may suffer +1 Hit to add +3 extra Hits against Enemy.\nLord: Richard III.\nTips: Richard III ONLY (not Gloucester). At each Melee Strike\nphase, may opt for Richard III's Retinue to take 1 Hit to inflict\n+3 extra Hits on opponents in same Engagement.",
+      "lords": null
+    }
+  },
+  "Y33": {
+    "id": "Y33",
+    "side": "yorkist",
+    "rose": 3,
+    "event": {
+      "title": "EDWARD V",
+      "text": "This Levy Gloucester (not Richard III) has +3 Lordship.\nLord: Gloucester.\nTips: +3 Lordship in addition to other modifiers. Capability not\navailable this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "BLOODY THOU ART",
+      "text": "When this Lord as Richard III (not Gloucester) wins a Battle,\nskip Death checks. All Routed Lancastrian Lords Die.\nLord: Richard III.\nTips: Richard III ONLY. Applies only when Yorkists win a Battle\nthat includes Richard III (even if he Routed). Skips Death checks\n(4.4.3): moots any Death modifier and BLOCKS any \"upon Death\ncheck\" card from either side (e.g., L3 Escape Ship, L36 Talbot\nto the Rescue). Mandatory: Routed Yorkists Disband normally\n(3.2.4), Routed Lancastrians Die.",
+      "lords": null
+    }
+  },
+  "Y34": {
+    "id": "Y34",
+    "side": "yorkist",
+    "rose": 3,
+    "event": {
+      "title": "AN HONEST TALE SPEEDS BEST BEING PLAINLY TOLD",
+      "text": "Through end of this Campaign (including in Levy), each Lancastrian\nParley costs +1 extra Influence Point.\nTips: From the moment this Event occurs to end of turn, each\nLancastrian Parley costs 1 more Influence than otherwise. Even\nactions that would have cost zero Influence (e.g., Parley Command\ntargeting Lord's location 3.6.4, or Parley using Events such as\nL17 My crown is in my heart) now cost 1 Influence. Capability\nnot available this Turn.",
+      "type": "immediate"
+    },
+    "capability": {
+      "title": "SO WISE, SO YOUNG",
+      "text": "Each Tax by this Lord as Gloucester adds +1 extra Coin. Discard\nif Richard III.\nLord: Gloucester.\nTips: +1 Coin each Tax, even if unsuccessful (yields 1 Coin\ninstead of 0). Discard if Gloucester becomes Richard III via\nscenario rule (6.0) or Succession (6.1\u20136.3).",
+      "lords": null
+    }
+  },
+  "Y35": {
+    "id": "Y35",
+    "side": "yorkist",
+    "rose": 3,
+    "event": {
+      "title": "PRIVY COUNCIL",
+      "text": "This Levy all Yorkist Influence ratings +1.\nTips: +1 to all Yorkist Lords' Influence from the moment played to\nend of current Levy phase. Capability not available this Turn.",
+      "type": "this_levy"
+    },
+    "capability": {
+      "title": "KINGDOM UNITED",
+      "text": "Each Battle in the North, South, or Wales, this Lord as Gloucester\nadds 3 Militia. Remove them after Battle. Discard if Richard III.\nLord: Gloucester.\nTips: Gloucester ONLY. Same as Y25 Pembroke for the listed Areas\nand units. Discard if Gloucester becomes Richard III.",
+      "lords": null
+    }
+  },
+  "Y36": {
+    "id": "Y36",
+    "side": "yorkist",
+    "rose": 3,
+    "event": {
+      "title": "SWIFT MANEUVER",
+      "text": "Hold: Play in Battle. Whenever a Lancastrian Retinue Routs, if\ndesired, immediately end the Round.\nTips: Play after Battle Array (4.4.1). May end any Round at the\nmoment a Lancastrian Retinue (NOT Vassal or Troops unit) Routs;\ngo directly to Lord Rout step (4.4.2). Skips remaining Hits, more\nEngagements, etc.",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "VANGUARD",
+      "text": "In Battle, this Lord may choose his Engagement to be the only one\nfought in Round 1.\nLord: Norfolk.\nTips: After Battle Array (4.4.1), Yorkist may declare Round 1\nconsists exclusively of the Engagement (4.4.2) including Norfolk.\nNo effect if Battle has only 1 Engagement.",
+      "lords": null
+    }
+  },
+  "Y37": {
+    "id": "Y37",
+    "side": "yorkist",
+    "rose": 3,
+    "event": {
+      "title": "PATRICK DE LA MOTE",
+      "text": "Hold: Play in Battle for Yorkist Culverins and Falconets to add 2\ndice of Hits (not just 1 die).\nTips: Play after Battle Array (4.4.1). Y1 and Y2 Culverins and\nFalconets in that Battle add 2 extra dice of Missile Hits in\nRound 1 instead of 1 die.\n\n\n================================================================",
+      "type": "hold"
+    },
+    "capability": {
+      "title": "PERCY'S NORTH",
+      "text": "Each Battle, this Lord with a Route (3.4.1) to Carlisle adds 2\nMen-at-Arms. Remove them after Battle.\nLord: Northumberland.\nTips: Same as Y25 Pembroke for the listed units and Lord, but\napplies to any Battle Locale from which Yorkists can trace a\nRoute to Carlisle as per 3.4.1 (as if a Parley Levy action from\nBattle Locale, regardless of Battle Locale's Favour).\n\n\n================================================================",
+      "lords": null
+    }
+  }
+}
