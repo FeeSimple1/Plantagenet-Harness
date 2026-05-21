@@ -139,10 +139,110 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
         side = state.active_side
         moves: list[dict[str, Any]] = []
         if c.active_lord is not None and c.actions_remaining > 0:
-            moves.append({"type": "forage", "side": side, "by_lord": c.active_lord})
-            moves.append({"type": "pass", "side": side, "by_lord": c.active_lord})
+            moves.extend(_command_moves(state, side, c.active_lord))
         moves.append({"type": "end_activation", "side": side})
         return moves
     if c.step == "end":
         return [{"type": "end_campaign"}]
     return []
+
+
+def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, Any]]:
+    """Enumerate Command actions for the Active Lord (4.3-4.6), mirroring the
+    handler pre-checks so nothing offered is rejected (round-trip discipline)."""
+    from plantagenet import actions, commands
+    lord = state.lords[lord_id]
+    loc = actions.lord_location(lord)
+    out: list[dict[str, Any]] = [{"type": "pass", "side": side, "by_lord": lord_id}]
+    if loc is None:
+        return out
+    kind, here = loc
+    # Forage (4.6.2): any Locale not yet Exhausted (Exile boxes are foragable).
+    if kind == "exile" or state.locales[here].depletion != "exhausted":
+        out.append({"type": "forage", "side": side, "by_lord": lord_id})
+    friendly_here = actions.lord_at_friendly_locale(state, lord)
+
+    # March (4.3): destinations reachable in one action with no enemy contact.
+    try:
+        for dest in state.locales:
+            if dest == here:
+                continue
+            if commands._march_cost(state, here, dest, kind) is None:
+                continue
+            if actions.enemy_lord_at(state, dest, side):
+                continue
+            if commands._enemy_adjacent_by_land(state, dest, side):
+                continue
+            out.append({"type": "march", "side": side, "by_lord": lord_id, "to": dest})
+    except (KeyError, AttributeError, IndexError):
+        pass
+
+    # Sail (4.6.1): same/adjacent-Sea Ports, free of enemy, ship requirement met.
+    try:
+        seas = static_data.load_seas()
+        port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
+        box_sea = {b: z for z, zone in seas["zones"].items() for b in zone.get("exile_boxes", [])}
+        from_sea = box_sea.get(here) if kind == "exile" else port_sea.get(here)
+        on_sea = kind == "exile" or static_data.load_locales()[here].get("port")
+        if from_sea is not None and on_sea:
+            adj = {frozenset(pr) for pr in seas["adjacency"]}
+            ships = lord.assets.get("ship", 0)
+            need = max(-(-commands._forces_units(lord) // 6),
+                       -(-lord.assets.get("provender", 0) // 2),
+                       -(-lord.assets.get("cart", 0) // 2))
+            if ships >= need:
+                for dest, dsea in port_sea.items():
+                    if dest == here:
+                        continue
+                    if dsea == from_sea or frozenset({from_sea, dsea}) in adj:
+                        if not actions.enemy_lord_at(state, dest, side):
+                            out.append({"type": "sail", "side": side,
+                                        "by_lord": lord_id, "to": dest})
+    except (KeyError, AttributeError, IndexError):
+        pass
+
+    if not friendly_here:
+        return out
+
+    # Tax (4.6.3): own Seat / Vassal Seats / Special Strongholds, reachable, not Exhausted.
+    try:
+        statics = static_data.load_lords()[lord_id]
+        regular = static_data.load_vassals()["regular"]
+        targets = {statics["seat"]}
+        targets |= {regular[v]["seat"] for v in lord.vassals if v in regular}
+        targets |= {"london", "calais", "harlech"}
+        has_ship = lord.assets.get("ship", 0) > 0
+        for t in targets:
+            if t not in state.locales or state.locales[t].depletion == "exhausted":
+                continue
+            if t == here or (t == statics["seat"] and here == statics["seat"]):
+                out.append({"type": "tax", "side": side, "by_lord": lord_id, "target": t})
+            elif commands._tax_route_cost(state, here, t, side, has_ship) is not None:
+                out.append({"type": "tax", "side": side, "by_lord": lord_id, "target": t})
+    except (KeyError, AttributeError, IndexError):
+        pass
+
+    # Parley (4.6.4): own location (if not Friendly) or adjacent / same-Sea Port.
+    try:
+        if kind == "stronghold" and state.locales[here].favour != side:
+            out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": here})
+        has_ship = lord.assets.get("ship", 0) > 0
+        reach = {n for n, _t in actions._adjacency().get(here, [])}
+        if has_ship:
+            reach |= {p for p in _same_sea_ports(here)}
+        for t in reach:
+            if (t in state.locales and state.locales[t].favour != side
+                    and not actions.enemy_lord_at(state, t, side)):
+                out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": t})
+    except (KeyError, AttributeError, IndexError):
+        pass
+    return out
+
+
+def _same_sea_ports(here: str) -> set[str]:
+    seas = static_data.load_seas()
+    port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
+    if here not in port_sea:
+        return set()
+    z = port_sea[here]
+    return {p for p, zz in port_sea.items() if zz == z and p != here}

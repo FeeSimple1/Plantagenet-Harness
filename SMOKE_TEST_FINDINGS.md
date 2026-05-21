@@ -112,3 +112,19 @@ Waste, and Turn advance. No SMOKEs. The enumerator is now phase-aware
 Commands (March/Sail/Supply/Tax/campaign-Parley) and Pay (3.2) -> Phase
 3a-ii; combat -> Phase 3b; a rolled-over Turn lands at the Muster step
 until Pay/Arts-of-War-draw land.
+
+## Round 7 (Phase 3a-ii - movement & economy Commands)
+
+Implemented March (4.3: Road/Highway/Highway-2-for-1/Path, Haul 4.3.2,
+Moved-Fought, Group March 4.3.1), Sail (4.6.1: same/adjacent-Sea Ports, Ship
+requirement, whole card), Tax (4.6.3: own-Seat auto, Vassal-Seat/Special via
+Route + Influence, strongholds Coin, Deplete), and campaign Parley (4.6.4).
+Feed (4.7) is now live with Pillage (3.2.1) and Unfed-Disband (3.2.4). March
+into enemy contact (Approach 4.3.5 / Intercept 4.3.4) is deferred to Phase
+3b with explicit codes.
+
+The campaign-activation round-trip test caught one enumerator bug
+(pre-merge): the enumerator offered `forage` at an Exhausted Locale, which
+the handler rejects (4.6.2). Fixed by gating the forage option on
+non-Exhaustion. No shipped SMOKEs. Deferred (tracked): Supply (4.5) and Pay
+(3.2) -> Phase 3a-iii.
