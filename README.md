@@ -14,10 +14,14 @@ is an operator's guide to the codebase as it stands.
 
 ## Status
 
-**Phase 0 (current): skeleton + static data.** The package, build config,
-CLI structure, test framework, governance docs, and the complete static
-reference data are in place. There is no game logic yet; cards are
-deferred to Phase 4. See the phasing plan in `BRIEF.md`.
+**Phase 1 (current): state model + scenario loader + display.** On top of
+the Phase 0 skeleton and static data, the harness now has a Pydantic
+`GameState` (single-file JSON, save/load, seeded-dice wiring), a scenario
+loader that fully sets up all six standalone scenarios plus the Wars of
+the Roses grand scenario (initialized at War I), and `state` display in
+summary / verbose / focused modes. Still no *rules* logic (no actions,
+turn order, or victory math); cards remain deferred to Phase 4. See the
+phasing plan in `BRIEF.md`.
 
 ## Where things are
 
@@ -26,8 +30,11 @@ deferred to Phase 4. See the phasing plan in `BRIEF.md`.
   - `data_integrity.py` — cross-reference validation of the static data.
   - `rng.py` — the seeded dice (`DiceRoller`).
   - `errors.py` — `IllegalAction` (carries a stable `code`) and friends.
-  - `cli.py` — the `plantagenet` CLI (typer). Data commands work; game
-    commands are stubs until their phase.
+  - `state.py` — the Pydantic `GameState` model (save/load, dice wiring).
+  - `scenarios.py` — `build_initial_state(scenario_id, seed)` loader.
+  - `render.py` — summary / verbose / focused renderings.
+  - `cli.py` — the `plantagenet` CLI (typer). `new`, `state`, and the data
+    commands work; `legal-moves`/`do`/`pending` are stubs until their phase.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,
     `lords.json`, `vassals.json`, `exile_boxes.json`.
   - `data/scenarios/` — one file per scenario plus `index.json`.
@@ -52,6 +59,15 @@ Inspect the static data without game logic:
 ```
 PYTHONPATH=src python -m plantagenet.cli scenarios     # list scenarios
 PYTHONPATH=src python -m plantagenet.cli data-check     # validate data
+```
+
+Start a game and inspect it:
+
+```
+PYTHONPATH=src python -m plantagenet.cli new henry_vi --seed 1 --out game.state.json
+PYTHONPATH=src python -m plantagenet.cli state game.state.json                       # summary
+PYTHONPATH=src python -m plantagenet.cli state game.state.json --mode verbose         # full JSON
+PYTHONPATH=src python -m plantagenet.cli state game.state.json --mode focused --focus calendar
 ```
 
 Regenerate the data files from the references (if a reference changes):

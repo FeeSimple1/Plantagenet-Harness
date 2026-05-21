@@ -38,7 +38,10 @@ class DiceRoller:
 
     # -- serialization: getstate/setstate round-trips the full MT state --
     def get_state(self) -> list:
-        return list(self._rng.getstate())
+        # Fully list-ify (the MT internal is a tuple) so a JSON round-trip
+        # is an identity: json load yields lists, and so do we.
+        version, internal, gauss = self._rng.getstate()
+        return [version, list(internal), gauss]
 
     def set_state(self, state: list) -> None:
         # random.setstate expects a tuple whose middle element is a tuple.
