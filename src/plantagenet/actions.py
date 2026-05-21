@@ -428,6 +428,7 @@ _HANDLERS = {
     "march": lambda st, a: _command_handler("march")(st, a),
     "sail": lambda st, a: _command_handler("sail")(st, a),
     "tax": lambda st, a: _command_handler("tax")(st, a),
+    "supply": lambda st, a: _command_handler("supply")(st, a),
     "parley": _parley_dispatch,
     "levy_lord": _h_levy_lord,
     "levy_vassal": _h_levy_vassal,

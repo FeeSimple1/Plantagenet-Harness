@@ -28,13 +28,20 @@ Locale.) The one remaining deferred Muster action is `levy_capability`
 alternating) with the `forage` (4.6.2) and `pass` (4.6.5) Commands and Feed
 (4.7) -> `end_campaign` (4.8): Tides of War scoring (4.8.1), Victory check
 (4.8.3/5.x), Grow (4.8.4), Waste (4.8.5), and advance to the next Turn's
-Levy. **Phase 3a-ii (current): movement & economy Commands.** `march` (4.3 — Road,
+Levy. **Phase 3a-ii (done): movement & economy Commands.** `march` (4.3 — Road,
 Highway with the 2-for-1 chain, Path whole-card, Haul, Moved-Fought, Group
 March), `sail` (4.6.1), `tax` (4.6.3), and campaign `parley` (4.6.4) are
 implemented, and Feed (4.7) is now live (Pillage / Unfed-Disband via the
 Strongholds table). March into enemy contact (Approach/Intercept) is
-rejected pending Phase 3b. Deferred to 3a-iii: `supply` (4.5) and Pay (3.2)
-on Turn rollover. Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
+rejected pending Phase 3b.
+
+**Phase 3a-iii (current): Supply.** `supply` (4.5) completes the Campaign
+Command menu (March, Sail, Supply, Forage, Tax, Parley, Pass): a Stronghold
+Source gives table Provender (then Depletes) or a Port Source gives
+Ships-many Provender, over a land Supply Route limited by Carts (one Cart
+per Provender per intervening Way); Exile-box Lords Supply by Ship from a
+same-Sea Port. Deferred to 3a-iv: Pay (3.2) and the Turn-2 Levy flow.
+Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
 
 ## Where things are
 
@@ -51,7 +58,7 @@ on Turn rollover. Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
   - `legal_moves.py` — phase-aware enumerator (Levy Muster + Campaign).
   - `campaign.py` — Campaign flow, Forage/Feed/Pillage/Disband, End-Campaign
     (Tides of War, Grow, Waste, Victory, Turn advance).
-  - `commands.py` — March, Sail, Tax, campaign Parley (4.3, 4.6.1-.4).
+  - `commands.py` — March, Sail, Supply, Tax, campaign Parley (4.3, 4.5, 4.6.1-.4).
   - `cli.py` — the CLI. `new`, `state`, `legal-moves`, `do`, and the data
     commands work; `pending`/`history` are stubs until their phase.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,
