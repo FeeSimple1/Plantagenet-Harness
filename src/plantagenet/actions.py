@@ -375,9 +375,61 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             "added": added, "depletion": ls.depletion}
 
 
+def _capabilities_in_play(state: GameState, side: str) -> set[str]:
+    """Card ids whose Capability is currently on one of ``side``'s Lord mats."""
+    out: set[str] = set()
+    for v in state.lords.values():
+        if v.side == side:
+            out.update(v.capabilities)
+    return out
+
+
+def _capability_eligible(card_id: str, lord_id: str) -> bool:
+    """Whether ``lord_id`` may Levy the Capability on ``card_id`` (Livery
+    Badges, 3.4.6). 'Any' -> any Lord of the side; a Special-Vassal
+    Capability -> its eligible Lords; otherwise match the Lord's base name."""
+    cap = static_data.load_cards()[card_id]["capability"]
+    lords_txt = cap.get("lords") or ""
+    if "Any" in lords_txt:
+        return True
+    for v in static_data.load_vassals()["special"].values():
+        if v.get("capability_card") == card_id:
+            return lord_id in v.get("eligible_lords", [])
+    if not lords_txt:
+        return True   # eligibility not stated in the reference -> permit
+    base = static_data.load_lords()[lord_id]["name"].split(" (")[0]
+    return base in lords_txt
+
+
 def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    raise IllegalAction("deferred_phase_4",
-                        "Levy Capability (3.4.6) involves Arts of War cards, deferred to Phase 4")
+    """Levy Capability (3.4.6): a Lord at a Friendly Locale obtains one unused
+    Capability card it is eligible to Levy, to a maximum of two per mat and
+    no two of the same name. The card is tracked on the mat; its mechanical
+    effect is applied by the consumer until implemented in a later increment."""
+    lord = _active_lord(state, action)
+    _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
+             "Levy Capability requires the acting Lord at a Friendly Locale (3.4.6)")
+    card_id = action.get("card")
+    cards = static_data.load_cards()
+    _require(card_id in cards and cards[card_id]["side"] == lord.side, "unknown_card",
+             f"{card_id!r} is not a {lord.side} Arts of War card")
+    deck = static_data.scenario_card_deck(state.scenario, lord.side)
+    _require(not deck or card_id in deck, "card_not_in_scenario",
+             f"{card_id} is not in this scenario's deck (6.0)")
+    _require(card_id not in _capabilities_in_play(state, lord.side), "card_in_play",
+             f"{card_id} is already in play (3.4.6)")
+    _require(_capability_eligible(card_id, lord.lord_id), "ineligible_lord",
+             f"{lord.lord_id} may not Levy the {cards[card_id]['capability']['title']} "
+             "Capability (3.4.6)")
+    _require(len(lord.capabilities) < 2, "two_capabilities",
+             "a Lord may hold only two Capability cards (3.4.6)")
+    new_title = cards[card_id]["capability"]["title"]
+    _require(all(cards[c]["capability"]["title"] != new_title for c in lord.capabilities),
+             "duplicate_capability", f"{lord.lord_id} already has a {new_title} Capability (3.4.6)")
+    lord.capabilities.append(card_id)
+    lord.lordship_spent += 1
+    return {"type": "levy_capability", "by_lord": lord.lord_id, "card": card_id,
+            "title": new_title}
 
 
 # ------------------------------------------------------------- end_muster

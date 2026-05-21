@@ -94,6 +94,22 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str) -> list[dic
     except (KeyError, AttributeError, IndexError):
         pass
 
+    # --- Levy Capability (3.4.6): eligible, unused, not duplicating a held name ---
+    try:
+        if len(lord.capabilities) < 2:
+            cards = static_data.load_cards()
+            in_play = actions._capabilities_in_play(state, side)
+            held_titles = {cards[c]["capability"]["title"] for c in lord.capabilities}
+            deck = static_data.scenario_card_deck(state.scenario, side)
+            pool = deck or [c for c in cards if cards[c]["side"] == side]
+            for cid in pool:
+                if (cid not in in_play and actions._capability_eligible(cid, lord_id)
+                        and cards[cid]["capability"]["title"] not in held_titles):
+                    moves.append({"type": "levy_capability", "side": side,
+                                  "by_lord": lord_id, "card": cid})
+    except (KeyError, AttributeError):
+        pass
+
     # --- Levy Transport (3.4.5) ---
     moves.append({"type": "levy_transport", "side": side, "by_lord": lord_id, "transport": "cart"})
     try:

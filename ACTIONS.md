@@ -45,7 +45,7 @@ adds +0/+1/+2 to the Influence rating for that check (1.4.2).
 | `levy_vassal` | `target` (regular Vassal id), `extra_spend` | 3.4.3 | done |
 | `levy_transport` | `transport`: `"cart"` (2 Carts) or `"ship"` (1 Ship) | 3.4.5 | done |
 | `levy_troops` | — | 3.4.4 | done (uses the Strongholds table, D-004; pool-limited; Depletes/Exhausts) |
-| `levy_capability` | — | 3.4.6 | **deferred — Arts of War cards (Phase 4)** |
+| `levy_capability` | `card` | 3.4.6 | done (attach an unused eligible Capability, <=2/no-dup; effect tracked as data) |
 | `end_muster` | — | 3.4 | done (passes the segment Rebel -> King -> done) |
 
 Influence check (1.4.2): spends 1 base point + `extra_spend` + Way distance
