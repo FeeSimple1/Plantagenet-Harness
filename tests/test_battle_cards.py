@@ -7,6 +7,7 @@ import pytest
 from plantagenet import battle
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
+from plantagenet.state import LordStatus
 
 
 def _duel(seed=5):
@@ -125,3 +126,38 @@ def test_invalid_combat_card_plays_rejected():
     with pytest.raises(IllegalAction) as e:
         battle.resolve_battle(s2, "cambridge", "york", "henry_vi", {"ravine": "york"})
     assert e.value.code == "no_ravine"
+
+
+def test_regroup_consumes_held_event_and_validates():
+    s = _duel()
+    s.decks["yorkist"]["held"] = ["Y30"]          # Regroup
+    battle.resolve_battle(s, "cambridge", "york", "henry_vi",
+                          {"regroup": {"lord": "york", "round": 2}})
+    assert "Y30" not in s.decks["yorkist"]["held"]   # consumed on play
+    s2 = _duel()                                      # no Regroup held -> rejected
+    with pytest.raises(IllegalAction) as e:
+        battle.resolve_battle(s2, "cambridge", "york", "henry_vi",
+                              {"regroup": {"lord": "york"}})
+    assert e.value.code == "no_regroup"
+
+
+def test_escape_ship_exiles_routed_lord_instead_of_death():
+    s = _duel()
+    for lid in ("york", "henry_vi"):
+        s.lords[lid].location = "ipswich"            # a Port
+    s.locales["ipswich"].favour = "yorkist"          # Friendly Port for York
+    s.decks["yorkist"]["held"] = ["Y3"]              # Escape Ship
+    r = battle.resolve_battle(s, "ipswich", "york", "henry_vi",
+                              {"flee": ["york"], "escape_ship": ["york"]})
+    assert "york" in r["exiles"]                      # Exiled, not Death-rolled
+    assert s.lords["york"].status == LordStatus.CALENDAR
+    assert s.lords["york"].calendar_exile is True
+    assert "york" not in r["deaths"]
+
+
+def test_escape_ship_needs_route_to_friendly_port():
+    s = _duel()                                       # Cambridge is not a Port
+    s.decks["yorkist"]["held"] = ["Y3"]
+    r = battle.resolve_battle(s, "cambridge", "york", "henry_vi",
+                              {"flee": ["york"], "escape_ship": ["york"]})
+    assert "york" not in r.get("exiles", [])          # no Friendly Port route -> no Escape

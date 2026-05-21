@@ -89,11 +89,15 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     decisions = action.get("decisions") or {}
     intercept_log = (None if dest_has_enemy
                      else _try_intercept(state, dest, lord.side, decisions))
-    if intercept_log and intercept_log["success"]:
+    approach = None
+    if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
+        from plantagenet import battle  # interceptor Attacks the Marching Lords
+        approach = battle.approach(state, dest, [intercept_log["interceptor"]], decisions)
+        state.campaign.actions_remaining = 0
+    elif intercept_log and intercept_log["success"]:
         dest_has_enemy = True
 
-    approach = None
-    if dest_has_enemy:
+    if approach is None and dest_has_enemy:
         from plantagenet import battle
         approach = battle.approach(state, dest, [m.lord_id for m in movers], decisions)
         state.campaign.actions_remaining = 0   # Approach ends the card (4.3.5)
@@ -121,18 +125,28 @@ def _try_intercept(state: GameState, dest: str, side: str,
                         for n, t in _adjacency().get(itc.location, [])))
     _require(eligible, "bad_intercept",
              f"{iid} cannot Intercept at {dest} (must be an Enemy adjacent by Road/Highway, 4.3.4)")
-    roller = state.dice()
-    roll = roller.d6()
-    state.store_dice(roller)
+    from plantagenet import battle
     valour = static_data.load_lords()[iid]["ratings"]["valour"]
-    success = roll <= valour
+    flank = bool(decisions.get("flank_attack"))
+    if flank:                            # Flank Attack (Y2/L2): auto-succeed, become Attacker
+        cid = battle._side_held_event(state, itc.side, battle.FLANK_ATTACK)
+        _require(cid is not None, "no_flank_attack",
+                 f"{itc.side} has no Flank Attack Held Event to play (4.3.4)")
+        battle._use_held_event(state, itc.side, cid)
+        roll, success = None, True
+    else:
+        roller = state.dice()
+        roll = roller.d6()
+        state.store_dice(roller)
+        success = roll <= valour
     if success:                          # the Interceptor Marches to dest (Carts limit Provender)
         carts = itc.assets.get("cart", 0)
         if itc.assets.get("provender", 0) > carts:
             itc.assets["provender"] = carts
         itc.location = dest
         itc.moved_fought = True
-    return {"interceptor": iid, "roll": roll, "valour": valour, "success": success}
+    return {"interceptor": iid, "roll": roll, "valour": valour, "success": success,
+            "flank_attack": flank}
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str):

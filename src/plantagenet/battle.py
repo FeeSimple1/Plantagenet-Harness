@@ -54,6 +54,9 @@ CALTROPS = "CALTROPS"
 RAVINE = "RAVINE"
 BARRICADES = "BARRICADES"
 BLOCKED_FORD = "BLOCKED FORD"
+REGROUP = "REGROUP"
+ESCAPE_SHIP = "ESCAPE SHIP"
+FLANK_ATTACK = "FLANK ATTACK"
 
 
 def _lord_has_capability(state: GameState, lord_id: str, title: str) -> str | None:
@@ -82,6 +85,18 @@ def _use_held_event(state: GameState, side: str, card_id: str) -> None:
     if card_id in held:
         held.remove(card_id)
     state.decks.setdefault(side, {}).setdefault("discard", []).append(card_id)
+
+
+def _escape_route(state: GameState, locale: str, side: str) -> bool:
+    """Whether ``side`` can trace from ``locale`` to a Friendly Port — at it
+    or via an overland Friendly Route (Escape Ship, 4.5.1)."""
+    from plantagenet import commands
+    locs = static_data.load_locales()
+    for p, lc in locs.items():
+        if lc.get("port") and state.locales[p].favour == side:
+            if p == locale or commands._supply_route_cost(state, locale, p, side) is not None:
+                return True
+    return False
 
 
 def _apply_barricades(state, forces, locale):
@@ -295,6 +310,19 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                  f"{player_side} has no Ravine Held Event to play (4.4.1)")
         _use_held_event(state, player_side, cid)
 
+    regroup_lord = regroup_round = None
+    rg = decisions.get("regroup")
+    if rg:
+        regroup_lord = rg["lord"]
+        regroup_round = rg.get("round", 2)
+        _require(regroup_lord in attackers + defenders, "bad_regroup",
+                 "Regroup must name a Lord in the Battle (4.4.2)")
+        rside = state.lords[regroup_lord].side
+        cid = _side_held_event(state, rside, REGROUP)
+        _require(cid is not None, "no_regroup",
+                 f"{rside} has no Regroup Held Event to play (4.4.2)")
+        _use_held_event(state, rside, cid)
+
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
     _apply_barricades(state, forces, locale)
     positions, reserves = _initial_array(attackers, defenders, decisions)
@@ -315,6 +343,15 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
             rounds.append(rlog)
             break
         _reposition(positions, reserves, forces)               # REPOSITION
+        if regroup_lord is not None and n == regroup_round:    # Regroup: recover Troops
+            f = forces[regroup_lord]
+            for t in [x for x in f.count if x in _TROOP_TYPES]:
+                rec = 0
+                for _ in range(f.routed.get(t, 0)):
+                    lo, hi = f.prof[t]["prot"]                  # modified Protection
+                    if lo <= dice.d6() <= hi:
+                        rec += 1
+                f.routed[t] -= rec
         engs = _engagements(positions, forces)
         if n == 1 and ravine_target is not None:               # Ravine: ignore Lord Round 1
             for eng in engs:
@@ -368,11 +405,12 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         rounds.append(rlog)
 
     state.store_dice(dice)
-    return _ending(state, locale, forces, attackers, defenders, rounds)
+    return _ending(state, locale, forces, attackers, defenders, rounds,
+                   decisions.get("escape_ship", []))
 
 
 def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
-            defenders: list[str], rounds: list) -> dict[str, Any]:
+            defenders: list[str], rounds: list, escape_ship: list[str]) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -396,10 +434,34 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
         _spoils(state, locale, winners, lose_ids, result)
     for w in winners:                                    # LOSSES (4.4.3)
         _losses(state, w, dice, result)
-    deaths, disbands = [], []                            # DEATH CHECK + DISBAND
+    # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
+    # go into Exile (4.3.5) instead of rolling Death.
+    escaped: set[str] = set()
+    used_escape_side: set[str] = set()
+    for lid in set(escape_ship):
+        f = forces.get(lid)
+        if f is None or not f.lord_routed:
+            continue
+        side = state.lords[lid].side
+        cid = _side_held_event(state, side, ESCAPE_SHIP)
+        if cid is not None and _escape_route(state, locale, side):
+            if side not in used_escape_side:
+                _use_held_event(state, side, cid)
+                used_escape_side.add(side)
+            escaped.add(lid)
+
+    deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
     for lid in defenders + attackers:                    # Defenders first
         f = forces[lid]
         if not f.lord_routed:
+            continue
+        if lid in escaped:                               # Exile instead of Death (4.3.5)
+            ld = state.lords[lid]
+            influence.spend_influence(state, ld.side,
+                                      static_data.load_lords()[lid]["ratings"]["influence"]
+                                      + len(ld.vassals))
+            campaign._disband_lord(state, ld, from_exile=True)
+            exiles.append(lid)
             continue
         roll = dice.d6() - (2 if f.fled else 0)
         if roll >= 3:
@@ -411,6 +473,7 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
     state.store_dice(dice)
     result["deaths"] = deaths
     result["disbands"] = disbands
+    result["exiles"] = exiles
     return result
 
 

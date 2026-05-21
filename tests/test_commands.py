@@ -244,3 +244,19 @@ def test_supply_exile_box_lord_needs_ship_and_port():
     r = actions.apply_action(s, {"type": "supply", "side": "lancastrian",
                                  "by_lord": lid, "source": "southampton", "use_ships": True})
     assert r["via"] == "ship" and r["provender_added"] == 2   # equals Ships
+
+
+def test_flank_attack_auto_intercepts_and_interceptor_attacks():
+    s = _to_campaign("henry_vi")
+    s.lords["henry_vi"].location = "bedford"      # Highway-adjacent to Cambridge
+    s.decks["lancastrian"]["held"] = ["L2"]       # Lancastrians hold Flank Attack
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"intercept": "henry_vi", "flank_attack": True,
+                                               "responses": {"york": "battle"}}})
+    assert r["intercept"]["flank_attack"] is True
+    assert r["intercept"]["success"] is True       # auto-succeeds, no Valour roll
+    # The Interceptor (Henry VI) is the Attacker; the Marching Lord (York) Defends.
+    assert r["approach"]["battle"]["attackers"] == ["henry_vi"]
+    assert r["approach"]["battle"]["defenders"] == ["york"]
+    assert "L2" not in s.decks["lancastrian"]["held"]    # Flank Attack consumed

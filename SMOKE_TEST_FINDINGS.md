@@ -246,3 +246,15 @@ Protection (4.4.3). All validated against held/mat cards and consumed on use.
 No SMOKEs. 179 tests pass. Deferred to a later batch: Flank Attack (attacker
 flip), Escape Ship (Death-check -> Exile, needs route-to-Port), Regroup
 (mid-battle timed recovery).
+
+## Round 17 (Phase 4-vi - combat cards Flank Attack, Escape Ship, Regroup)
+
+Completed the combat-card category: Flank Attack (Y2/L2 Hold) in
+commands._try_intercept — auto-succeeds and flips the Interceptor to
+Attacker (the Marching Lord Defends); Escape Ship (Y3&Y9/L3 Hold) at the
+battle Death check (4.4.3) — selected Routed Lords with a Friendly Route to a
+Port (new battle._escape_route, reusing the Supply route) Exile (4.3.5,
+to the Calendar marked Exile + Influence penalty) instead of rolling Death;
+Regroup (Y30 Hold) — once at a chosen Round, a Lord's Routed Troops roll
+their (modified) Protection to recover. All validated against held cards and
+consumed on use. No SMOKEs. 183 tests pass.
