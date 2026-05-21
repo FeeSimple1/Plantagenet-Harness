@@ -77,10 +77,25 @@ Tides of War (4.8.1: Areas/Dominance, Special-Stronghold Favour,
 Most-Favour by type, Gain-Lords-Influence), checks Victory (4.8.3 / 5.x),
 runs Grow (4.8.4) and Waste (4.8.5), then advances to the next Turn's Levy.
 
-DEFERRED to Phase 3a-ii: `march` (4.3), `sail` (4.6.1), `supply` (4.5),
-`tax` (4.6.3), campaign `parley` (4.6.4); and Pay (3.2) on Turn rollover.
-A rolled-over Turn currently lands at the Muster step (Pay / Arts-of-War
-draw not yet executed). Combat (Intercept/Approach/Battle) is Phase 3b.
+Phase 3a-ii adds the movement/economy Commands:
+
+| Action | Args | Rule | Status |
+|---|---|---|---|
+| `march` | `side`, `by_lord`, `to`, optional `group` | 4.3 | done (Highway 1 + 2-for-1 chain, Road 1, Path whole card; Haul; Moved-Fought; Group) |
+| `sail` | `side`, `by_lord`, `to` (Port) | 4.6.1 | done (same/adjacent Sea, free of enemy; Ship per 6 Forces / 2 Prov / 2 Cart; whole card) |
+| `tax` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.3 | done (own Seat auto; Vassal Seat / Special via Route + Influence; strongholds Coin; Depletes) |
+| `parley` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.4 | done (own location auto; else adjacent / same-Sea Port + Influence) |
+
+Feed (4.7) is now live: a Moved-Fought Lord removes 1 Provender per 6 Troops;
+if short it Pillages an Unexhausted Stronghold (3.2.1) and Feeds from the
+gain, else Unfed-Disbands (3.2.4). March into an Enemy Locale (Approach
+4.3.5) or adjacent to an Enemy by land (Intercept 4.3.4) is rejected with a
+`*_phase_3b` code (Battle is Phase 3b).
+
+DEFERRED to Phase 3a-iii: `supply` (4.5) and Pay (3.2) on Turn rollover (a
+rolled-over Turn lands at the Muster step until Pay / the Arts-of-War draw
+land). Combat (Intercept/Approach/Battle) is Phase 3b; Arts-of-War card
+effects are Phase 4.
 
 ### Campaign (later phases)
 

@@ -231,26 +231,85 @@ def _enemy_lord_adjacent(state: GameState, locale_id: str, side: str) -> bool:
     return False
 
 
+# ------------------------------------------------------- 3.2.1 Pillage
+def _pillage(state: GameState, lord, locale_id: str) -> dict[str, Any]:
+    """A Lord Pillages an Unexhausted Stronghold (3.2.1): gain Coin+Provender
+    per the Strongholds table; the side loses 2x the Assets gained; Exhaust
+    and set Enemy Favour; shift each Way-adjacent Stronghold one level toward
+    Enemy Favour."""
+    from plantagenet.actions import _adjacency
+    yields = static_data.stronghold_yields(locale_id).get("pillage", {})
+    gained = 0
+    for asset, amt in yields.items():
+        lord.assets[asset] = lord.assets.get(asset, 0) + amt
+        gained += amt
+    foe = _other(lord.side)
+    influence.spend_influence(state, lord.side, 2 * gained)   # lose 2x Assets (toward foe)
+    state.locales[locale_id].depletion = "exhausted"
+    state.locales[locale_id].favour = foe
+    for nbr, _t in _adjacency().get(locale_id, []):
+        nb = state.locales[nbr]
+        if nb.favour == lord.side:
+            nb.favour = "neutral"
+        elif nb.favour == "neutral":
+            nb.favour = foe
+    return {"locale": locale_id, "assets_gained": gained, "influence_lost": 2 * gained}
+
+
+# ------------------------------------------------------- 3.2.4 Disband
+def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
+    """Disband a Lord (3.2.4): Disband its Vassals, return Forces/Assets, and
+    place the cylinder on the Calendar 6-minus-Influence boxes right of the
+    current Turn (Exile-marked if Disbanding from an Exile box)."""
+    inf = static_data.load_lords()[lord.lord_id]["ratings"]["influence"]
+    for vid in list(lord.vassals):
+        vs = state.vassals.get(vid)
+        if vs is not None:
+            from plantagenet.state import VassalStatus
+            vs.status = VassalStatus.OFF_MAP   # Ready-Vassals return (3.3.2) is a later phase
+            vs.on_lord = None
+            vs.service_box = None
+    lord.vassals = []
+    lord.forces = {}
+    lord.assets = {}
+    lord.location = None
+    lord.exile_box = None
+    lord.status = LordStatus.CALENDAR
+    lord.calendar_box = state.turn_box + (6 - inf)
+    lord.calendar_exile = from_exile
+
+
 # ----------------------------------------------------------------- 4.7 Feed
 def _feed(state: GameState, side: str) -> dict[str, Any]:
     """Moved-Fought Lords remove 1 Provender per 6 Troops, rounded up (4.7).
-
-    In 3a-i no Command marks a Lord Moved-Fought (March/Sail are 3a-ii), so
-    this is a no-op; implemented for when movement lands.
-    """
-    fed = []
-    for lid, lord in state.lords.items():
+    A Lord short on Provender Pillages its Locale (if an Unexhausted
+    Stronghold) and Feeds from the gain; if still short, it Unfed-Disbands,
+    costing the side its Influence rating + 1 per Vassal (3.2.1)."""
+    fed: list[dict[str, Any]] = []
+    disbanded: list[str] = []
+    for lid, lord in list(state.lords.items()):
         if lord.side != side or not lord.moved_fought:
             continue
-        troops = _troop_count(lord)
-        need = -(-troops // 6)  # ceil
+        lord.moved_fought = False
+        need = -(-_troop_count(lord) // 6)  # ceil(troops / 6)
         have = lord.assets.get("provender", 0)
+        if have < need:
+            loc = _lord_locale(lord)
+            if (loc is not None and loc[0] == "stronghold"
+                    and state.locales[loc[1]].depletion != "exhausted"):
+                _pillage(state, lord, loc[1])
+                have = lord.assets.get("provender", 0)
         spend = min(need, have)
         lord.assets["provender"] = have - spend
-        lord.moved_fought = False
-        fed.append({"lord": lid, "needed": need, "fed": spend,
-                    "short": need - spend})
-    return {"fed": fed}
+        if spend < need:   # still Unfed -> Disband, with Influence penalty (3.2.1)
+            inf = static_data.load_lords()[lid]["ratings"]["influence"]
+            penalty = inf + len(lord.vassals)
+            influence.spend_influence(state, side, penalty)
+            _disband_lord(state, lord)
+            disbanded.append(lid)
+        else:
+            fed.append({"lord": lid, "fed": spend, "needed": need})
+    return {"fed": fed, "disbanded": disbanded}
 
 
 def _troop_count(lord) -> int:

@@ -23,14 +23,18 @@ actions. Turn order is "Rebel then King's" (3.1-3.4). Two Muster actions are
 Locale.) The one remaining deferred Muster action is `levy_capability`
 (Arts of War cards, Phase 4).
 
-**Phase 3a-i (current): Campaign backbone.** The Campaign turn now runs:
+**Phase 3a-i (done): Campaign backbone.** The Campaign turn now runs:
 `begin_campaign` -> Plan (4.1, season-sized) -> Activation (4.2, Rebel/King
 alternating) with the `forage` (4.6.2) and `pass` (4.6.5) Commands and Feed
 (4.7) -> `end_campaign` (4.8): Tides of War scoring (4.8.1), Victory check
 (4.8.3/5.x), Grow (4.8.4), Waste (4.8.5), and advance to the next Turn's
-Levy. Deferred to 3a-ii: the movement/route Commands `march`/`sail`/
-`supply`/`tax`/campaign-`parley`, and Pay (3.2) on Turn rollover; combat is
-Phase 3b. See the phasing plan in `BRIEF.md`.
+Levy. **Phase 3a-ii (current): movement & economy Commands.** `march` (4.3 — Road,
+Highway with the 2-for-1 chain, Path whole-card, Haul, Moved-Fought, Group
+March), `sail` (4.6.1), `tax` (4.6.3), and campaign `parley` (4.6.4) are
+implemented, and Feed (4.7) is now live (Pillage / Unfed-Disband via the
+Strongholds table). March into enemy contact (Approach/Intercept) is
+rejected pending Phase 3b. Deferred to 3a-iii: `supply` (4.5) and Pay (3.2)
+on Turn rollover. Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
 
 ## Where things are
 
@@ -45,8 +49,9 @@ Phase 3b. See the phasing plan in `BRIEF.md`.
   - `influence.py` — Influence points and the Influence check (1.4.x).
   - `actions.py` — Levy Muster action handlers + dispatcher (3.4).
   - `legal_moves.py` — phase-aware enumerator (Levy Muster + Campaign).
-  - `campaign.py` — Campaign flow, Forage/Feed, and End-Campaign (Tides of
-    War, Grow, Waste, Victory, Turn advance).
+  - `campaign.py` — Campaign flow, Forage/Feed/Pillage/Disband, End-Campaign
+    (Tides of War, Grow, Waste, Victory, Turn advance).
+  - `commands.py` — March, Sail, Tax, campaign Parley (4.3, 4.6.1-.4).
   - `cli.py` — the CLI. `new`, `state`, `legal-moves`, `do`, and the data
     commands work; `pending`/`history` are stubs until their phase.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,

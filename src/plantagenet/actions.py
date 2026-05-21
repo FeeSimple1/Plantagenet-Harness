@@ -405,6 +405,19 @@ def _campaign_handler(name):
     return getattr(campaign, name)
 
 
+def _command_handler(name):
+    from plantagenet import commands
+    return getattr(commands, name)
+
+
+def _parley_dispatch(state, action):
+    # "Parley" exists in both phases (3.4.1 Levy / 4.6.4 Campaign).
+    if state.phase == "campaign":
+        from plantagenet import commands
+        return commands.parley_campaign(state, action)
+    return _h_parley(state, action)
+
+
 _HANDLERS = {
     "begin_campaign": lambda st, a: _campaign_handler("begin_campaign")(st, a),
     "build_plan": lambda st, a: _campaign_handler("build_plan")(st, a),
@@ -412,7 +425,10 @@ _HANDLERS = {
     "pass": lambda st, a: _campaign_handler("pass_command")(st, a),
     "end_activation": lambda st, a: _campaign_handler("end_activation")(st, a),
     "end_campaign": lambda st, a: _campaign_handler("end_campaign")(st, a),
-    "parley": _h_parley,
+    "march": lambda st, a: _command_handler("march")(st, a),
+    "sail": lambda st, a: _command_handler("sail")(st, a),
+    "tax": lambda st, a: _command_handler("tax")(st, a),
+    "parley": _parley_dispatch,
     "levy_lord": _h_levy_lord,
     "levy_vassal": _h_levy_vassal,
     "levy_transport": _h_levy_transport,
