@@ -43,6 +43,9 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
+# UP042 suggests enum.StrEnum (3.11+); we keep `class X(str, Enum)` so the
+# suite also runs on 3.10 dev machines. Functionally equivalent on 3.11+.
+ignore = ["UP042"]
 
 [tool.ruff.lint.per-file-ignores]
 # Builder scripts embed verbatim rules text from the reference docs.

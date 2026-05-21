@@ -46,3 +46,20 @@ Removed `reference/Plantagenet map.rtf` (a duplicate of `Plantagenet Map
 Reference.txt`) to eliminate the two-sources-of-truth drift risk flagged
 after the map corrections. The `.txt` is now the single canonical map
 reference.
+
+## Round 3 (Phase 1 — state model, loader, display)
+
+No game-logic SMOKEs (no rules logic yet). Two issues caught during
+development before commit, noted for the record:
+- RNG state serialized the Mersenne-Twister internal as a tuple, which a
+  JSON round-trip turned into a list, breaking save/load identity. Fixed
+  by list-ifying fully in `DiceRoller.get_state` (test:
+  `test_save_load_round_trip`).
+- The focused Lord view duplicated the status token. Cosmetic; fixed.
+
+Guardrails added: `state.schema.json` is regenerated from the Pydantic
+model (`scripts/generate_schema.py`) and a test asserts the committed
+schema matches the model so it cannot silently drift. Initial
+`active_side` is set to the King's side as a provisional pointer; precise
+turn order per the Sequence of Play is a Phase 2 concern (documented in
+`scenarios.py`).

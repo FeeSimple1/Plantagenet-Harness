@@ -1,24 +1,473 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plantagenet-harness/state.schema.json",
-  "title": "Plantagenet game state (Phase 0 stub)",
-  "description": "Skeleton schema for the single-file game state. This is a Phase 0 stub: it fixes the top-level shape so state files are recognizable and seed/RNG/scenario provenance is captured. Sub-structures (lords, locales, calendar, influence, pending decisions, history) are filled in during Phase 1+ as the state model is implemented.",
-  "type": "object",
-  "required": ["schema_version", "scenario", "seed", "rng_state", "active_side"],
-  "additionalProperties": true,
+  "$defs": {
+    "CalendarState": {
+      "additionalProperties": false,
+      "properties": {
+        "levy_box": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Levy Box"
+        },
+        "end_box": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Box"
+        },
+        "first_box": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Box"
+        },
+        "last_box": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Box"
+        }
+      },
+      "title": "CalendarState",
+      "type": "object"
+    },
+    "Favour": {
+      "enum": [
+        "lancastrian",
+        "yorkist",
+        "neutral"
+      ],
+      "title": "Favour",
+      "type": "string"
+    },
+    "InfluenceState": {
+      "additionalProperties": false,
+      "description": "Mirrors the scenario's Influence-track setup verbatim.\n\nThe Influence/scoring *mechanics* are not interpreted in Phase 1; the\nvalues are stored as given so the display is faithful and later phases\ncan build the scoring logic on top.",
+      "properties": {
+        "marker_at": {
+          "title": "Marker At",
+          "type": "integer"
+        },
+        "marker_side": {
+          "$ref": "#/$defs/Side"
+        },
+        "stronghold_markers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/StrongholdMarker"
+          },
+          "title": "Stronghold Markers",
+          "type": "object"
+        },
+        "victory_check": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Victory Check"
+        }
+      },
+      "required": [
+        "marker_at",
+        "marker_side"
+      ],
+      "title": "InfluenceState",
+      "type": "object"
+    },
+    "LocaleState": {
+      "additionalProperties": false,
+      "properties": {
+        "favour": {
+          "$ref": "#/$defs/Favour",
+          "default": "neutral"
+        }
+      },
+      "title": "LocaleState",
+      "type": "object"
+    },
+    "LordState": {
+      "additionalProperties": false,
+      "properties": {
+        "lord_id": {
+          "title": "Lord Id",
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/$defs/Side"
+        },
+        "status": {
+          "$ref": "#/$defs/LordStatus"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "exile_box": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exile Box"
+        },
+        "calendar_box": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Box"
+        },
+        "calendar_exile": {
+          "default": false,
+          "title": "Calendar Exile",
+          "type": "boolean"
+        },
+        "ring": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ring"
+        },
+        "forces": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Forces",
+          "type": "object"
+        },
+        "assets": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Assets",
+          "type": "object"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "vassals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Vassals",
+          "type": "array"
+        },
+        "special_vassals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Special Vassals",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lord_id",
+        "side",
+        "status"
+      ],
+      "title": "LordState",
+      "type": "object"
+    },
+    "LordStatus": {
+      "enum": [
+        "mustered",
+        "calendar",
+        "exile",
+        "available",
+        "removed"
+      ],
+      "title": "LordStatus",
+      "type": "string"
+    },
+    "Role": {
+      "enum": [
+        "king",
+        "rebel"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "Side": {
+      "enum": [
+        "lancastrian",
+        "yorkist"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "StrongholdMarker": {
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "$ref": "#/$defs/Side"
+        },
+        "at": {
+          "title": "At",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "side",
+        "at"
+      ],
+      "title": "StrongholdMarker",
+      "type": "object"
+    },
+    "VassalState": {
+      "additionalProperties": false,
+      "properties": {
+        "vassal_id": {
+          "title": "Vassal Id",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VassalStatus"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "on_lord": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Lord"
+        },
+        "service_box": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Box"
+        }
+      },
+      "required": [
+        "vassal_id",
+        "status"
+      ],
+      "title": "VassalState",
+      "type": "object"
+    },
+    "VassalStatus": {
+      "enum": [
+        "at_seat",
+        "mustered",
+        "off_map",
+        "removed"
+      ],
+      "title": "VassalStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
   "properties": {
-    "schema_version": {"type": "integer", "const": 0},
-    "scenario": {"type": "string", "description": "Scenario id (see data/scenarios/index.json)."},
-    "seed": {"type": "integer", "description": "RNG seed stored for reproducibility."},
-    "rng_state": {"description": "Serialized DiceRoller state (random.Random getstate)."},
-    "active_side": {"enum": ["lancastrian", "yorkist"]},
-    "turn_box": {"type": "integer", "description": "Current Calendar Turn box (1-15)."},
-    "phase": {"type": "string", "description": "Current phase/step (Phase 1+)."},
-    "lords": {"type": "object", "description": "Per-Lord state (Phase 1+)."},
-    "locales": {"type": "object", "description": "Per-Locale Favour/markers (Phase 1+)."},
-    "influence": {"type": "object", "description": "Influence track state (Phase 1+)."},
-    "calendar": {"type": "object", "description": "Calendar cylinders/markers (Phase 1+)."},
-    "pending": {"type": "array", "description": "Pending sub-decisions (Phase 3b+)."},
-    "history": {"type": "array", "description": "Action/result log."}
-  }
+    "schema_version": {
+      "default": 0,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "scenario": {
+      "title": "Scenario",
+      "type": "string"
+    },
+    "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "rng_state": {
+      "anyOf": [
+        {
+          "items": {},
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rng State"
+    },
+    "active_side": {
+      "$ref": "#/$defs/Side"
+    },
+    "turn_box": {
+      "title": "Turn Box",
+      "type": "integer"
+    },
+    "phase": {
+      "default": "levy",
+      "title": "Phase",
+      "type": "string"
+    },
+    "grand_scenario": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Grand Scenario"
+    },
+    "roles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Role"
+      },
+      "title": "Roles",
+      "type": "object"
+    },
+    "lords": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LordState"
+      },
+      "title": "Lords",
+      "type": "object"
+    },
+    "vassals": {
+      "additionalProperties": {
+        "$ref": "#/$defs/VassalState"
+      },
+      "title": "Vassals",
+      "type": "object"
+    },
+    "locales": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LocaleState"
+      },
+      "title": "Locales",
+      "type": "object"
+    },
+    "exile_alignment": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Side"
+      },
+      "title": "Exile Alignment",
+      "type": "object"
+    },
+    "influence": {
+      "additionalProperties": {
+        "$ref": "#/$defs/InfluenceState"
+      },
+      "title": "Influence",
+      "type": "object"
+    },
+    "calendar": {
+      "$ref": "#/$defs/CalendarState"
+    },
+    "arts_of_war": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Arts Of War",
+      "type": "object"
+    },
+    "history": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "History",
+      "type": "array"
+    },
+    "pending": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Pending",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scenario",
+    "seed",
+    "active_side",
+    "turn_box"
+  ],
+  "title": "Plantagenet game state",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantagenet-harness/state.schema.json"
 }

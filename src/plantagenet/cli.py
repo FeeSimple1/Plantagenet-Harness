@@ -61,14 +61,47 @@ def data_check() -> None:
 
 @app.command()
 def new(scenario: str, seed: int = 1, out: str = "game.state.json") -> None:
-    """Initialize a state file from a scenario. (Phase 1)"""
-    raise typer.Exit(_stub("new"))
+    """Initialize a state file from a scenario."""
+    from plantagenet import scenarios
+    from plantagenet.errors import DataError
+
+    valid = static_data.list_scenario_ids()
+    if scenario not in valid:
+        typer.echo(f"unknown scenario {scenario!r}; choose from: {', '.join(valid)}")
+        raise typer.Exit(code=1)
+    try:
+        state = scenarios.build_initial_state(scenario, seed=seed)
+    except DataError as e:
+        typer.echo(f"failed to build scenario: {e}")
+        raise typer.Exit(code=1) from e
+    state.save(out)
+    typer.echo(f"Initialized {scenario!r} (seed {seed}) -> {out}")
 
 
 @app.command()
-def state(file: str, mode: str = "summary") -> None:
-    """Render current state: summary | verbose | focused views. (Phase 1)"""
-    raise typer.Exit(_stub("state"))
+def state(file: str, mode: str = "summary", focus: str | None = None) -> None:
+    """Render current state: summary | verbose | focused.
+
+    Use ``--mode focused --focus <lord_id|locale_id|calendar|influence>``
+    for a focused view.
+    """
+    from plantagenet import render
+    from plantagenet.state import GameState
+
+    gs = GameState.load(file)
+    if mode == "summary":
+        typer.echo(render.render_summary(gs))
+    elif mode == "verbose":
+        typer.echo(render.render_verbose(gs))
+    elif mode == "focused":
+        if not focus:
+            typer.echo("--focus is required for focused mode "
+                       "(a lord id, locale id, 'calendar', or 'influence')")
+            raise typer.Exit(code=1)
+        typer.echo(render.render_focused(gs, focus))
+    else:
+        typer.echo(f"unknown mode {mode!r}; use summary | verbose | focused")
+        raise typer.Exit(code=1)
 
 
 @app.command("legal-moves")
