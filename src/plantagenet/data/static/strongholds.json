@@ -1,0 +1,45 @@
+{
+  "_source": "reference/Plantagenet Strongholds Reference.txt (transcribed player-aid foldout). Resolves Q-003 -> RULES_DECISIONS.md D-004.",
+  "_favour_note": "Tides of War (4.8.1) distinguishes 'Favour' from 'Most Favour'. REGULAR Strongholds (city/town/fortress): the side with the MOST total Favour of that type earns the Influence (one award per type, regardless of count). SPECIAL Strongholds (london/calais/harlech): Influence is awarded INDIVIDUALLY to whichever side has Favour at that specific Stronghold. The `tides_of_war.basis` field encodes which rule applies.",
+  "_schema": "levy_troops/supply/tax/pillage map a force/asset id -> count; tides_of_war = {influence, basis: 'most_favour' | 'favour'}.",
+  "by_type": {
+    "city": {
+      "levy_troops": {"longbow": 1, "militia": 1},
+      "supply": {"provender": 2}, "tax": {"coin": 2},
+      "pillage": {"provender": 2, "coin": 2},
+      "tides_of_war": {"influence": 2, "basis": "most_favour"}
+    },
+    "town": {
+      "levy_troops": {"militia": 2},
+      "supply": {"provender": 1}, "tax": {"coin": 1},
+      "pillage": {"provender": 1, "coin": 1},
+      "tides_of_war": {"influence": 1, "basis": "most_favour"}
+    },
+    "fortress": {
+      "levy_troops": {"men_at_arms": 1, "longbow": 1},
+      "supply": {"provender": 1}, "tax": {"coin": 1},
+      "pillage": {"provender": 1, "coin": 1},
+      "tides_of_war": {"influence": 1, "basis": "most_favour"}
+    }
+  },
+  "special": {
+    "london": {
+      "levy_troops": {"men_at_arms": 1, "longbow": 1, "militia": 1},
+      "supply": {"provender": 3}, "tax": {"coin": 3},
+      "pillage": {"provender": 3, "coin": 3},
+      "tides_of_war": {"influence": 2, "basis": "favour"}
+    },
+    "calais": {
+      "levy_troops": {"men_at_arms": 2, "longbow": 1},
+      "supply": {"provender": 3}, "tax": {"coin": 3},
+      "pillage": {"provender": 3, "coin": 3},
+      "tides_of_war": {"influence": 2, "basis": "favour"}
+    },
+    "harlech": {
+      "levy_troops": {"men_at_arms": 1, "longbow": 2},
+      "supply": {"provender": 1}, "tax": {"coin": 1},
+      "pillage": {"provender": 1, "coin": 1},
+      "tides_of_war": {"influence": 1, "basis": "favour"}
+    }
+  }
+}

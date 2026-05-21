@@ -108,6 +108,18 @@
         "favour": {
           "$ref": "#/$defs/Favour",
           "default": "neutral"
+        },
+        "depletion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depletion"
         }
       },
       "title": "LocaleState",

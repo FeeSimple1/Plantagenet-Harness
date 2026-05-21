@@ -123,11 +123,42 @@ def test_levy_vassal_musters_with_service_marker():
     assert "suffolk" in s.lords["york"].vassals
 
 
-def test_levy_troops_deferred_to_strongholds_table():
-    s = build_initial_state("henry_vi")
+def test_levy_troops_city_yields_and_depletes():
+    # 3.4.4 + D-004: Ely is a City -> 1 Longbow + 1 Militia (Background Book
+    # example), then Deplete; a second Levy Exhausts; a third is rejected.
+    s = build_initial_state("henry_vi", seed=1)
+    lb = s.lords["york"].forces.get("longbow", 0)
+    mil = s.lords["york"].forces.get("militia", 0)
+    r = actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
+    assert r["added"] == {"longbow": 1, "militia": 1}
+    assert s.lords["york"].forces["longbow"] == lb + 1
+    assert s.lords["york"].forces["militia"] == mil + 1
+    assert s.locales["ely"].depletion == "depleted"
+    actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
+    assert s.locales["ely"].depletion == "exhausted"
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
-    assert e.value.code == "needs_strongholds_table"
+    assert e.value.code == "exhausted"
+
+
+def test_levy_troops_no_influence_check_spends_one_lordship():
+    s = build_initial_state("henry_vi", seed=1)
+    track_before = (s.influence["track"].marker_side, s.influence["track"].marker_at)
+    actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
+    # No Influence is spent for Levy Troops (3.4.4 NOTE).
+    assert (s.influence["track"].marker_side, s.influence["track"].marker_at) == track_before
+    assert s.lords["york"].lordship_spent == 1
+
+
+def test_levy_troops_pool_limited():
+    # 1.6: Muster no Troops beyond the pool. Drain the Militia pool, then a
+    # Town (2 Militia) yields nothing for that type.
+    s = build_initial_state("henry_vi", seed=1)
+    s.lords["york"].forces["militia"] = 45  # entire Militia pool on one mat
+    s.locales["ely"].favour = "yorkist"
+    r = actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
+    assert "militia" not in r["added"]      # none left in the pool
+    assert r["added"].get("longbow") == 1   # Longbow still available
 
 
 def test_levy_capability_deferred_to_phase_4():
@@ -157,4 +188,4 @@ def test_exile_box_lord_may_levy_transport_but_not_troops():
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "levy_troops", "side": "lancastrian",
                                  "by_lord": "henry_tudor"})
-    assert e.value.code == "needs_strongholds_table"
+    assert e.value.code == "in_exile_box"  # Exile-box Lords may not Levy Troops (3.4.4)

@@ -1,0 +1,86 @@
+Plantagenet Influence Points & Parley/Pass Reference
+(Transcribed from the player aid foldout)
+ 
+================================================================
+PARLEY
+================================================================
+  - At or adjacent to target Stronghold (including by Sea).
+  - Target Locale: no Enemy Lord.
+  - If Lord at target, add or remove Favour (shift 1 level toward
+    Friendly).
+  - If adjacent, check Influence (1.4.2) to do so (3.4.1, 4.6.4).
+ 
+================================================================
+PASS
+================================================================
+  - None. Do nothing (4.6.5).
+ 
+* Commands require 1 action, unless "all".
+ 
+Sharing (1.5.3): Any Assets among Lords at same Locale.
+Greed (1.7.2): Discard Assets or cards only as required OR to move.
+ 
+================================================================
+INFLUENCE POINTS (1.4.1)
+================================================================
+ 
+----------------------------------------------------------------
+SPEND
+----------------------------------------------------------------
+ 
+Influence Check (1.4.2) for Parley, Levy, or Tax:
+  -1 (always)
+  -1 to raise Rating +1
+  -3 to raise Rating +2
+  -1 per Way (Parley)
+  -1 if by Sea (Parley)
+ 
+Levy - Pay Lords (3.2):
+  -1 per Lord at Stronghold
+  -2 per Lord in Exile box
+ 
+----------------------------------------------------------------
+LOSE
+----------------------------------------------------------------
+ 
+Unpaid/Unfed:
+  If Troops Pillage:
+    -2x Assets taken
+  If Lord Disbands:
+    -Influence Rating
+    -1 per Vassal (3.2.1, 4.7, 4.8.2)
+ 
+Exile (4.3.5):
+  -Influence Rating
+  -1 per Vassal
+ 
+War Setup (6.3 IIIY, IIIL):
+  -8 per Heir removed
+ 
+----------------------------------------------------------------
+GAIN
+----------------------------------------------------------------
+ 
+Battle Won (4.4.3):
+  +Influence Rating of losing Lords
+  +1 per losing Vassal
+ 
+Arts of War (1.9.1):
+  +/-? by card text
+ 
+Tides of War (4.8.1):
+  +1 Lord in each North/South/Wales
+  +2 Dominate each North/South/Wales
+  +2 Favour at London    (no Enemy Lord)
+  +2 Favour at Calais    (no Enemy Lord)
+  +1 Favour at Harlech   (no Enemy Lord)
+    NOTE: The "no Enemy Lord" condition applies to ALL THREE
+    Special Strongholds (London, Calais, and Harlech). On the
+    foldout, a single bracket groups all three with that
+    qualifier.
+  +2 Most Favour at Cities
+  +1 Most Favour at Towns
+  +1 Most Favour at Fortresses
+  +? by Capability card text (1.9.1)
+  If "Gain Lords Influence" Turn:
+    +Influence Ratings of on-map Lords

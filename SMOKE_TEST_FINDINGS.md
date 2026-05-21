@@ -87,3 +87,14 @@ yields per Stronghold type) is not in the repo sources, so Levy Troops
 Round-trip discipline: `scripts/roundtrip_sweep.py` plus
 `test_round_trip_every_emitted_move_applies` confirm every enumerated Levy
 move is accepted by the handler across all scenarios and seeds.
+
+## Round 5 (Phase 2b — Strongholds table)
+
+User supplied the Strongholds table and an Influence/Parley reference
+(resolving Q-003 -> D-004). Encoded `strongholds.json` (Levy/Supply/Tax/
+Pillage/Tides per type, with the Favour-vs-Most-Favour basis distinction the
+user emphasized) and troop pool counts (1.6, 128 pieces) in `forces.json`.
+Implemented Levy Troops (3.4.4): adds the Stronghold's Troops (pool-limited),
+then Depletes/Exhausts the Locale (new `LocaleState.depletion`). Enumerator
+now offers levy_troops; round-trip sweep stays clean. Levy Troops verified
+against the Background Book example (Ely City -> 1 Longbow + 1 Militia).

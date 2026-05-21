@@ -9,8 +9,8 @@ Phase 2 scope — the Muster segment (3.4) for the active side:
   parley (3.4.1), levy_lord (3.4.2), levy_vassal (3.4.3),
   levy_transport (3.4.5), and end_muster to pass the segment to the other
   side. Two Muster actions are intentionally NOT executable yet:
-    - levy_troops (3.4.4): needs the Strongholds table (RULES_QUESTIONS Q-003).
     - levy_capability (3.4.6): card effects are deferred to Phase 4.
+levy_troops (3.4.4) is implemented using the Strongholds table (D-004).
 The full Pay (3.2) detail (Pillage yields) likewise needs the Strongholds
 table and is not reachable on the first Turn (3.2 skips Pay on Turn 1).
 """
@@ -339,10 +339,40 @@ def _h_levy_transport(state: GameState, action: dict[str, Any]) -> dict[str, Any
 
 
 # ------------------------------------------------ deferred Muster actions
+def _troops_in_play(state: GameState, force_id: str) -> int:
+    """Count wooden Troop pieces of ``force_id`` currently on all Lord mats."""
+    return sum(v.forces.get(force_id, 0) for v in state.lords.values())
+
+
 def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    raise IllegalAction("needs_strongholds_table",
-                        "Levy Troops (3.4.4) needs the Strongholds table, which is not in "
-                        "the repo sources — see RULES_QUESTIONS.md Q-003")
+    """Levy Troops (3.4.4): add the Stronghold's listed Troops, then Deplete
+    (or Exhaust if already Depleted). No Influence check. Pool-limited (1.6)."""
+    lord = _active_lord(state, action)
+    loc = lord_location(lord)
+    _require(loc[0] == "stronghold", "in_exile_box",
+             "Levy Troops requires a Stronghold, not an Exile box (3.4.4)")
+    here = loc[1]
+    _require(is_friendly_stronghold(state, here, lord.side), "not_friendly_locale",
+             "Levy Troops requires a Friendly Stronghold (3.4.4)")
+    ls = state.locales[here]
+    _require(ls.depletion != "exhausted", "exhausted",
+             f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
+
+    yields = static_data.stronghold_yields(here)["levy_troops"]
+    forces_static = static_data.load_forces()
+    added: dict[str, int] = {}
+    for unit, amount in yields.items():
+        pool = forces_static[unit].get("pool", 0)
+        free = pool - _troops_in_play(state, unit)
+        give = max(0, min(amount, free))   # "as able" (1.6): pool limits Muster
+        if give:
+            lord.forces[unit] = lord.forces.get(unit, 0) + give
+            added[unit] = give
+    # Deplete, or Exhaust if already Depleted (3.4.4).
+    ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
+    lord.lordship_spent += 1
+    return {"type": "levy_troops", "by_lord": lord.lord_id, "locale": here,
+            "added": added, "depletion": ls.depletion}
 
 
 def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
