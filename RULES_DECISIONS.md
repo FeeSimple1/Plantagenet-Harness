@@ -34,8 +34,7 @@ Ports share a Sea, nor the Sea adjacency used by Sail.
 
 **Encoded in.** `data/static/seas.json`, `data/static/exile_boxes.json`
 (sea_zone + acts_as_port), `data_integrity.py` (sea-zone checks),
-`reference/Plantagenet Map Reference.txt` and `Plantagenet map.rtf` (new
-Sea Adjacency section). Commit: see the phase-0-map-corrections merge.
+`reference/Plantagenet Map Reference.txt` (new Sea Adjacency section). Commit: see the phase-0-map-corrections merge.
 
 ---
 
@@ -59,7 +58,7 @@ Reference.
 **Encoded in.** `data/static/ways.json` (both edges now emitted; 81 land
 ways), `scripts/build_map_data.py` (reciprocated in ADJ;
 `PENDING_ASYMMETRIC` cleared), `reference/Plantagenet Map Reference.txt`
-and `Plantagenet map.rtf` (Peterborough and Nottingham entries updated).
+(Peterborough and Nottingham entries updated).
 Commit: see the phase-0-map-corrections merge.
 
 ---
@@ -77,5 +76,4 @@ designation.
 **Citation.** User adjudication / Map Reference correction.
 
 **Encoded in.** `data/static/locales.json` (bristol `port: true`),
-`scripts/build_map_data.py`, `data/static/seas.json` (Irish Sea), and both
-Map Reference files. Commit: see the phase-0-map-corrections merge.
+`scripts/build_map_data.py`, `data/static/seas.json` (Irish Sea), and the Map Reference (.txt). Commit: see the phase-0-map-corrections merge.
