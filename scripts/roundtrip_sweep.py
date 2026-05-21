@@ -24,6 +24,8 @@ def sweep_scenario(scenario_id: str, seed: int = 1) -> list[str]:
     state = build_initial_state(scenario_id, seed=seed)
     if state.phase != "levy":
         return findings
+    while state.levy_step == "arts_of_war":   # 3.1 draw, Rebel then King
+        actions.apply_action(state, {"type": "draw", "side": state.active_side})
     steps = 0
     while state.levy_step == "muster" and steps < 500:
         moves = legal_moves.legal_moves(state)

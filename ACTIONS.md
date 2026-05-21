@@ -32,6 +32,21 @@ The catalog is the action requirements summary from the Errata (corrected
 table), to be filled in with concrete JSON schemas as each phase
 implements them.
 
+### Levy — Arts of War draw (3.1) — IMPLEMENTED in Phase 4-iii
+
+The Levy begins with the Arts of War draw, Rebel then King:
+
+| Action | Args | Rule | Status |
+|---|---|---|---|
+| `draw` | `side` | 3.1 | done (first Levy deploys 2 Capabilities; later Levies draw 2 Events) |
+
+First Levy of a scenario (3.1.2): each side draws two cards and deploys them
+as Capabilities at Mustered Lord mats (default first eligible Lord; discard
+if unassignable). Later Levies (3.1.3): each side draws two Events — Hold ->
+held pile, This Levy / This Campaign -> active, otherwise resolve and return
+to the deck. (Event/Capability *effects* are applied by the consumer until
+coded in later increments.) After both draws -> Muster (first Turn) or Pay.
+
 ### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 
 All Muster actions take `{"type", "side", "by_lord", ...}` and spend one

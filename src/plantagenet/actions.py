@@ -448,6 +448,7 @@ def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.active_side = king
         return {"type": "end_muster", "next": "king_muster"}
     state.levy_step = "done"
+    state.active_events = [e for e in state.active_events if e.get("scope") != "this_levy"]
     return {"type": "end_muster", "next": "levy_complete"}
 
 
@@ -489,4 +490,5 @@ _HANDLERS = {
     "levy_capability": _h_levy_capability,
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
+    "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),
 }

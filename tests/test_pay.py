@@ -8,10 +8,12 @@ from plantagenet import actions, campaign
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordStatus, VassalStatus
+from tests._helpers import to_muster
 
 
 def _advance_to_turn2_pay(s):
     """Run a no-op Turn 1 (Levy + empty Campaign) to roll over to Turn 2 Pay."""
+    to_muster(s)
     actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
     actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
     actions.apply_action(s, {"type": "begin_campaign"})
@@ -22,12 +24,14 @@ def _advance_to_turn2_pay(s):
     while s.campaign.step == "activation":
         actions.apply_action(s, {"type": "end_activation", "side": s.active_side})
     actions.apply_action(s, {"type": "end_campaign"})
+    to_muster(s)                       # Turn 2 begins with the Arts of War draw -> Pay
     assert s.levy_step == "pay" and s.turn_box == 2
 
 
 def test_pay_is_skipped_on_first_turn():
     # Loader starts a scenario at the Muster step (Pay skipped on Turn 1, 3.2).
     s = build_initial_state("henry_vi")
+    to_muster(s)                       # first Turn: Arts of War draw -> Muster (Pay skipped)
     assert s.levy_step == "muster"
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "pay", "side": "yorkist"})

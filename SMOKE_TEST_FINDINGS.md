@@ -209,3 +209,16 @@ Muster; round-trip sweep stays clean. The Capability is tracked as data; its
 mechanical effect is the consumer's to apply until implemented in a later
 Phase-4 increment (per BRIEF interim). No SMOKEs. Remaining Phase 4: the
 mandatory 3.1 draw (Events/Capabilities), per-card effects, and Succession.
+
+## Round 14 (Phase 4-iii - Arts of War draw 3.1)
+
+Added the mandatory Arts of War draw as the first Levy step (arts_of_war),
+Rebel then King: first Levy of a scenario deploys 2 Capabilities to Mustered
+Lords (default first eligible; discard if unassignable); later Levies draw 2
+Events (Hold -> held pile, This Levy/Campaign -> active_events, immediate ->
+resolve+return). GameState gained decks (draw/discard/held per side) and
+active_events; DiceRoller.shuffle orders the draw piles; loader/rollover land
+at arts_of_war. This Levy events cleared after Muster, This Campaign after
+Campaign. The flow reorder churned ~56 tests (advancing through the draw via
+a tests/_helpers.to_muster helper); all updated. Card EFFECTS remain
+consumer-applied until coded. No SMOKEs. 170 tests pass; round-trip clean.

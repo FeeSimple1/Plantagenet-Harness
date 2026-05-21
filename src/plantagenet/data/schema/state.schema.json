@@ -553,6 +553,27 @@
       "default": null,
       "title": "Victory"
     },
+    "decks": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": "object"
+      },
+      "title": "Decks",
+      "type": "object"
+    },
+    "active_events": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Active Events",
+      "type": "array"
+    },
     "arts_of_war": {
       "additionalProperties": {
         "type": "string"
