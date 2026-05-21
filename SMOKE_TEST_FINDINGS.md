@@ -233,3 +233,16 @@ Wired the first card effects into battle.py via the decisions payload:
   effect (4.4.1 Event step). Adds card helpers (find/consume capability and
   held event). Validated against held/mat cards (no_culverins/no_leeward).
   Verified the hit math from the round logs. No SMOKEs. 174 tests pass.
+
+## Round 16 (Phase 4-v - combat-timing card effects, batch 2)
+
+Wired four more card effects into battle.py/approach via the decisions
+payload: Caltrops (Y19 Hold Event, +2 Melee Hits/Round, one Engagement),
+Ravine (L12 Hold Event, ignore an enemy Lord for Engage/Strike in Round 1),
+Blocked Ford (Y11/L11 Hold Event, forbid Exile on Approach -> all Battle),
+and Barricades (Y9 Capability, Armour 1-4 Men-at-Arms / 1-2 Longbow & Militia
+at a Friendly Stronghold; NOT for Losses). Fixed _losses to roll UNMODIFIED
+Protection (4.4.3). All validated against held/mat cards and consumed on use.
+No SMOKEs. 179 tests pass. Deferred to a later batch: Flank Attack (attacker
+flip), Escape Ship (Death-check -> Exile, needs route-to-Port), Regroup
+(mid-battle timed recovery).
