@@ -43,6 +43,27 @@ def _enemy_adjacent_by_land(state: GameState, locale_id: str, side: str) -> bool
 
 
 # --------------------------------------------------------------- 4.3 March
+def _effective_title(state: GameState, lord_id: str) -> str | None:
+    """Static title, or "marshal" via Captain (Y30): a Lord with the Captain
+    Capability is a Marshal at any Locale with no other Friendly Marshal or
+    Lieutenant (4.3.1 / 1.9.1)."""
+    statics = static_data.load_lords()
+    title = statics[lord_id].get("title")
+    if title in ("marshal", "lieutenant"):
+        return title
+    lord = state.lords[lord_id]
+    if any(static_data.load_cards()[c]["capability"]["title"] == "CAPTAIN"
+           for c in lord.capabilities):
+        here = lord.location
+        rivals = [lid for lid, ls in state.lords.items()
+                  if lid != lord_id and ls.status == LordStatus.MUSTERED
+                  and ls.location == here and ls.side == lord.side
+                  and statics[lid].get("title") in ("marshal", "lieutenant")]
+        if not rivals:
+            return "marshal"
+    return title
+
+
 def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
     loc = lord_location(lord)
@@ -63,7 +84,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     movers = [lord]
     group = action.get("group", [])
     if group:
-        title = static_data.load_lords()[lord.lord_id].get("title")
+        title = _effective_title(state, lord.lord_id)
         _require(title in ("marshal", "lieutenant"), "not_group_leader",
                  "only a Marshal or Lieutenant may lead a Group March (4.3.1)")
         for gid in group:
