@@ -210,7 +210,7 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"{target} already Favours {lord.side} (3.4.1)")
 
     chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=extra, way_cost=way_cost)
+                                    extra_spend=extra, way_cost=way_cost, action="parley")
     lord.lordship_spent += 1
     changed = None
     if chk["success"]:
@@ -257,7 +257,8 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "Enemy-free Seat to Muster at (3.4.2)")
 
     extra = int(action.get("extra_spend", 0))
-    chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra)
+    chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra,
+                                    action="levy")
     lord.lordship_spent += 1
     if chk["success"]:
         place_at = seat if seat_free else fallback
@@ -301,7 +302,7 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     extra = int(action.get("extra_spend", 0))
     chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra,
-                                    loyalty_mod=_loyalty_mod(vid, lord.side))
+                                    loyalty_mod=_loyalty_mod(vid, lord.side), action="levy")
     lord.lordship_spent += 1
     if chk["success"]:
         service = regular[vid]["service"]

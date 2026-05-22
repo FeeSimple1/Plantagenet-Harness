@@ -273,7 +273,7 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         chk = {"success": True, "auto": True, "roll": None, "spent": 0}
     else:
         chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                        extra_spend=extra, way_cost=way_cost)
+                                        extra_spend=extra, way_cost=way_cost, action="tax")
     state.campaign.actions_remaining -= 1
     coin_added = 0
     if chk["success"]:
@@ -319,7 +319,7 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     extra = int(action.get("extra_spend", 0))
     chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=extra, way_cost=1)
+                                    extra_spend=extra, way_cost=1, action="parley")
     state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
     changed = None
     if chk["success"]:

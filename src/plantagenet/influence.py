@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plantagenet import static_data
+from plantagenet import ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, InfluenceState, Side
 
@@ -77,6 +77,7 @@ def check_influence(
     extra_spend: int = 0,
     loyalty_mod: int = 0,
     way_cost: int = 0,
+    action: str | None = None,
 ) -> dict[str, Any]:
     """Perform an Influence check for ``lord_id``; returns the outcome.
 
@@ -87,7 +88,8 @@ def check_influence(
     if extra_spend not in _RATING_BONUS:
         raise IllegalAction("bad_extra_spend",
                             "added Influence spend must be 0, 1, or 3 (1.4.2)")
-    rating = lord_influence_rating(lord_id) + _RATING_BONUS[extra_spend] + loyalty_mod
+    rating = (ratings.rating(state, lord_id, "influence", action=action)
+              + _RATING_BONUS[extra_spend] + loyalty_mod)
     total_spend = 1 + extra_spend + way_cost
     spend_influence(state, side, total_spend)
 
