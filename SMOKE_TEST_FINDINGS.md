@@ -272,3 +272,16 @@ Armour 1-5 in battle; Thomas Stanley (L35) a free Levy Troops once per Levy
 now discards its Capabilities (to the deck discard) and releases Special
 Vassals (1.5.3/4.4.3). Structured `modifiers` added to vassals.json special
 entries. No SMOKEs. 188 tests pass.
+
+## Round 19 (Phase 4-viii - levy/economy card effects)
+
+Added ratings.has_capability and wired three economy capabilities:
+- Beloved Warwick (Y16): Levy Troops yields 5 Militia (pool-limited) instead
+  of the Stronghold's table Troops.
+- Alice Montagu (Y17): a Levied Vassal's Calendar Service marker is placed
+  one box further right (+1 Service, capped at box 15).
+- Great Ships (Y6): each Ship counts double for Sail (12 Forces / 4 Provender
+  / 4 Carts) and Supply (+2 Provender per Ship from a Port), and connects all
+  Ports across Seas as 1 Way for Parley, Tax, and Supply (NOT Sail, FAQ #1) -
+  threaded via an all_seas flag through the Parley/Tax/Supply route finders.
+No SMOKEs. 192 tests pass; round-trip clean.
