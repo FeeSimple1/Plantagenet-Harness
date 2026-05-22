@@ -129,6 +129,71 @@ def _apply_barricades(state, forces, locale):
                 f.prof["militia"]["prot"] = [1, 2]
 
 
+def _english_channel_ports() -> set[str]:
+    return set(static_data.load_seas()["zones"]["english_channel"]["ports"])
+
+
+def _at_friendly_stronghold(state, lid, locale):
+    return state.locales[locale].favour == state.lords[lid].side
+
+
+def _in_region_fn(*regions):
+    def f(state, lid, locale):
+        return static_data.load_locales().get(locale, {}).get("region") in regions
+    return f
+
+
+def _route_to_carlisle(state, lid, locale):
+    from plantagenet import commands
+    side = state.lords[lid].side
+    return locale == "carlisle" or \
+        commands._supply_route_cost(state, locale, "carlisle", side) is not None
+
+
+def _adj_friendly_ec_port(state, lid, locale):
+    from plantagenet.commands import _adjacency
+    side = state.lords[lid].side
+    ec = _english_channel_ports()
+    if locale in ec and state.locales[locale].favour == side:
+        return True
+    return any(nbr in ec and state.locales[nbr].favour == side
+               for nbr, _t in _adjacency().get(locale, []))
+
+
+# Battle troop-add Capabilities (1.9.1), keyed by *card id* (PERCY'S NORTH has
+# two different texts: Y27 in the North, Y37 with a Route to Carlisle).
+# Each entry: (condition(state, lord_id, locale) -> bool, {force_type: count}).
+# Added units are battle-local (removed after Battle automatically).
+_BATTLE_TROOP_CAPS = {
+    "Y3": (_at_friendly_stronghold, {"men_at_arms": 2, "longbow": 1}),  # Muster'd My Soldiers
+    "L3": (_at_friendly_stronghold, {"men_at_arms": 2, "longbow": 1}),
+    "Y25": (_in_region_fn("wales"), {"longbow": 2}),                    # Pembroke
+    "L25": (_in_region_fn("wales"), {"longbow": 2}),                    # Welsh Lord
+    "Y27": (_in_region_fn("north"), {"militia": 4}),                    # Percy's North (Y27)
+    "Y37": (_route_to_carlisle, {"men_at_arms": 2}),                    # Percy's North (Y37)
+    "Y35": (_in_region_fn("north", "south", "wales"), {"militia": 3}),  # Kingdom United
+    "L33": (_adj_friendly_ec_port, {"men_at_arms": 2}),                 # Philibert de Chandee
+}
+
+
+def _apply_battle_troop_caps(state, forces, locale):
+    for lid, f in forces.items():
+        for cid in state.lords[lid].capabilities:
+            spec = _BATTLE_TROOP_CAPS.get(cid)
+            if spec and spec[0](state, lid, locale):
+                for t, n in spec[1].items():
+                    f.count[t] = f.count.get(t, 0) + n
+                    f.routed.setdefault(t, 0)
+
+
+def _apply_armour_caps(state, forces):
+    """Uniform (all-phase) Armour Capabilities. Church Blessing (L5): this
+    Lord's Men-at-Arms have Armour 1-4 (1.9.1)."""
+    for f in forces.values():
+        if _lord_has_capability(state, f.lord_id, "CHURCH BLESSING") and "men_at_arms" in f.prof:
+            f.prof["men_at_arms"]["prot"] = [1, 4]
+
+
 class _Force:
     """Mutable battle state for one Lord's Forces (counts + Routed counts)."""
 
@@ -365,8 +430,10 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         _use_held_event(state, rside, cid)
 
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
+    _apply_battle_troop_caps(state, forces, locale)
     _apply_barricades(state, forces, locale)
     _apply_special_vassal_armour(state, forces)
+    _apply_armour_caps(state, forces)
 
     susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
     positions, reserves = _initial_array(attackers, defenders, decisions)
