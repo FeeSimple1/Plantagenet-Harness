@@ -785,6 +785,11 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
 
 def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str) -> None:
     lord = state.lords[lord_id]
+    if _lord_has_capability(state, lord_id, "ENGLAND IS MY HOME"):   # Y8
+        campaign._disband_lord(state, lord)          # plain Disband, no Influence loss
+        lord.calendar_box = state.turn_box + 1       # to the next Calendar box
+        lord.calendar_exile = False
+        return
     inf = static_data.load_lords()[lord_id]["ratings"]["influence"]
     influence.spend_influence(state, lord.side, inf + len(lord.vassals))
     fav = state.locales[locale].favour

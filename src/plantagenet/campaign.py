@@ -72,6 +72,11 @@ def begin_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     state.campaign = CampaignState(step="plan", cards_required=info["cards"],
                                    plan_index={s: 0 for s in SIDES},
                                    plan_built={s: False for s in SIDES})
+    for lid, lord in state.lords.items():        # L22 Stafford Estates (Buckingham)
+        if lord.status == LordStatus.MUSTERED and \
+                ratings.has_capability(state, lid, "STAFFORD ESTATES"):
+            lord.assets["coin"] = lord.assets.get("coin", 0) + 1
+            lord.assets["provender"] = lord.assets.get("provender", 0) + 1
     return {"type": "begin_campaign", "season": info["season"],
             "cards_required": info["cards"]}
 
@@ -197,8 +202,9 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     state.campaign.actions_remaining -= 1
     added = 0
     if success:
-        lord.assets["provender"] = lord.assets.get("provender", 0) + 1
-        added = 1
+        gain = 1 + (1 if ratings.has_capability(state, lord.lord_id, "SCOURERS") else 0)
+        lord.assets["provender"] = lord.assets.get("provender", 0) + gain  # Y13 Scourers +1
+        added = gain
         if ls is not None:
             ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
         elif kind == "exile":

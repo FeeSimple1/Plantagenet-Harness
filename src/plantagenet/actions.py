@@ -303,6 +303,8 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     extra = int(action.get("extra_spend", 0))
     chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra,
                                     loyalty_mod=_loyalty_mod(vid, lord.side), action="levy")
+    if ratings.has_capability(state, lord.lord_id, "TWO ROSES"):
+        chk["success"] = True              # L32 (Henry Tudor): Vassal Levy always succeeds
     lord.lordship_spent += 1
     if chk["success"]:
         service = regular[vid]["service"]
@@ -354,6 +356,11 @@ def _troops_in_play(state: GameState, force_id: str) -> int:
     return sum(v.forces.get(force_id, 0) for v in state.lords.values())
 
 
+def _is_own_vassal_seat(state: GameState, lord, locale: str) -> bool:
+    regular = static_data.load_vassals()["regular"]
+    return any(regular.get(v, {}).get("seat") == locale for v in lord.vassals)
+
+
 def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Levy Troops (3.4.4): add the Stronghold's listed Troops, then Deplete
     (or Exhaust if already Depleted). No Influence check. Pool-limited (1.6)."""
@@ -378,7 +385,19 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if ratings.has_capability(state, lord.lord_id, "BELOVED WARWICK"):
         yields = {"militia": 5}                 # Y16: 5 Militia instead of the table
     else:
-        yields = static_data.stronghold_yields(here)["levy_troops"]
+        yields = dict(static_data.stronghold_yields(here)["levy_troops"])
+    if lord.side == "yorkist" and ratings.event_active(state, "THE COMMONS"):
+        commons = int(action.get("commons_extra", 0))   # Y16 Event: up to +2 Militia
+        _require(0 <= commons <= 2, "bad_commons", "The Commons adds 0-2 Militia (Y16)")
+        if commons:
+            yields["militia"] = yields.get("militia", 0) + commons
+    sof = bool(action.get("soldiers_of_fortune"))        # Y12 Capability
+    if sof:
+        _require(ratings.has_capability(state, lord.lord_id, "SOLDIERS OF FORTUNE"),
+                 "no_soldiers_of_fortune", f"{lord.lord_id} lacks Soldiers of Fortune (Y12)")
+        _require(lord.assets.get("coin", 0) >= 1, "no_coin",
+                 "Soldiers of Fortune costs 1 Coin (Y12)")
+        yields["mercenaries"] = yields.get("mercenaries", 0) + 2
     forces_static = static_data.load_forces()
     added: dict[str, int] = {}
     for unit, amount in yields.items():
@@ -388,8 +407,17 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         if give:
             lord.forces[unit] = lord.forces.get(unit, 0) + give
             added[unit] = give
-    # Deplete, or Exhaust if already Depleted (3.4.4).
-    ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
+    if sof:
+        lord.assets["coin"] = lord.assets.get("coin", 0) - 1
+    # Deplete, or Exhaust if already Depleted -- unless a no-Deplete Capability
+    # applies: Quartermasters (L9), Woodvilles (Y31), Chamberlains (L10) at a
+    # Vassal's Seat (3.4.4 / 1.9.1).
+    no_deplete = (ratings.has_capability(state, lord.lord_id, "QUARTERMASTERS")
+                  or ratings.has_capability(state, lord.lord_id, "WOODVILLES")
+                  or (ratings.has_capability(state, lord.lord_id, "CHAMBERLAINS")
+                      and _is_own_vassal_seat(state, lord, here)))
+    if not no_deplete:
+        ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
     if stanley_free:
         lord.free_troops_used = True       # Thomas Stanley: 0 Lordship, once/Levy (L35)
     else:
@@ -529,6 +557,9 @@ _HANDLERS = {
     "sail": lambda st, a: _command_handler("sail")(st, a),
     "tax": lambda st, a: _command_handler("tax")(st, a),
     "supply": lambda st, a: _command_handler("supply")(st, a),
+    "agitators": lambda st, a: _command_handler("agitators")(st, a),
+    "merchants": lambda st, a: _command_handler("merchants")(st, a),
+    "heralds": lambda st, a: _command_handler("heralds")(st, a),
     "parley": _parley_dispatch,
     "levy_lord": _h_levy_lord,
     "levy_vassal": _h_levy_vassal,
