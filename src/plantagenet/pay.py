@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plantagenet import campaign, influence, static_data
+from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus, VassalStatus
 
@@ -45,7 +45,19 @@ def pay(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Pay (Rebel then King, 3.2)")
 
+    # Madame La Grande (L37): +1 Coin each Pay if at/adjacent a Friendly English
+    # Channel Port.
+    madame = []
+    for lid, lord in state.lords.items():
+        if (lord.side == side and lord.status == LordStatus.MUSTERED
+                and ratings.has_capability(state, lid, "MADAME LA GRANDE")
+                and _at_adj_friendly_ec_port(state, lord)):
+            lord.assets["coin"] = lord.assets.get("coin", 0) + 1
+            madame.append(lid)
+
     result: dict[str, Any] = {"type": "pay", "side": side}
+    if madame:
+        result["madame_la_grande"] = madame
     result["troops"] = _pay_troops(state, side, action)
     result["lords"] = _pay_lords(state, side, action)
     result["vassals"] = _pay_vassals(state, side, action)
@@ -75,6 +87,28 @@ def _drain_coin(lords: list, amount: int) -> None:
         amount -= take
 
 
+def _at_adj_friendly_ec_port(state: GameState, lord) -> bool:
+    from plantagenet.commands import _adjacency
+    ec = set(static_data.load_seas()["zones"]["english_channel"]["ports"])
+    here = lord.location
+    if here in ec and state.locales[here].favour == lord.side:
+        return True
+    return any(n in ec and state.locales[n].favour == lord.side
+               for n, _t in _adjacency().get(here, []))
+
+
+def _percys_power_free_north(state: GameState, side: str) -> bool:
+    """Percy's Power (L14, Northumberland): Lancastrian Pay in the North is
+    free while Northumberland (with the Capability) is in the North."""
+    if side != "lancastrian":
+        return False
+    locales = static_data.load_locales()
+    return any(lord.status == LordStatus.MUSTERED
+               and locales.get(lord.location, {}).get("region") == "north"
+               and ratings.has_capability(state, lid, "PERCY'S POWER")
+               for lid, lord in state.lords.items() if lord.side == side)
+
+
 def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str, Any]:
     pillage_by = action.get("pillage_by", {})
     groups: dict[str, list] = {}
@@ -84,10 +118,16 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
             if key:
                 groups.setdefault(key, []).append(lord)
 
+    free_north = _percys_power_free_north(state, side)
+    locales_static = static_data.load_locales()
     paid_groups, pillaged, disbanded = [], [], []
     for key, lords in groups.items():
         is_stronghold = key.startswith("loc:")
         locale_id = key.split(":", 1)[1] if is_stronghold else None
+        if (free_north and is_stronghold
+                and locales_static.get(locale_id, {}).get("region") == "north"):
+            paid_groups.append(key)             # Percy's Power: Pay is free here (L14)
+            continue
         need = {lord.lord_id: _troop_pay_need(lord) for lord in lords}
         total_need = sum(need.values())
         pool = sum(lord.assets.get("coin", 0) for lord in lords)

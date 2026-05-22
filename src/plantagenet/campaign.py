@@ -72,6 +72,11 @@ def begin_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     state.campaign = CampaignState(step="plan", cards_required=info["cards"],
                                    plan_index={s: 0 for s in SIDES},
                                    plan_built={s: False for s in SIDES})
+    for lid, lord in state.lords.items():        # L22 Stafford Estates (Buckingham)
+        if lord.status == LordStatus.MUSTERED and \
+                ratings.has_capability(state, lid, "STAFFORD ESTATES"):
+            lord.assets["coin"] = lord.assets.get("coin", 0) + 1
+            lord.assets["provender"] = lord.assets.get("provender", 0) + 1
     return {"type": "begin_campaign", "season": info["season"],
             "cards_required": info["cards"]}
 
@@ -197,8 +202,9 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     state.campaign.actions_remaining -= 1
     added = 0
     if success:
-        lord.assets["provender"] = lord.assets.get("provender", 0) + 1
-        added = 1
+        gain = 1 + (1 if ratings.has_capability(state, lord.lord_id, "SCOURERS") else 0)
+        lord.assets["provender"] = lord.assets.get("provender", 0) + gain  # Y13 Scourers +1
+        added = gain
         if ls is not None:
             ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
         elif kind == "exile":
@@ -348,7 +354,36 @@ def _troop_count(lord) -> int:
 
 
 # ----------------------------------------------------------- 4.8.1 Tides
-def tides_of_war(state: GameState) -> dict[str, Any]:
+# Capability-based Tides effects (Arts of War, 1.9.1).
+# Region-Domination overrides: holder Mustered in the area + >= N Friendly
+# Strongholds there lets the side Dominate even without all-Favour.
+_CAP_DOMINATION = {
+    "WELSHMEN": ("wales", 3),
+    "SOUTHERNERS": ("south", 5),
+    "NORTHMEN": ("north", 3),
+}
+
+
+def _cap_holders(state: GameState, title: str) -> list[str]:
+    cards = static_data.load_cards()
+    return [lid for lid, ls in state.lords.items()
+            if any(cards[c]["capability"]["title"] == title for c in ls.capabilities)]
+
+
+def _cap_dominates(state: GameState, side: str, area: str, in_area: list[str]) -> bool:
+    friendly = sum(1 for loc in in_area if state.locales[loc].favour == side)
+    for title, (a, thr) in _CAP_DOMINATION.items():
+        if a != area:
+            continue
+        for lid in _cap_holders(state, title):
+            ls = state.lords[lid]
+            if (ls.side == side and ls.status == LordStatus.MUSTERED
+                    and ls.location in in_area and friendly >= thr):
+                return True
+    return False
+
+
+def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     locales = static_data.load_locales()
     lords_static = static_data.load_lords()
     pts = {s: 0 for s in SIDES}
@@ -362,7 +397,9 @@ def tides_of_war(state: GameState) -> dict[str, Any]:
                    and v.side == side for v in state.lords.values()):
                 pts[side] += 1
                 detail.append(f"{side} +1 Lord in {area}")
-            if in_area and all(state.locales[loc].favour == side for loc in in_area):
+            all_favour = bool(in_area) and all(
+                state.locales[loc].favour == side for loc in in_area)
+            if all_favour or _cap_dominates(state, side, area, in_area):
                 pts[side] += 2
                 detail.append(f"{side} +2 Dominates {area}")
 
@@ -395,6 +432,45 @@ def tides_of_war(state: GameState) -> dict[str, Any]:
                       if v.side == side and v.status == LordStatus.MUSTERED)
             pts[side] += tot
             detail.append(f"{side} +{tot} Lords' Influence")
+
+    # Capability flat Influence bonuses (1.9.1).
+    for lid in _cap_holders(state, "FIRST SON"):           # Y28 (Edward IV)
+        if state.lords[lid].status == LordStatus.MUSTERED:
+            sd = state.lords[lid].side
+            pts[sd] += 1
+            detail.append(f"{sd} +1 First Son")
+    for lid in _cap_holders(state, "COUNCIL MEMBER"):      # L18
+        if state.lords[lid].status == LordStatus.MUSTERED:
+            sd = state.lords[lid].side
+            pts[sd] += 1
+            detail.append(f"{sd} +1 Council Member")
+    for lid in _cap_holders(state, "MARGARET TAKES THE REINS"):  # L17 (Henry VI)
+        ls = state.lords[lid]
+        outside_london = (ls.status == LordStatus.MUSTERED
+                          and ls.location is not None and ls.location != "london")
+        if ls.status == LordStatus.EXILE or outside_london:
+            pts[ls.side] += 2
+            detail.append(f"{ls.side} +2 Margaret Takes the Reins")
+
+    # We Done Deeds of Charity (Y4): pay 1 or 2 Provender for +1 Influence each.
+    # (Sharing 1.5.3 is the consumer's job: move Provender onto the holder first.)
+    charity = (decisions or {}).get("charity", {})
+    for lid in _cap_holders(state, "WE DONE DEEDS OF CHARITY"):
+        ls = state.lords[lid]
+        if ls.status != LordStatus.MUSTERED:
+            continue
+        pay = int(charity.get(lid, 0))
+        if pay not in (0, 1, 2):
+            raise IllegalAction("bad_charity",
+                                "We Done Deeds of Charity pays 0, 1, or 2 Provender (Y4)")
+        if pay:
+            have = ls.assets.get("provender", 0)
+            if pay > have:
+                raise IllegalAction("no_provender",
+                                    f"{lid} lacks {pay} Provender for Deeds of Charity (Y4)")
+            ls.assets["provender"] = have - pay
+            pts[ls.side] += pay
+            detail.append(f"{ls.side} +{pay} Deeds of Charity")
 
     return {"points": pts, "detail": detail}
 
@@ -457,7 +533,7 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(c is not None and c.step == "end", "wrong_step",
              "the Campaign ends only after both Plan stacks are exhausted (4.8)")
     # 4.8.1 Tides of War
-    tow = tides_of_war(state)
+    tow = tides_of_war(state, action.get("decisions"))
     influence.gain_influence(state, "lancastrian", tow["points"]["lancastrian"])
     influence.gain_influence(state, "yorkist", tow["points"]["yorkist"])
     # 4.8.2 Disembark: no Lords at Sea in 3a-i (no Sail) -> skip.

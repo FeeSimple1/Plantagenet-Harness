@@ -94,6 +94,7 @@ class VassalState(_Model):
 class LocaleState(_Model):
     favour: Favour = Favour.NEUTRAL
     depletion: str | None = None   # None | "depleted" | "exhausted" (1.3.1, 3.4.4)
+    favour_extra: int = 0          # extra Favour markers (London For York, Y15)
 
 
 class StrongholdMarker(_Model):

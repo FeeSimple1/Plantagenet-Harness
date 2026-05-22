@@ -58,6 +58,17 @@ REGROUP = "REGROUP"
 ESCAPE_SHIP = "ESCAPE SHIP"
 FLANK_ATTACK = "FLANK ATTACK"
 SUSPICION = "SUSPICION"
+BARDED_HORSE = "BARDED HORSE"
+CHEVALIERS = "CHEVALIERS"
+PIQUIERS = "PIQUIERS"
+YEOMEN = "YEOMEN OF THE CROWN"
+FINAL_CHARGE = "FINAL CHARGE"
+BLOODY_THOU_ART = "BLOODY THOU ART"
+VANGUARD = "VANGUARD"
+SWIFT_MANEUVER = "SWIFT MANEUVER"
+WARDEN = "WARDEN OF THE MARCHES"
+TALBOT = "TALBOT TO THE RESCUE"
+PATRICK = "PATRICK DE LA MOTE"
 
 
 def _lord_has_capability(state: GameState, lord_id: str, title: str) -> str | None:
@@ -129,6 +140,93 @@ def _apply_barricades(state, forces, locale):
                 f.prof["militia"]["prot"] = [1, 2]
 
 
+def _english_channel_ports() -> set[str]:
+    return set(static_data.load_seas()["zones"]["english_channel"]["ports"])
+
+
+def _at_friendly_stronghold(state, lid, locale):
+    return state.locales[locale].favour == state.lords[lid].side
+
+
+def _in_region_fn(*regions):
+    def f(state, lid, locale):
+        return static_data.load_locales().get(locale, {}).get("region") in regions
+    return f
+
+
+def _route_to_carlisle(state, lid, locale):
+    from plantagenet import commands
+    side = state.lords[lid].side
+    return locale == "carlisle" or \
+        commands._supply_route_cost(state, locale, "carlisle", side) is not None
+
+
+def _adj_friendly_ec_port(state, lid, locale):
+    from plantagenet.commands import _adjacency
+    side = state.lords[lid].side
+    ec = _english_channel_ports()
+    if locale in ec and state.locales[locale].favour == side:
+        return True
+    return any(nbr in ec and state.locales[nbr].favour == side
+               for nbr, _t in _adjacency().get(locale, []))
+
+
+# Battle troop-add Capabilities (1.9.1), keyed by *card id* (PERCY'S NORTH has
+# two different texts: Y27 in the North, Y37 with a Route to Carlisle).
+# Each entry: (condition(state, lord_id, locale) -> bool, {force_type: count}).
+# Added units are battle-local (removed after Battle automatically).
+_BATTLE_TROOP_CAPS = {
+    "Y3": (_at_friendly_stronghold, {"men_at_arms": 2, "longbow": 1}),  # Muster'd My Soldiers
+    "L3": (_at_friendly_stronghold, {"men_at_arms": 2, "longbow": 1}),
+    "Y25": (_in_region_fn("wales"), {"longbow": 2}),                    # Pembroke
+    "L25": (_in_region_fn("wales"), {"longbow": 2}),                    # Welsh Lord
+    "Y27": (_in_region_fn("north"), {"militia": 4}),                    # Percy's North (Y27)
+    "Y37": (_route_to_carlisle, {"men_at_arms": 2}),                    # Percy's North (Y37)
+    "Y35": (_in_region_fn("north", "south", "wales"), {"militia": 3}),  # Kingdom United
+    "L33": (_adj_friendly_ec_port, {"men_at_arms": 2}),                 # Philibert de Chandee
+}
+
+
+def _apply_battle_troop_caps(state, forces, locale):
+    for lid, f in forces.items():
+        for cid in state.lords[lid].capabilities:
+            spec = _BATTLE_TROOP_CAPS.get(cid)
+            if spec and spec[0](state, lid, locale):
+                for t, n in spec[1].items():
+                    f.count[t] = f.count.get(t, 0) + n
+                    f.routed.setdefault(t, 0)
+
+
+def _apply_armour_caps(state, forces):
+    """Uniform (all-phase) Armour Capabilities. Church Blessing (L5): this
+    Lord's Men-at-Arms have Armour 1-4 (1.9.1)."""
+    for f in forces.values():
+        if _lord_has_capability(state, f.lord_id, "CHURCH BLESSING") and "men_at_arms" in f.prof:
+            f.prof["men_at_arms"]["prot"] = [1, 4]
+
+
+def _apply_phase_caps(state, forces, decisions):
+    """Phase-dependent Armour and Melee-Strike Capabilities (1.9.1):
+    Barded Horse (L27), Chevaliers (L36), Piquiers (L34), Yeomen of the Crown
+    (L31, opt-in via decisions['yeomen'])."""
+    yeomen_optin = set(decisions.get("yeomen", []))
+    for f in forces.values():
+        if _lord_has_capability(state, f.lord_id, BARDED_HORSE):
+            for t in ("retinue", "vassal"):
+                if t in f.prof:
+                    f.prof[t]["prot_missile"] = [1, 3]
+                    f.prof[t]["prot_melee"] = [1, 5]
+        if _lord_has_capability(state, f.lord_id, CHEVALIERS) and "men_at_arms" in f.prof:
+            lo, hi = f.prof["men_at_arms"]["prot"]
+            f.prof["men_at_arms"]["prot_missile"] = [lo, max(lo - 1, hi - 1)]  # -1 Armour
+            f.melee_mult["men_at_arms"] = 2                                    # Melee Strike x2
+        if _lord_has_capability(state, f.lord_id, PIQUIERS):
+            f.piquiers = True
+        if (_lord_has_capability(state, f.lord_id, YEOMEN)
+                and (f.lord_id in yeomen_optin or yeomen_optin == {True})):
+            f.yeomen = True
+
+
 class _Force:
     """Mutable battle state for one Lord's Forces (counts + Routed counts)."""
 
@@ -146,12 +244,29 @@ class _Force:
         self.valour = ratings.rating(state, lord_id, "valour")
         self.fled = False
         self.lord_routed = False
+        self.melee_mult: dict[str, int] = {}   # unit -> melee Strike multiplier (Chevaliers)
+        self.piquiers = False                  # MaA+Militia Armour 1-4 until 3 Rout (L34)
+        self.yeomen = False                    # Retinue fail -> may Rout a MaA instead (L31)
 
     def avail(self, t: str) -> int:
         return self.count.get(t, 0) - self.routed.get(t, 0)
 
     def raw_hits(self, kind: str) -> float:
-        return sum(self.prof[t][kind] * self.avail(t) for t in self.count)
+        total = 0.0
+        for t in self.count:
+            mult = self.melee_mult.get(t, 1) if kind == "melee" else 1
+            total += self.prof[t][kind] * self.avail(t) * mult
+        return total
+
+    def prot_range(self, t: str, phase: str):
+        """Protection range for unit ``t`` in the given Strike ``phase``,
+        honouring phase-specific overrides (Barded Horse, Chevaliers) and the
+        dynamic Piquiers (L34) Armour 1-4 until 3 Men-at-Arms/Militia Rout."""
+        if self.piquiers and t in ("men_at_arms", "militia"):
+            routed_pm = self.routed.get("men_at_arms", 0) + self.routed.get("militia", 0)
+            if routed_pm < 3:
+                return [1, 4]
+        return self.prof[t].get(f"prot_{phase}", self.prof[t]["prot"])
 
     def hits(self, kind: str) -> int:
         return ceil(self.raw_hits(kind))
@@ -164,7 +279,7 @@ class _Force:
 
 
 def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
-                 use_valour: bool, log: list) -> None:
+                 use_valour: bool, log: list, phase: str = "melee") -> None:
     """Apply ``n_hits`` to a side's Forces in an Engagement: each Hit -> a
     unit (owner's priority order, across the side's Lords) -> Protection roll
     (Valour reroll) -> Rout on failure (4.4.2)."""
@@ -180,7 +295,7 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
                 break
         if hit_force is None:
             break
-        lo, hi = hit_force.prof[hit_type]["prot"]
+        lo, hi = hit_force.prot_range(hit_type, phase)
         roll = dice.d6()
         saved = lo <= roll <= hi
         entry = {"lord": hit_force.lord_id, "unit": hit_type, "roll": roll}
@@ -192,7 +307,14 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
         entry["saved"] = saved
         log.append(entry)
         if not saved:
-            hit_force.routed[hit_type] += 1
+            # Yeomen of the Crown (L31): a failed Retinue save may instead Rout
+            # one of this Lord's Unrouted Men-at-Arms units.
+            if (hit_type == "retinue" and hit_force.yeomen
+                    and hit_force.avail("men_at_arms") > 0):
+                hit_force.routed["men_at_arms"] += 1
+                entry["yeomen_redirect"] = "men_at_arms"
+            else:
+                hit_force.routed[hit_type] += 1
 
 
 # ----------------------------------------------------------------- 4.4.1 Array
@@ -364,9 +486,51 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                  f"{rside} has no Regroup Held Event to play (4.4.2)")
         _use_held_event(state, rside, cid)
 
+    vanguard_lord = decisions.get("vanguard")
+    if vanguard_lord is not None:
+        _require(vanguard_lord in attackers + defenders
+                 and _lord_has_capability(state, vanguard_lord, VANGUARD), "no_vanguard",
+                 f"{vanguard_lord} has no Vanguard Capability in this Battle (Y36)")
+    swift = None
+    sm_side = decisions.get("swift_maneuver")
+    if sm_side:
+        cid = _side_held_event(state, sm_side, SWIFT_MANEUVER)
+        _require(cid is not None, "no_swift",
+                 f"{sm_side} has no Swift Maneuver Held Event to play (Y36)")
+        _use_held_event(state, sm_side, cid)
+        swift = sm_side
+    final_charge = set(decisions.get("final_charge", []))
+    for lid in final_charge:
+        _require(lid in attackers + defenders and lid == "richard_iii"
+                 and _lord_has_capability(state, lid, FINAL_CHARGE), "no_final_charge",
+                 f"{lid} cannot use Final Charge (Richard III only, Y32)")
+    patrick = False
+    if decisions.get("patrick"):                # Y37 Event: Yorkist Culverins add 2 dice
+        cid = _side_held_event(state, "yorkist", PATRICK)
+        _require(cid is not None, "no_patrick",
+                 "Yorkist has no Patrick de la Mote Held Event to play (Y37)")
+        _use_held_event(state, "yorkist", cid)
+        patrick = True
+    warden = talbot = None
+    if decisions.get("warden"):                 # L16 Event (consumed in _ending)
+        cid = _side_held_event(state, "lancastrian", WARDEN)
+        _require(cid is not None, "no_warden",
+                 "Lancastrian has no Warden of the Marches Held Event (L16)")
+        _use_held_event(state, "lancastrian", cid)
+        warden = True
+    if decisions.get("talbot"):                 # L36 Event (consumed in _ending)
+        cid = _side_held_event(state, "lancastrian", TALBOT)
+        _require(cid is not None, "no_talbot",
+                 "Lancastrian has no Talbot to the Rescue Held Event (L36)")
+        _use_held_event(state, "lancastrian", cid)
+        talbot = True
+
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
+    _apply_battle_troop_caps(state, forces, locale)
     _apply_barricades(state, forces, locale)
     _apply_special_vassal_armour(state, forces)
+    _apply_armour_caps(state, forces)
+    _apply_phase_caps(state, forces, decisions)
 
     susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
     positions, reserves = _initial_array(attackers, defenders, decisions)
@@ -402,6 +566,12 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                 eng["attacker"] = [x for x in eng["attacker"] if x != ravine_target]
                 eng["defender"] = [x for x in eng["defender"] if x != ravine_target]
             engs = [e for e in engs if e["attacker"] and e["defender"]]
+        if n == 1 and vanguard_lord is not None:               # Vanguard: only his Engagement
+            engs = [e for e in engs
+                    if vanguard_lord in e["attacker"] or vanguard_lord in e["defender"]]
+        # Swift Maneuver (Y36): snapshot Lancastrian Retinue Routs to detect new ones.
+        lanc_ret_before = {lid: forces[lid].routed.get("retinue", 0)
+                           for lid in forces if state.lords[lid].side == "lancastrian"}
         caltrops_done = set()
         for eng in engs:                                       # ENGAGE + STRIKE
             elog = {"attacker": eng["attacker"], "defender": eng["defender"], "strikes": []}
@@ -417,17 +587,35 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                     if dside in caltrops and dside not in caltrops_done:
                         d_hits += 2
                         caltrops_done.add(dside)
+                    for lid in final_charge:           # Final Charge (Y32): +3 Hits, +1 self
+                        if lid in eng["attacker"]:
+                            a_hits += 3
+                        elif lid in eng["defender"]:
+                            d_hits += 3
+                        else:
+                            continue
+                        fc = forces[lid]
+                        if fc.avail("retinue") > 0:    # Retinue suffers +1 Hit
+                            lo, hi = fc.prot_range("retinue", "melee")
+                            saved = lo <= dice.d6() <= hi
+                            if not saved and use_valour and fc.valour > 0:
+                                fc.valour -= 1
+                                saved = lo <= dice.d6() <= hi
+                            if not saved:
+                                fc.routed["retinue"] += 1
                 if phase == "missile":
                     if n == 1:                      # Culverins: +1 d6 Missile Hit, Round 1
                         for lid in eng["attacker"]:
                             if lid in culverins:
-                                a_hits += dice.d6()
+                                dn = 2 if (patrick and aside == "yorkist") else 1
+                                a_hits += sum(dice.d6() for _ in range(dn))
                                 _discard_capability(state, lid,
                                                     _lord_has_capability(state, lid, CULVERINS))
                                 culverins.discard(lid)
                         for lid in eng["defender"]:
                             if lid in culverins:
-                                d_hits += dice.d6()
+                                dn = 2 if (patrick and dside == "yorkist") else 1
+                                d_hits += sum(dice.d6() for _ in range(dn))
                                 _discard_capability(state, lid,
                                                     _lord_has_capability(state, lid, CULVERINS))
                                 culverins.discard(lid)
@@ -438,26 +626,41 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                             d_hits = ceil(d_hits / 2)
                 dlog: list = []
                 alog: list = []
-                _absorb_side(d_forces, a_hits, dice, order, use_valour, dlog)
-                _absorb_side(a_forces, d_hits, dice, order, use_valour, alog)
+                _absorb_side(d_forces, a_hits, dice, order, use_valour, dlog, phase)
+                _absorb_side(a_forces, d_hits, dice, order, use_valour, alog, phase)
                 elog["strikes"].append({"phase": phase, "attacker_hits": a_hits,
                                         "defender_hits": d_hits,
                                         "defender_rolls": dlog, "attacker_rolls": alog})
             rlog["engagements"].append(elog)
+            if swift == "yorkist" and any(
+                    forces[lid].routed.get("retinue", 0) > lanc_ret_before.get(lid, 0)
+                    and forces[lid].avail("retinue") == 0
+                    for lid in lanc_ret_before):
+                break                                          # Swift Maneuver: end Round
         for f in forces.values():                              # LORD ROUT
             f.lord_routed = f.is_lord_routed()
         rounds.append(rlog)
 
     state.store_dice(dice)
     res = _ending(state, locale, forces, attackers, defenders, rounds,
-                  decisions.get("escape_ship", []))
+                  decisions.get("escape_ship", []), warden=warden, talbot=talbot)
     if susp is not None:
         res["suspicion"] = susp
     return res
 
 
+def _friendly_north_stronghold(state: GameState) -> str | None:
+    locs = static_data.load_locales()
+    for loc, meta in locs.items():
+        if isinstance(meta, dict) and meta.get("region") == "north" \
+                and state.locales[loc].favour == "lancastrian":
+            return loc
+    return None
+
+
 def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
-            defenders: list[str], rounds: list, escape_ship: list[str]) -> dict[str, Any]:
+            defenders: list[str], rounds: list, escape_ship: list[str],
+            *, warden: bool = False, talbot: bool = False) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -497,6 +700,10 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
                 used_escape_side.add(side)
             escaped.add(lid)
 
+    # Bloody Thou Art (Y33): if Richard III wins, skip Death checks -- all Routed
+    # losing (Lancastrian) Lords Die.
+    bloody = ("richard_iii" in win_ids
+              and _lord_has_capability(state, "richard_iii", BLOODY_THOU_ART))
     deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
     for lid in defenders + attackers:                    # Defenders first
         f = forces[lid]
@@ -509,6 +716,22 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
                                       + len(ld.vassals))
             campaign._disband_lord(state, ld, from_exile=True)
             exiles.append(lid)
+            continue
+        ld0 = state.lords[lid]
+        if warden and ld0.side == "lancastrian" and \
+                static_data.load_locales().get(locale, {}).get("region") == "north":
+            dest = _friendly_north_stronghold(state)     # L16: move to Friendly North Stronghold
+            if dest is not None:
+                ld0.location = dest
+                result.setdefault("warden_moved", []).append(lid)
+                continue
+        if talbot and ld0.side == "lancastrian":          # L36: Disband instead of Death roll
+            campaign._disband_lord(state, ld0)
+            disbands.append(lid)
+            continue
+        if bloody and lid in lose_ids:                   # Bloody Thou Art: certain Death
+            _kill_lord(state, lid)
+            deaths.append(lid)
             continue
         roll = dice.d6() - (2 if f.fled else 0)
         if roll >= 3:
@@ -569,6 +792,9 @@ def _kill_lord(state: GameState, lord_id: str) -> None:
     campaign._disband_lord(state, state.lords[lord_id])
     state.lords[lord_id].status = LordStatus.REMOVED
     state.lords[lord_id].calendar_box = None
+    if state.grand_scenario:                    # Succession (6.2.2): next Heir enters
+        from plantagenet import succession
+        succession.on_heir_removed(state, lord_id)
 
 
 # --------------------------------------------------------------- 4.3.5 Approach
@@ -609,6 +835,11 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
 
 def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str) -> None:
     lord = state.lords[lord_id]
+    if _lord_has_capability(state, lord_id, "ENGLAND IS MY HOME"):   # Y8
+        campaign._disband_lord(state, lord)          # plain Disband, no Influence loss
+        lord.calendar_box = state.turn_box + 1       # to the next Calendar box
+        lord.calendar_exile = False
+        return
     inf = static_data.load_lords()[lord_id]["ratings"]["influence"]
     influence.spend_influence(state, lord.side, inf + len(lord.vassals))
     fav = state.locales[locale].favour

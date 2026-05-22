@@ -302,3 +302,44 @@ turn on active This-Levy / This-Campaign events or a Held-in-Battle play:
   battle._resolve_suspicion (codes bad_suspicion, no_suspicion,
   suspicion_influence). Result attached as res["suspicion"].
 No SMOKEs. 196 tests pass; ruff clean; round-trip clean.
+
+## Rounds 21-26 (Phase 4-x: remaining card effects, Waves A-F)
+
+Wave A (rating mods): ratings.rating now sums printed + Special-Vassal +
+Capability + active-Event modifiers (action-scoped for Parley); check_influence
+routed through it. Caps: Thomas Bourchier, York's Favoured Son, Fair Arbiter,
+Fallen Brother, In the Name of the King, Expert Counsellors, Veteran of French
+Wars, Married to a Neville, Loyal Somerset. Events: Richard of York, Privy
+Council.
+
+Wave B (Tides scoring): capability region-Domination overrides (Welshmen,
+Southerners, Northmen) + flat Influence (First Son, Council Member, Margaret
+Takes the Reins) + We Done Deeds of Charity (decisions['charity']).
+
+Wave C (battle caps): troop-adds (Muster'd My Soldiers, Pembroke, Welsh Lord,
+Percy's North Y27/Y37, Kingdom United, Philibert), uniform/phase Armour (Church
+Blessing, Barded Horse, Chevaliers, Piquiers), Yeomen of the Crown, Final
+Charge, Bloody Thou Art, Vanguard, Swift Maneuver, Captain (effective Marshal).
+
+Wave D (command/economy): Quartermasters/Woodvilles/Chamberlains no-Deplete,
+The Commons, Soldiers of Fortune, Harbingers, Stafford Branch, Hay Wains,
+Scourers, So Wise So Young, Two Roses, Percy's Power, Madame La Grande, Stafford
+Estates, High Admiral, England Is My Home; new Command actions Agitators,
+Merchants, Heralds. Deferred reactive Naval Blockade / King's Parley -> Q-004.
+
+Wave E (events): events.play_event resolves ~20 immediate Events (incl. London
+For York via new LocaleState.favour_extra); parley discount/auto/free-Lordship
+(Succession, Parliament Votes, Jack Cade, My Crown, Gloucester as Heir, Dorset,
+An Honest Tale); rating events (Yorkist Parade, Loyalty and Trust, Edward V);
+Sail/March this-Campaign (Seamanship, French Fleet, Owain Glyndwr, Forced
+Marches + Yorkists Never Wait); Vassal-Levy events (Yorkists Block Parliament,
+Buckingham's Plot, The Earl of Richmond, Margaret Beaufort); battle Holds
+(Warden of the Marches, Talbot, Patrick de la Mote). Remaining play-timing /
+reactive Events -> Q-005.
+
+Wave F (Succession 6.2-6.3): succession.on_heir_removed implements the general
+mechanic (next-ranked Heir to the next Calendar box, instantiating its LordState
+if absent), wired into _kill_lord for the grand scenario. Per-War scripted card
+swaps + Renewed-War setup -> Q-005 (need structured encoding).
+
+No SMOKEs. 263 tests pass; ruff clean.
