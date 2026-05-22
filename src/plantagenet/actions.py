@@ -195,6 +195,41 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
     return None
 
 
+def _snap(state, lords=(), locales=(), vassals=()):
+    return {
+        "lords": {x: state.lords[x].model_dump() for x in lords if x in state.lords},
+        "locales": {x: state.locales[x].model_dump() for x in locales if x in state.locales},
+        "vassals": {x: state.vassals[x].model_dump() for x in vassals if x in state.vassals},
+    }
+
+
+def _restore(state, snap):
+    from plantagenet.state import LocaleState, LordState, VassalState
+    for x, d in snap.get("lords", {}).items():
+        state.lords[x] = LordState.model_validate(d)
+    for x, d in snap.get("locales", {}).items():
+        state.locales[x] = LocaleState.model_validate(d)
+    for x, d in snap.get("vassals", {}).items():
+        state.vassals[x] = VassalState.model_validate(d)
+
+
+def _gate_levy_cancel(state, actor_side, undo, result):
+    """Open The King's Name (Y32) reaction window after a successful Lancastrian
+    Levy action; on cancel, ``levy_cancel_finish`` restores the snapshot."""
+    from plantagenet import reactions
+    return reactions.gate(state, "after_successful_levy_action",
+                          {"actor_side": actor_side},
+                          "actions:levy_cancel_finish",
+                          {"undo": undo, "result": result})
+
+
+def levy_cancel_finish(state, data, *, cancelled):
+    if cancelled:
+        _restore(state, data["undo"])
+        return {**data["result"], "cancelled": True}
+    return data["result"]
+
+
 def _parley_event_mods(state: GameState, lord_id: str, side: str) -> dict[str, Any]:
     """This-Levy/Campaign Event modifiers to a Parley by ``lord_id`` (1.9.1):
     Succession (Y18), Parliament Votes (L18), Jack Cade (Y4), My Crown (L17),
@@ -299,6 +334,7 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if not mods["free_lordship"]:
         lord.lordship_spent += 1
     changed = None
+    undo = _snap(state, locales=[target])
     if chk["success"]:
         if fav == Favour.NEUTRAL.value:
             state.locales[target].favour = lord.side
@@ -306,8 +342,11 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         else:  # Enemy favour -> Neutral
             state.locales[target].favour = Favour.NEUTRAL.value
             changed = f"{target}: {fav} -> neutral"
-    return {"type": "parley", "by_lord": lord.lord_id, "target": target,
-            "way_cost": way_cost, **chk, "favour_change": changed}
+    result = {"type": "parley", "by_lord": lord.lord_id, "target": target,
+              "way_cost": way_cost, **chk, "favour_change": changed}
+    if chk["success"]:
+        return _gate_levy_cancel(state, lord.side, undo, result)
+    return result
 
 
 # --------------------------------------------------------- 3.4.2 Levy Lord
@@ -331,10 +370,12 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     target = state.lords[target_id]
     _require(target.side == lord.side, "target_wrong_side",
              f"{target_id} is not a {lord.side} Lord")
+    be_sent_for = (lord.side == "lancastrian"
+                   and bool(ratings.event_active(state, "BE SENT FOR")))
     _require(target.status == LordStatus.CALENDAR and target.calendar_box is not None
-             and target.calendar_box <= state.turn_box, "target_not_ready",
+             and (be_sent_for or target.calendar_box <= state.turn_box), "target_not_ready",
              f"{target_id} is not Ready (cylinder on the Calendar in the current or a "
-             "lower Turn box) (3.4.2)")
+             "lower Turn box) (3.4.2); Be Sent For (L4) Musters from anywhere")
     seat = static_data.load_lords()[target_id]["seat"]
     seat_free = not enemy_lord_at(state, seat, lord.side)
     fallback = None if seat_free else _friendly_enemyfree_seat_exists(state, lord.side)
@@ -346,6 +387,7 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra,
                                     action="levy")
     lord.lordship_spent += 1
+    undo = _snap(state, lords=[target_id], locales=[seat])
     if chk["success"]:
         place_at = seat if seat_free else fallback
         statics = static_data.load_lords()[target_id]
@@ -358,7 +400,10 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         target.mustered_this_segment = True
         if seat_free and state.locales[seat].favour != lord.side:
             state.locales[seat].favour = lord.side
-    return {"type": "levy_lord", "by_lord": lord.lord_id, "target": target_id, **chk}
+    result = {"type": "levy_lord", "by_lord": lord.lord_id, "target": target_id, **chk}
+    if chk["success"]:
+        return _gate_levy_cancel(state, lord.side, undo, result)
+    return result
 
 
 # -------------------------------------------------------- 3.4.3 Levy Vassal
@@ -406,6 +451,7 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                 and ratings.event_active(state, "THE EARL OF RICHMOND"))):
         chk["success"] = True   # L32 Two Roses / L37 The Earl of Richmond: always succeeds
     lord.lordship_spent += 1
+    undo = _snap(state, lords=[lord.lord_id], vassals=[vid])
     if chk["success"]:
         service = regular[vid]["service"]
         box = state.turn_box + service
@@ -416,8 +462,11 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             service_box=box)
         if vid not in lord.vassals:
             lord.vassals.append(vid)
-    return {"type": "levy_vassal", "by_lord": lord.lord_id, "target": vid,
-            "loyalty_mod": _loyalty_mod(vid, lord.side), **chk}
+    result = {"type": "levy_vassal", "by_lord": lord.lord_id, "target": vid,
+              "loyalty_mod": _loyalty_mod(vid, lord.side), **chk}
+    if chk["success"]:
+        return _gate_levy_cancel(state, lord.side, undo, result)
+    return result
 
 
 # ----------------------------------------------------- 3.4.5 Levy Transport
@@ -498,6 +547,7 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         _require(lord.assets.get("coin", 0) >= 1, "no_coin",
                  "Soldiers of Fortune costs 1 Coin (Y12)")
         yields["mercenaries"] = yields.get("mercenaries", 0) + 2
+    undo = _snap(state, lords=[lord.lord_id], locales=[here])
     forces_static = static_data.load_forces()
     added: dict[str, int] = {}
     for unit, amount in yields.items():
@@ -524,8 +574,9 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         lord.lordship_spent += 1
     if rising_wages:
         lord.assets["coin"] = lord.assets.get("coin", 0) - 1
-    return {"type": "levy_troops", "by_lord": lord.lord_id, "locale": here,
-            "added": added, "depletion": ls.depletion, "stanley_free": stanley_free}
+    result = {"type": "levy_troops", "by_lord": lord.lord_id, "locale": here,
+              "added": added, "depletion": ls.depletion, "stanley_free": stanley_free}
+    return _gate_levy_cancel(state, lord.side, undo, result)
 
 
 def _capabilities_in_play(state: GameState, side: str) -> set[str]:
@@ -671,4 +722,7 @@ _HANDLERS = {
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),
     "play_event": lambda st, a: __import__(
         "plantagenet.events", fromlist=["play_event"]).play_event(st, a),
+    "play_held_event": lambda st, a: __import__(
+        "plantagenet.events", fromlist=["play_held_event"]).play_held_event(st, a),
+    "exile_pact": lambda st, a: _command_handler("exile_pact")(st, a),
 }

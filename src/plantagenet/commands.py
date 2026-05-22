@@ -345,6 +345,24 @@ def _ec_ports() -> set[str]:
     return set(static_data.load_seas()["zones"]["english_channel"]["ports"])
 
 
+def exile_pact(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Exile Pact (Y8 Event): a Yorkist Lord may use a Command action to place
+    its cylinder into a Friendly Exile box at no Influence cost (this Campaign)."""
+    lord = campaign._active_command_lord(state, action)
+    _require(lord.side == "yorkist" and _active_event(state, "EXILE PACT", "yorkist"),
+             "no_exile_pact", "Exile Pact is not in effect for the Yorkist side (Y8)")
+    box = action.get("box")
+    boxes = static_data.load_exile_boxes()
+    _require(box in boxes, "bad_box", f"{box!r} is not an Exile box (Y8)")
+    _require(state.exile_alignment.get(box) == "yorkist", "not_friendly_box",
+             f"{box} is not a Friendly Exile box (Y8)")
+    lord.status = LordStatus.EXILE
+    lord.exile_box = box
+    lord.location = None
+    state.campaign.actions_remaining -= 1
+    return {"type": "exile_pact", "by_lord": lord.lord_id, "box": box}
+
+
 def agitators(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Agitators (Y10 Capability): a Command action to Deplete an adjacent
     Neutral or Enemy Stronghold, or flip a Depleted one there to Exhausted."""

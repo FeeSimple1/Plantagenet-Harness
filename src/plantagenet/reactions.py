@@ -101,9 +101,27 @@ def _on_approach_offers(state, ctx):
     return offers
 
 
+def _kings_name_offers(state, ctx):
+    """The King's Name (Y32 Event): after a successful Lancastrian Levy action,
+    Gloucester (not Richard III) may pay 1 Influence to cancel it."""
+    cards = static_data.load_cards()
+    active = any(e["card"] == "Y32" and e["side"] == "yorkist"
+                 and cards[e["card"]]["event"]["title"] == "THE KING'S NAME"
+                 for e in state.active_events)
+    if not active or ctx.get("actor_side") != "lancastrian":
+        return []
+    glo = [lid for lid in ("gloucester_1", "gloucester_2")
+           if lid in state.lords and state.lords[lid].status == _MUSTERED]
+    if not glo:
+        return []
+    return [{"side": "yorkist", "card": "Y32", "lord": glo[0],
+             "kind": "event", "priority": 10, "effect": "kings_name"}]
+
+
 _TRIGGER_OFFERS = {
     "uses_port_on_sea": [_naval_blockade_offers],
     "on_approach": [_on_approach_offers],
+    "after_successful_levy_action": [_kings_name_offers],
 }
 
 
@@ -159,11 +177,20 @@ def _react_blocked_ford(state, inter, offer, action):   # Y11/L11 (held) -- forc
     return {"card": offer["card"], "effect": "blocked_ford", "forces_battle": True}
 
 
+def _react_kings_name(state, inter, offer, action):     # Y32 (Event stays active)
+    from plantagenet import influence
+    influence.spend_influence(state, "yorkist", 1)       # Yorkist pays 1 Influence
+    inter["cancelled"] = True
+    return {"card": "Y32", "lord": offer["lord"], "effect": "kings_name",
+            "cancels_levy": True}
+
+
 _EFFECT_REACTORS = {
     "naval_blockade": _react_naval_blockade,
     "kings_parley": _react_kings_parley,
     "parliaments_truce": _react_parliaments_truce,
     "blocked_ford": _react_blocked_ford,
+    "kings_name": _react_kings_name,
 }
 
 

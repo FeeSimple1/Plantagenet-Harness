@@ -310,6 +310,11 @@
           "default": false,
           "title": "Free Troops Used",
           "type": "boolean"
+        },
+        "ignore_next_feed": {
+          "default": false,
+          "title": "Ignore Next Feed",
+          "type": "boolean"
         }
       },
       "required": [

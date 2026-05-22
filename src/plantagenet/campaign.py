@@ -326,6 +326,10 @@ def _feed(state: GameState, side: str) -> dict[str, Any]:
         if lord.side != side or not lord.moved_fought:
             continue
         lord.moved_fought = False
+        if lord.ignore_next_feed:           # Rebel Supply Depot (L28)
+            lord.ignore_next_feed = False
+            fed.append({"lord": lid, "skipped": "rebel_supply_depot"})
+            continue
         need = -(-_troop_count(lord) // 6)  # ceil(troops / 6)
         have = lord.assets.get("provender", 0)
         if have < need:
