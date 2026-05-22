@@ -792,6 +792,9 @@ def _kill_lord(state: GameState, lord_id: str) -> None:
     campaign._disband_lord(state, state.lords[lord_id])
     state.lords[lord_id].status = LordStatus.REMOVED
     state.lords[lord_id].calendar_box = None
+    if state.grand_scenario:                    # Succession (6.2.2): next Heir enters
+        from plantagenet import succession
+        succession.on_heir_removed(state, lord_id)
 
 
 # --------------------------------------------------------------- 4.3.5 Approach
