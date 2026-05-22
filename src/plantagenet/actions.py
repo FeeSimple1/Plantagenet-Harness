@@ -131,6 +131,15 @@ def _lordship(lord_id: str) -> int:
 # ----------------------------------------------------------------- dispatch
 def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     atype = action.get("type")
+    # While a reaction is pending, only "react" is legal (the acting side waits).
+    if state.pending and atype != "react":
+        raise IllegalAction("reaction_pending",
+                            "a reaction is pending; resolve it with a 'react' action")
+    if atype == "react":
+        from plantagenet import reactions
+        result = reactions.resolve(state, action)
+        state.history.append({"action": action, "result": result})
+        return result
     handler = _HANDLERS.get(atype)
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")

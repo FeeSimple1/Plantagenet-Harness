@@ -266,20 +266,38 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
                   and static_data.load_locales().get(dest, {}).get("region") == "wales"),
              "owain_glyndwr", "Owain Glyndwr bars Lancastrian Sail into Wales (Y25)")
-    lord.location = dest
-    lord.exile_box = None
-    lord.moved_fought = True
-    # Seamanship (Y6/L6): Sail costs just 1 Command action this Campaign.
-    if _active_event(state, "SEAMANSHIP", lord.side):
+
+    # Commit the Command card cost NOW (spent regardless of any Naval Blockade).
+    if _active_event(state, "SEAMANSHIP", lord.side):   # Seamanship (Y6/L6): just 1 action
         state.campaign.actions_remaining -= 1
     else:
-        state.campaign.actions_remaining = 0   # Sail uses the entire card (4.2.1)
-    out = {"type": "sail", "by_lord": lord.lord_id, "to": dest,
-           "from_sea": from_sea, "to_sea": dest_sea}
-    if dest_has_enemy:                      # High Admiral: Sail triggers Approach (4.3.5)
+        state.campaign.actions_remaining = 0            # Sail uses the entire card (4.2.1)
+
+    # Reaction checkpoint (Q-004): Naval Blockade may cancel a Lancastrian Sail
+    # using a Port on this Sea, before the move resolves.
+    from plantagenet import reactions
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": [from_sea, dest_sea]}
+    finish_data = {"lord": lord.lord_id, "dest": dest, "from_sea": from_sea,
+                   "to_sea": dest_sea, "dest_has_enemy": dest_has_enemy,
+                   "decisions": action.get("decisions")}
+    return reactions.gate(state, "uses_port_on_sea", ctx, "commands:sail_finish", finish_data)
+
+
+def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Sail reaction window (4.6.1 / Q-004)."""
+    lord = state.lords[data["lord"]]
+    if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
+        return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
+                "cancelled": True}
+    lord.location = data["dest"]
+    lord.exile_box = None
+    lord.moved_fought = True
+    out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
+           "from_sea": data["from_sea"], "to_sea": data["to_sea"]}
+    if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
         from plantagenet import battle
-        out["approach"] = battle.approach(state, dest, [lord.lord_id],
-                                          action.get("decisions"))
+        out["approach"] = battle.approach(state, data["dest"], [lord.lord_id],
+                                          data.get("decisions"))
     return out
 
 
