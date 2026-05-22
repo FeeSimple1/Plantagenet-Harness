@@ -66,6 +66,9 @@ FINAL_CHARGE = "FINAL CHARGE"
 BLOODY_THOU_ART = "BLOODY THOU ART"
 VANGUARD = "VANGUARD"
 SWIFT_MANEUVER = "SWIFT MANEUVER"
+WARDEN = "WARDEN OF THE MARCHES"
+TALBOT = "TALBOT TO THE RESCUE"
+PATRICK = "PATRICK DE LA MOTE"
 
 
 def _lord_has_capability(state: GameState, lord_id: str, title: str) -> str | None:
@@ -501,6 +504,26 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         _require(lid in attackers + defenders and lid == "richard_iii"
                  and _lord_has_capability(state, lid, FINAL_CHARGE), "no_final_charge",
                  f"{lid} cannot use Final Charge (Richard III only, Y32)")
+    patrick = False
+    if decisions.get("patrick"):                # Y37 Event: Yorkist Culverins add 2 dice
+        cid = _side_held_event(state, "yorkist", PATRICK)
+        _require(cid is not None, "no_patrick",
+                 "Yorkist has no Patrick de la Mote Held Event to play (Y37)")
+        _use_held_event(state, "yorkist", cid)
+        patrick = True
+    warden = talbot = None
+    if decisions.get("warden"):                 # L16 Event (consumed in _ending)
+        cid = _side_held_event(state, "lancastrian", WARDEN)
+        _require(cid is not None, "no_warden",
+                 "Lancastrian has no Warden of the Marches Held Event (L16)")
+        _use_held_event(state, "lancastrian", cid)
+        warden = True
+    if decisions.get("talbot"):                 # L36 Event (consumed in _ending)
+        cid = _side_held_event(state, "lancastrian", TALBOT)
+        _require(cid is not None, "no_talbot",
+                 "Lancastrian has no Talbot to the Rescue Held Event (L36)")
+        _use_held_event(state, "lancastrian", cid)
+        talbot = True
 
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
     _apply_battle_troop_caps(state, forces, locale)
@@ -584,13 +607,15 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                     if n == 1:                      # Culverins: +1 d6 Missile Hit, Round 1
                         for lid in eng["attacker"]:
                             if lid in culverins:
-                                a_hits += dice.d6()
+                                dn = 2 if (patrick and aside == "yorkist") else 1
+                                a_hits += sum(dice.d6() for _ in range(dn))
                                 _discard_capability(state, lid,
                                                     _lord_has_capability(state, lid, CULVERINS))
                                 culverins.discard(lid)
                         for lid in eng["defender"]:
                             if lid in culverins:
-                                d_hits += dice.d6()
+                                dn = 2 if (patrick and dside == "yorkist") else 1
+                                d_hits += sum(dice.d6() for _ in range(dn))
                                 _discard_capability(state, lid,
                                                     _lord_has_capability(state, lid, CULVERINS))
                                 culverins.discard(lid)
@@ -618,14 +643,24 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
 
     state.store_dice(dice)
     res = _ending(state, locale, forces, attackers, defenders, rounds,
-                  decisions.get("escape_ship", []))
+                  decisions.get("escape_ship", []), warden=warden, talbot=talbot)
     if susp is not None:
         res["suspicion"] = susp
     return res
 
 
+def _friendly_north_stronghold(state: GameState) -> str | None:
+    locs = static_data.load_locales()
+    for loc, meta in locs.items():
+        if isinstance(meta, dict) and meta.get("region") == "north" \
+                and state.locales[loc].favour == "lancastrian":
+            return loc
+    return None
+
+
 def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
-            defenders: list[str], rounds: list, escape_ship: list[str]) -> dict[str, Any]:
+            defenders: list[str], rounds: list, escape_ship: list[str],
+            *, warden: bool = False, talbot: bool = False) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -681,6 +716,18 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
                                       + len(ld.vassals))
             campaign._disband_lord(state, ld, from_exile=True)
             exiles.append(lid)
+            continue
+        ld0 = state.lords[lid]
+        if warden and ld0.side == "lancastrian" and \
+                static_data.load_locales().get(locale, {}).get("region") == "north":
+            dest = _friendly_north_stronghold(state)     # L16: move to Friendly North Stronghold
+            if dest is not None:
+                ld0.location = dest
+                result.setdefault("warden_moved", []).append(lid)
+                continue
+        if talbot and ld0.side == "lancastrian":          # L36: Disband instead of Death roll
+            campaign._disband_lord(state, ld0)
+            disbands.append(lid)
             continue
         if bloody and lid in lose_ids:                   # Bloody Thou Art: certain Death
             _kill_lord(state, lid)

@@ -186,8 +186,81 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
     return None
 
 
+def _parley_event_mods(state: GameState, lord_id: str, side: str) -> dict[str, Any]:
+    """This-Levy/Campaign Event modifiers to a Parley by ``lord_id`` (1.9.1):
+    Succession (Y18), Parliament Votes (L18), Jack Cade (Y4), My Crown (L17),
+    Gloucester as Heir (Y28), Dorset (Y29), An Honest Tale (Y34). Returns
+    {auto, discount, free_lordship} and records per-Lord usage on the event."""
+    cards = static_data.load_cards()
+    mod = {"auto": False, "discount": 0, "free_lordship": False, "used": []}
+
+    def matches(title):
+        return [e for e in state.active_events
+                if cards[e["card"]]["event"]["title"] == title]
+
+    def use(ev, lid, limit):
+        used = ev.setdefault("used", {})
+        if used.get(lid, 0) >= limit:
+            return False
+        used[lid] = used.get(lid, 0) + 1
+        return True
+
+    lord = state.lords[lord_id]
+    # Succession (Y18) / Parliament Votes (L18): once per Lord, -1 Influence + auto.
+    for title, esd in (("SUCCESSION", "yorkist"), ("PARLIAMENT VOTES", "lancastrian")):
+        if side == esd:
+            for ev in matches(title):
+                if ev.get("side") == side and use(ev, lord_id, 1):
+                    mod["auto"] = True
+                    mod["discount"] += 1
+                    mod["used"].append(ev["card"])
+    # Jack Cade (Y4): up to 2 free, auto-succeed Parleys for eligible Yorkists.
+    if side == "yorkist":
+        for ev in matches("JACK CADE"):
+            if (ev.get("side") == "yorkist" and _jack_cade_eligible(state, lord)
+                    and use(ev, lord_id, 2)):
+                mod["auto"] = True
+                mod["discount"] += 99            # free (clamped to 0 net spend below)
+                mod["used"].append(ev["card"])
+    # My Crown Is in My Heart (L17, Henry VI x2) / Gloucester as Heir (Y28, x3):
+    # 0-Lordship Parleys (still Influence-checked).
+    if lord_id == "henry_vi":
+        for ev in matches("MY CROWN IS IN MY HEART"):
+            if use(ev, lord_id, 2):
+                mod["free_lordship"] = True
+    if lord_id in ("gloucester_1", "gloucester_2"):
+        for ev in matches("GLOUCESTER AS HEIR"):
+            if use(ev, lord_id, 3):
+                mod["free_lordship"] = True
+                mod["discount"] += 99            # +3 times for 0 Lordship (free action)
+    # An Honest Tale (Y34): each Lancastrian Parley costs +1 extra Influence.
+    if side == "lancastrian" and matches("AN HONEST TALE SPEEDS BEST BEING PLAINLY TOLD"):
+        mod["discount"] -= 1
+    return mod
+
+
+def _jack_cade_eligible(state: GameState, lord) -> bool:
+    locs = static_data.load_locales()
+    here = lord.location
+    region = locs.get(here, {}).get("region") if here else None
+    regions = {region} | {locs.get(n, {}).get("region")
+                          for n, _t in __import__("plantagenet.commands",
+                                                  fromlist=["_adjacency"])._adjacency().get(
+                              here or "", [])}
+    for area in regions:
+        if not area:
+            continue
+        in_area = [k for k, v in locs.items() if isinstance(v, dict) and v.get("region") == area]
+        if in_area and all(state.locales[k].favour == "yorkist" for k in in_area):
+            return True
+    return False
+
+
 def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    lord = _active_lord(state, action)
+    peek = state.lords.get(action.get("by_lord"))
+    mods = (_parley_event_mods(state, peek.lord_id, peek.side)
+            if peek is not None else {"auto": False, "discount": 0, "free_lordship": False})
+    lord = _active_lord(state, action, require_lordship=not mods["free_lordship"])
     loc = lord_location(lord)
     kind, here = loc
     target = action.get("target", here)
@@ -209,9 +282,13 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(fav != lord.side, "already_friendly",
              f"{target} already Favours {lord.side} (3.4.1)")
 
+    way_cost = max(0, way_cost - mods["discount"])     # Event Influence discounts
     chk = influence.check_influence(state, lord.lord_id, lord.side,
                                     extra_spend=extra, way_cost=way_cost, action="parley")
-    lord.lordship_spent += 1
+    if mods["auto"]:
+        chk["success"] = True
+    if not mods["free_lordship"]:
+        lord.lordship_spent += 1
     changed = None
     if chk["success"]:
         if fav == Favour.NEUTRAL.value:
@@ -286,6 +363,13 @@ def _loyalty_mod(vid: str, side: str) -> int:
 
 def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = _active_lord(state, action)
+    # Yorkists Block Parliament (Y7): Lancastrians may not Levy Vassals (except by Event).
+    _require(not (lord.side == "lancastrian"
+                  and ratings.event_against(state, "YORKISTS BLOCK PARLIAMENT", "lancastrian")),
+             "blocked_parliament", "Yorkists Block Parliament bars Lancastrian Vassal Levy (Y7)")
+    # Margaret Beaufort (L35): Henry Tudor may Levy any Vassal on the map this Levy.
+    margaret_beaufort = (lord.lord_id == "henry_tudor"
+                         and bool(ratings.event_active(state, "MARGARET BEAUFORT")))
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Levy Vassal requires the acting Lord at a Friendly Locale (3.4.3)")
     vid = action.get("target")
@@ -295,16 +379,23 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(vstate is not None and vstate.status == VassalStatus.AT_SEAT,
              "vassal_not_at_seat", f"{vid}'s markers must be on the map at its Seat (3.4.3)")
     seat = regular[vid]["seat"]
-    _require(is_friendly_stronghold(state, seat, lord.side), "seat_not_friendly",
-             f"{vid}'s Seat {seat} must be Friendly to the Levying side (3.4.3)")
-    _require(not enemy_lord_at(state, seat, lord.side), "seat_has_enemy",
-             f"{vid}'s Seat {seat} must be free of Enemy Lords (3.4.3)")
+    if not margaret_beaufort:
+        _require(is_friendly_stronghold(state, seat, lord.side), "seat_not_friendly",
+                 f"{vid}'s Seat {seat} must be Friendly to the Levying side (3.4.3)")
+        _require(not enemy_lord_at(state, seat, lord.side), "seat_has_enemy",
+                 f"{vid}'s Seat {seat} must be free of Enemy Lords (3.4.3)")
 
     extra = int(action.get("extra_spend", 0))
+    # Buckingham's Plot Backfires (L34): each Yorkist Vassal Levy costs +2 Influence.
+    bp = 2 if (lord.side == "yorkist"
+               and ratings.event_against(state, "BUCKINGHAM'S PLOT BACKFIRES", "yorkist")) else 0
     chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra,
-                                    loyalty_mod=_loyalty_mod(vid, lord.side), action="levy")
-    if ratings.has_capability(state, lord.lord_id, "TWO ROSES"):
-        chk["success"] = True              # L32 (Henry Tudor): Vassal Levy always succeeds
+                                    loyalty_mod=_loyalty_mod(vid, lord.side),
+                                    way_cost=bp, action="levy")
+    if (ratings.has_capability(state, lord.lord_id, "TWO ROSES")
+            or (lord.side == "lancastrian"
+                and ratings.event_active(state, "THE EARL OF RICHMOND"))):
+        chk["success"] = True   # L32 Two Roses / L37 The Earl of Richmond: always succeeds
     lord.lordship_spent += 1
     if chk["success"]:
         service = regular[vid]["service"]
@@ -569,4 +660,6 @@ _HANDLERS = {
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),
+    "play_event": lambda st, a: __import__(
+        "plantagenet.events", fromlist=["play_event"]).play_event(st, a),
 }

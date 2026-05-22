@@ -72,8 +72,20 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     dest = action.get("to")
     _require(dest in state.locales, "unknown_dest", f"no such Stronghold {dest!r}")
 
+    # Owain Glyndwr (Y25): no Lancastrian March to a Stronghold in Wales.
+    _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
+                  and static_data.load_locales().get(dest, {}).get("region") == "wales"),
+             "owain_glyndwr", "Owain Glyndwr bars Lancastrian March into Wales (Y25)")
+
+    # Road-as-Highway for a lone Lord: Yorkists Never Wait (Y11 Capability) /
+    # Forced Marches (L8 Event, Lancastrian) -- enables the Road 2-for-1 chain.
+    lone = not action.get("group")
+    roads_as_highway = lone and (
+        ratings.has_capability(state, lord.lord_id, "YORKISTS NEVER WAIT")
+        or (lord.side == "lancastrian" and _active_event(state, "FORCED MARCHES")))
+
     # Determine speed/cost to the destination (4.3.3).
-    cost = _march_cost(state, here, dest, kind)
+    cost = _march_cost(state, here, dest, kind, roads_as_highway)
     _require(cost is not None, "no_march_route",
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     way_kind, whole_card = cost
@@ -172,14 +184,18 @@ def _try_intercept(state: GameState, dest: str, side: str,
             "flank_attack": flank}
 
 
-def _march_cost(state: GameState, here: str, dest: str, kind: str):
+def _march_cost(state: GameState, here: str, dest: str, kind: str,
+                roads_as_highway: bool = False):
     """Return (way_kind, whole_card) for marching ``here``->``dest`` in one
-    action, or None. Scotland marches by one-way Path to Carlisle/Bamburgh."""
+    action, or None. Scotland marches by one-way Path to Carlisle/Bamburgh.
+    ``roads_as_highway`` (Yorkists Never Wait Y11 / Forced Marches L8) lets a
+    lone Lord use Roads for the Highway 2-for-1 chain (4.3.3)."""
     if kind == "exile":
         boxes = static_data.load_exile_boxes()
         if here == "scotland" and dest in boxes["scotland"].get("land_exits", []):
             return ("path", True)
         return None
+    fast = ("highway", "road") if roads_as_highway else ("highway",)
     ways = _ways_between(here, dest)
     if "road" in ways:
         return ("road", False)
@@ -187,9 +203,9 @@ def _march_cost(state: GameState, here: str, dest: str, kind: str):
         return ("highway", False)
     if "path" in ways:
         return ("path", True)
-    # Highway 2-for-1 (4.3.3): two Highways via an intermediate Stronghold.
+    # Highway 2-for-1 (4.3.3): two fast Ways via an intermediate Stronghold.
     for mid, t1 in _adjacency().get(here, []):
-        if t1 == "highway" and "highway" in _ways_between(mid, dest):
+        if t1 in fast and _ways_between(mid, dest) & set(fast):
             return ("highway2", False)
     return None
 
@@ -220,6 +236,9 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         from_sea = port_sea.get(here)
     _require(from_sea is not None, "no_sea", f"{here} is not on a Sea")
 
+    # French Fleet (L21): Yorkist Lords may not Sail this Campaign.
+    _require(not (lord.side == "yorkist" and _active_event(state, "FRENCH FLEET")),
+             "french_fleet", "French Fleet prohibits Yorkist Sailing this Campaign (L21)")
     dest = action.get("to")
     _require(dest in port_sea, "dest_not_port", f"{dest!r} is not a Port (4.6.1)")
     dest_sea = port_sea[dest]
@@ -243,10 +262,18 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"Sail needs {need} Ship(s) (1 per 6 Forces / 2 Provender / 2 Carts); "
              f"the Lord has {ships} (4.6.1)")
 
+    # Owain Glyndwr (Y25): no Lancastrian Sail to a Stronghold in Wales.
+    _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
+                  and static_data.load_locales().get(dest, {}).get("region") == "wales"),
+             "owain_glyndwr", "Owain Glyndwr bars Lancastrian Sail into Wales (Y25)")
     lord.location = dest
     lord.exile_box = None
     lord.moved_fought = True
-    state.campaign.actions_remaining = 0   # Sail uses the entire card (4.2.1)
+    # Seamanship (Y6/L6): Sail costs just 1 Command action this Campaign.
+    if _active_event(state, "SEAMANSHIP", lord.side):
+        state.campaign.actions_remaining -= 1
+    else:
+        state.campaign.actions_remaining = 0   # Sail uses the entire card (4.2.1)
     out = {"type": "sail", "by_lord": lord.lord_id, "to": dest,
            "from_sea": from_sea, "to_sea": dest_sea}
     if dest_has_enemy:                      # High Admiral: Sail triggers Approach (4.3.5)
@@ -339,6 +366,14 @@ def _tax_route_cost(state: GameState, here: str, target: str, side: str,
     from plantagenet.actions import _parley_route_cost
     return _parley_route_cost(state, ("stronghold", here), target, side, has_ship,
                               all_seas=all_seas)
+
+
+def _active_event(state: GameState, title: str, side: str | None = None) -> bool:
+    cards = static_data.load_cards()
+    for e in state.active_events:
+        if cards[e["card"]]["event"]["title"] == title and (side is None or e["side"] == side):
+            return True
+    return False
 
 
 def _exeter_or_adjacent(locale: str) -> bool:
@@ -448,8 +483,14 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "Campaign Parley reaches only an adjacent Stronghold or a same-Sea Port (4.6.4)")
 
     extra = int(action.get("extra_spend", 0))
+    # Dorset (Y29): Devon at Exeter Parleys for no Influence cost and auto-success.
+    dorset = (lord.lord_id == "devon" and here == "exeter"
+              and _active_event(state, "DORSET", "yorkist"))
+    way = 0 if dorset else 1
     chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=extra, way_cost=1, action="parley")
+                                    extra_spend=extra, way_cost=way, action="parley")
+    if dorset:
+        chk["success"] = True
     state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
     changed = None
     if chk["success"]:

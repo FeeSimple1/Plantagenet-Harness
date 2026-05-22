@@ -180,6 +180,11 @@
           ],
           "default": null,
           "title": "Depletion"
+        },
+        "favour_extra": {
+          "default": 0,
+          "title": "Favour Extra",
+          "type": "integer"
         }
       },
       "title": "LocaleState",

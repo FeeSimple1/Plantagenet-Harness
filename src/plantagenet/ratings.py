@@ -132,10 +132,25 @@ def _ev_privy_council(state, ev, lid, action):      # Y35: this Levy +1 all Infl
     return {"influence": 1}
 
 
+def _ev_yorkist_parade(state, ev, lid, action):     # Y20: this Levy +2 Yorkist Influence
+    return {"influence": 2}
+
+
+def _ev_loyalty_and_trust(state, ev, lid, action):  # Y22: a chosen Yorkist Lord Lordship +3
+    return {"lordship": 3} if ev.get("target") == lid else {}
+
+
+def _ev_edward_v(state, ev, lid, action):           # Y33: Gloucester (not Richard III) +3 Lordship
+    return {"lordship": 3} if lid in ("gloucester_1", "gloucester_2") else {}
+
+
 def _event_rating_fn(title):
     return {
         "RICHARD OF YORK": _ev_richard_of_york,
         "PRIVY COUNCIL": _ev_privy_council,
+        "YORKIST PARADE": _ev_yorkist_parade,
+        "LOYALTY AND TRUST": _ev_loyalty_and_trust,
+        "EDWARD V": _ev_edward_v,
     }.get(title)
 
 
