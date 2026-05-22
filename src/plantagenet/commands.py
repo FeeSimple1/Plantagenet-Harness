@@ -209,9 +209,10 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
     ships = lord.assets.get("ship", 0)
-    need = max(-(-_forces_units(lord) // 6),
-               -(-lord.assets.get("provender", 0) // 2),
-               -(-lord.assets.get("cart", 0) // 2))
+    cap = 2 if ratings.has_capability(state, lord.lord_id, "GREAT SHIPS") else 1
+    need = max(-(-_forces_units(lord) // (6 * cap)),
+               -(-lord.assets.get("provender", 0) // (2 * cap)),
+               -(-lord.assets.get("cart", 0) // (2 * cap)))
     _require(ships >= need, "insufficient_ships",
              f"Sail needs {need} Ship(s) (1 per 6 Forces / 2 Provender / 2 Carts); "
              f"the Lord has {ships} (4.6.1)")
@@ -226,11 +227,12 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 # --------------------------------------------------------------- 4.6.3 Tax
 def _tax_route_cost(state: GameState, here: str, target: str, side: str,
-                    has_ship: bool) -> int | None:
+                    has_ship: bool, all_seas: bool = False) -> int | None:
     """Shortest Route (Friendly chain free of Enemy Lords) from the Lord to
     the Taxed Stronghold (4.6.3). Returns Way count, or None."""
     from plantagenet.actions import _parley_route_cost
-    return _parley_route_cost(state, ("stronghold", here), target, side, has_ship)
+    return _parley_route_cost(state, ("stronghold", here), target, side, has_ship,
+                              all_seas=all_seas)
 
 
 def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -261,7 +263,8 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         if target == here:
             way_cost = 0
         else:
-            way_cost = _tax_route_cost(state, here, target, lord.side, has_ship)
+            gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
+            way_cost = _tax_route_cost(state, here, target, lord.side, has_ship, all_seas=gs)
             _require(way_cost is not None, "no_route",
                      f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
 
@@ -345,7 +348,8 @@ def _fav_desc(target: str, before: str, side: str) -> str:
 
 
 # --------------------------------------------------------------- 4.5 Supply
-def _supply_route_cost(state: GameState, here: str, source: str, side: str) -> int | None:
+def _supply_route_cost(state: GameState, here: str, source: str, side: str,
+                       all_seas: bool = False) -> int | None:
     """Shortest land Supply Route (Friendly chain free of Enemy Lords, NOT
     across any Sea), including both the Lord's Locale and the Source, which
     must itself be Friendly (4.5.1). Returns the Way count, or None."""
@@ -354,11 +358,18 @@ def _supply_route_cost(state: GameState, here: str, source: str, side: str) -> i
         return 0
     if not is_friendly_stronghold(state, source, side) or enemy_lord_at(state, source, side):
         return None
+    port_sea = {}
+    if all_seas:
+        seas = static_data.load_seas()
+        port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
     seen = {here}
     q = deque([(here, 0)])
     while q:
         node, dist = q.popleft()
-        for nxt, _t in _adjacency().get(node, []):
+        nbrs = [n for n, _t in _adjacency().get(node, [])]
+        if all_seas and node in port_sea:          # Great Ships: all Ports 1 Way apart
+            nbrs += [p for p in port_sea if p != node]
+        for nxt in nbrs:
             if nxt in seen:
                 continue
             seen.add(nxt)
@@ -393,14 +404,17 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         _require(is_port, "ships_need_port", "Ship Supply requires a Port Source (4.5.1)")
         ships = lord.assets.get("ship", 0)
         _require(ships > 0, "no_ships", "Ship Supply requires at least one Ship (4.5.1)")
+        per_ship = 2 if ratings.has_capability(state, lord.lord_id, "GREAT SHIPS") else 1
         sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \
             and _same_sea_port_or_box(here, source)
         if sea_direct:
-            added = ships                          # by Sea: no Carts (4.5.2)
+            added = ships * per_ship               # by Sea: no Carts (4.5.2)
         else:
-            ways = _supply_route_cost(state, here, source, lord.side)
+            ways = _supply_route_cost(state, here, source, lord.side,
+                                      all_seas=ratings.has_capability(state, lord.lord_id,
+                                                                      "GREAT SHIPS"))
             _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
-            added = ships if ways == 0 else min(ships, carts // ways)
+            added = ships * per_ship if ways == 0 else min(ships * per_ship, carts // ways)
             _require(added > 0, "insufficient_carts",
                      "need one Cart per Provender per intervening Way (4.5.1)")
         lord.assets["provender"] = lord.assets.get("provender", 0) + added
@@ -411,7 +425,8 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Stronghold Source: table Provender, Cart-limited, then Deplete (4.5.2).
     _require(state.locales[source].depletion != "exhausted", "exhausted",
              f"{source} is Exhausted and may not be a Supply Source (4.5.1)")
-    ways = _supply_route_cost(state, here, source, lord.side)
+    ways = _supply_route_cost(state, here, source, lord.side,
+                              all_seas=ratings.has_capability(state, lord.lord_id, "GREAT SHIPS"))
     _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
     base = static_data.stronghold_yields(source).get("supply", {}).get("provender", 0)
     added = base if ways == 0 else min(base, carts // ways)

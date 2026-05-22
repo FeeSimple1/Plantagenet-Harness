@@ -20,7 +20,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from plantagenet import influence, static_data
+from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import (
     Favour,
@@ -141,7 +141,7 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 # ------------------------------------------------------------- 3.4.1 Parley
 def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
-                       side: str, has_ship: bool) -> int | None:
+                       side: str, has_ship: bool, all_seas: bool = False) -> int | None:
     """Shortest Route cost in Ways from the Lord to ``target`` Stronghold.
 
     A Route is a chain of adjacent Locales free of Enemy Lords whose
@@ -157,9 +157,12 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
 
     def neighbours(node: str) -> list[str]:
         out = [n for n, _t in adj.get(node, [])]
-        if has_ship and node in port_sea:        # Sea hop (1.4.2): same-Sea Ports
-            sea = port_sea[node]
-            out += [p for p, z in port_sea.items() if z == sea and p != node]
+        if node in port_sea:
+            if all_seas:                          # Great Ships: connect all Ports (any Sea)
+                out += [p for p in port_sea if p != node]
+            elif has_ship:                        # Sea hop (1.4.2): same-Sea Ports
+                sea = port_sea[node]
+                out += [p for p, z in port_sea.items() if z == sea and p != node]
         return out
 
     # BFS over Ways; expanding a node requires it to be a legal Route step.
@@ -197,7 +200,8 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if own_unfriendly_here:
         way_cost = 0  # Parley at a not-yet-Friendly current location targets it only
     else:
-        way_cost = _parley_route_cost(state, loc, target, lord.side, has_ship)
+        gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
+        way_cost = _parley_route_cost(state, loc, target, lord.side, has_ship, all_seas=gs)
         _require(way_cost is not None, "no_route",
                  f"no Route free of Enemy Lords (Friendly except target) to {target} (3.4.1)")
 
@@ -301,9 +305,12 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord.lordship_spent += 1
     if chk["success"]:
         service = regular[vid]["service"]
+        box = state.turn_box + service
+        if ratings.has_capability(state, lord.lord_id, "ALICE MONTAGU"):
+            box = min(15, box + 1)              # Y17: +1 Service (capped at box 15)
         state.vassals[vid] = VassalState(
             vassal_id=vid, status=VassalStatus.MUSTERED, on_lord=lord.lord_id,
-            service_box=state.turn_box + service)
+            service_box=box)
         if vid not in lord.vassals:
             lord.vassals.append(vid)
     return {"type": "levy_vassal", "by_lord": lord.lord_id, "target": vid,
@@ -363,7 +370,10 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(ls.depletion != "exhausted", "exhausted",
              f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
 
-    yields = static_data.stronghold_yields(here)["levy_troops"]
+    if ratings.has_capability(state, lord.lord_id, "BELOVED WARWICK"):
+        yields = {"militia": 5}                 # Y16: 5 Militia instead of the table
+    else:
+        yields = static_data.stronghold_yields(here)["levy_troops"]
     forces_static = static_data.load_forces()
     added: dict[str, int] = {}
     for unit, amount in yields.items():
