@@ -319,6 +319,97 @@ _IMMEDIATE = {
 }
 
 
+def _held_card(state, side, title):
+    cards = static_data.load_cards()
+    for cid in state.decks.get(side, {}).get("held", []):
+        if cards[cid]["event"]["title"] == title:
+            return cid
+    return None
+
+
+def _use_held(state, side, cid):
+    held = state.decks.get(side, {}).get("held", [])
+    if cid in held:
+        held.remove(cid)
+    state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
+
+
+def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a Port
+    lids = d.get("lords", [])
+    _require(lids, "no_lords", "name the Lord(s) that just reached the Port (L28)")
+    locs = static_data.load_locales()
+    for lid in lids:
+        ls = state.lords[lid]
+        _require(ls.location and locs.get(ls.location, {}).get("port"),
+                 "not_at_port", f"{lid} is not at a Port (L28)")
+        ls.assets["provender"] = ls.assets.get("provender", 0) + 4
+        ls.ignore_next_feed = True
+    return {"lords": lids, "provender_each": 4, "ignore_next_feed": True}
+
+
+def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, free March
+    _require(state.campaign is not None, "not_campaign", "Surprise Landing is a Campaign play")
+    state.campaign.actions_remaining += 1       # a free (March) action
+    return {"free_action": True}
+
+
+def _hp_sun_in_splendour(state, side, d):       # Y24: Muster Edward IV in Levy, free
+    _require(state.phase == "levy", "not_levy", "Sun in Splendour is played in the Levy (Y24)")
+    ed = state.lords.get("edward_iv")
+    _require(ed is not None and ed.status in (LordStatus.CALENDAR, LordStatus.EXILE),
+             "edward_unavailable", "Edward IV must be on the Calendar/Exile (Y24)")
+    target = d.get("target")
+    _require(target in state.locales and state.locales[target].favour == "yorkist",
+             "bad_target", "Muster Edward IV at a Friendly Locale (Y24)")
+    statics = static_data.load_lords()["edward_iv"]
+    ed.status = LordStatus.MUSTERED
+    ed.location = target
+    ed.exile_box = None
+    ed.calendar_box = None
+    ed.calendar_exile = False
+    ed.forces = dict(statics.get("forces", {}))
+    ed.assets = dict(statics.get("assets", {}))
+    return {"mustered": "edward_iv", "at": target}
+
+
+def _hp_yorkist_parade(state, side, d):         # Y20: this Levy Yorkist Influence +2
+    _require(state.locales["london"].favour == "yorkist", "london_not_friendly",
+             "Yorkist Parade needs London Friendly (Y20)")
+    here = {ls.location for lid, ls in state.lords.items()
+            if lid in ("york", "warwick_yorkist") and ls.status == LordStatus.MUSTERED}
+    _require("london" in here, "no_york_or_warwick",
+             "York or Warwick must be at London (Y20)")
+    state.active_events.append({"card": "Y20", "side": "yorkist", "scope": "this_levy"})
+    return {"active": "Y20"}
+
+
+def _hp_aspielles(state, side, d):              # Y13/L13: inspect Enemy Held cards (info)
+    foe = "lancastrian" if side == "yorkist" else "yorkist"
+    held = list(state.decks.get(foe, {}).get("held", []))
+    return {"peek": {"enemy_side": foe, "enemy_held": held, "hidden_mat": d.get("mat")}}
+
+
+_HELD_PLAYS = {
+    "L28": _hp_rebel_supply_depot, "L33": _hp_surprise_landing,
+    "Y24": _hp_sun_in_splendour, "Y20": _hp_yorkist_parade,
+    "Y13": _hp_aspielles, "L13": _hp_aspielles,
+}
+
+
+def play_held_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Play a Held Event in one of its own-timing windows (1.9.1):
+    Rebel Supply Depot (L28), Surprise Landing (L33), Sun in Splendour (Y24),
+    Yorkist Parade (Y20)."""
+    cid = action.get("card")
+    side = action.get("side")
+    _require(cid in _HELD_PLAYS, "not_held_play", f"{cid} is not a coded Held-play Event")
+    held = _held_card(state, side, static_data.load_cards()[cid]["event"]["title"])
+    _require(held == cid, "not_held", f"{side} is not holding {cid}")
+    res = _HELD_PLAYS[cid](state, side, action.get("decisions", {}))
+    _use_held(state, side, cid)
+    return {"type": "play_held_event", "card": cid, "side": side, **res}
+
+
 _PERSIST = {"Y34"}   # immediate Events that stay in effect (active_events)
 
 

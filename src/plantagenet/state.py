@@ -73,6 +73,7 @@ class LordState(_Model):
     mustered_this_segment: bool = False  # brought on this Muster -> may not Levy (3.4)
     moved_fought: bool = False         # took part in March/Intercept/Battle/Sail -> Feed (4.7)
     free_troops_used: bool = False     # Thomas Stanley free Levy Troops used this Levy (L35)
+    ignore_next_feed: bool = False     # Rebel Supply Depot (L28): skip the next Feed
 
 
 class VassalStatus(str, Enum):

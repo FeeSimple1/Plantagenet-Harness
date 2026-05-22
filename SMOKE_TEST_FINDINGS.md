@@ -343,3 +343,34 @@ if absent), wired into _kill_lord for the grand scenario. Per-War scripted card
 swaps + Renewed-War setup -> Q-005 (need structured encoding).
 
 No SMOKEs. 263 tests pass; ruff clean.
+
+## Rounds 27-29 (Phase 5a: reaction protocol, Q-004)
+
+reactions.py: typed trigger registry + serializable pause/resolve loop on
+state.pending. apply_action gained a 'react' action and a pending-guard (only
+'react' is legal while paused). Flat, priority-ordered offers; an upstream
+cancel forecloses downstream offers; decline (pass) is first-class; paused
+state round-trips through JSON save/load.
+
+Triggers + reactors wired:
+- uses_port_on_sea -> Naval Blockade (Y15): per-action, persistent, mid-action;
+  Sail commits the Command card then gates, sail_finish moves or returns
+  cancelled. (Tax/Parley/Supply port-sea detection noted as a route-introspection
+  refinement; Sail is the proven case.)
+- on_approach -> King's Parley (L15, cancel + rewind movers, end card),
+  Parliament's Truce (Y12/L20, cancel + campaign-wide A/I prohibition), Blocked
+  Ford (Y11/L11, force Battle). Canonical priority: King's Parley (10) forecloses
+  Parliament's Truce (20) and Blocked Ford (30) (errata). march_finish rewinds on
+  cancel.
+- after_successful_levy_action -> The King's Name (Y32): Gloucester pays 1
+  Influence to cancel; generic _snap/_restore reverts parley/levy_lord/
+  levy_vassal/levy_troops.
+
+play_held_event windows: Rebel Supply Depot (L28), Surprise Landing (L33),
+Sun in Splendour (Y24), Yorkist Parade (Y20), Aspielles (Y13/L13 peek).
+Action variants: Exile Pact (Y8 Command action), Be Sent For (L4 Levy Lord).
+
+No SMOKEs. 280 tests pass; ruff clean. NOTE: in-Battle plays (Y5/Y30/Y36/Y37/
+Y19/Y2/L2/L7) still resolve via the synchronous `decisions` channel; unifying
+them under an at_battle_phase trigger requires making resolve_battle resumable
+(5a-iii, see report).

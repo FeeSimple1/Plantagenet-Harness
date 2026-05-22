@@ -122,7 +122,11 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         m.moved_fought = True
 
     decisions = action.get("decisions") or {}
-    intercept_log = (None if dest_has_enemy
+    # Parliament's Truce (Y12/L20): no Approach or Intercept this Campaign.
+    truce = _active_event(state, "PARLIAMENT'S TRUCE")
+    _require(not (truce and dest_has_enemy), "parliaments_truce",
+             "Parliament's Truce prohibits Approach this Campaign (Y12/L20)")
+    intercept_log = (None if (dest_has_enemy or truce)
                      else _try_intercept(state, dest, lord.side, decisions))
     approach = None
     if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
@@ -133,16 +137,51 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         dest_has_enemy = True
 
     if approach is None and dest_has_enemy:
-        from plantagenet import battle
-        approach = battle.approach(state, dest, [m.lord_id for m in movers], decisions)
-        state.campaign.actions_remaining = 0   # Approach ends the card (4.3.5)
-    elif whole_card:
+        # Approach (4.3.5): commit the card cost, then open the reaction window
+        # (King's Parley / Parliament's Truce cancel; Blocked Ford forces Battle).
+        state.campaign.actions_remaining = 0
+        target_lords = [lid for lid, ls in state.lords.items()
+                        if ls.status == LordStatus.MUSTERED and ls.location == dest
+                        and ls.side != lord.side]
+        ctx = {"approaching_side": lord.side, "dest": dest, "target_lords": target_lords}
+        finish_data = {"movers": [m.lord_id for m in movers], "leader": lord.lord_id,
+                       "origin": here, "dest": dest, "way": way_kind,
+                       "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
+                       "intercept": intercept_log, "decisions": decisions}
+        from plantagenet import reactions
+        return reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
+    if whole_card:
         state.campaign.actions_remaining = 0
     else:
         state.campaign.actions_remaining -= 1
     return {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
             "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
             "intercept": intercept_log, "approach": approach}
+
+
+def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Approach reaction window (4.3.5 / Q-004)."""
+    base = {"type": "march", "by_lord": data["leader"], "to": data["dest"],
+            "way": data["way"], "group": data["group"], "whole_card": data["whole_card"],
+            "intercept": data["intercept"]}
+    if cancelled:
+        # King's Parley / Parliament's Truce: rewind the movers; the cancelled
+        # March's movers are not marked Moved/Fought; the Command card ends.
+        for mid in data["movers"]:
+            m = state.lords[mid]
+            m.location = data["origin"]
+            m.moved_fought = False
+        state.campaign.actions_remaining = 0
+        base["approach"] = None
+        base["approach_cancelled"] = data.get("cancel_reason", True)
+        return base
+    from plantagenet import battle
+    decisions = dict(data.get("decisions") or {})
+    if data.get("blocked_ford"):
+        decisions["blocked_ford"] = data["blocked_ford"]
+    base["approach"] = battle.approach(state, data["dest"], data["movers"], decisions)
+    state.campaign.actions_remaining = 0
+    return base
 
 
 def _try_intercept(state: GameState, dest: str, side: str,
@@ -266,26 +305,62 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
                   and static_data.load_locales().get(dest, {}).get("region") == "wales"),
              "owain_glyndwr", "Owain Glyndwr bars Lancastrian Sail into Wales (Y25)")
-    lord.location = dest
-    lord.exile_box = None
-    lord.moved_fought = True
-    # Seamanship (Y6/L6): Sail costs just 1 Command action this Campaign.
-    if _active_event(state, "SEAMANSHIP", lord.side):
+
+    # Commit the Command card cost NOW (spent regardless of any Naval Blockade).
+    if _active_event(state, "SEAMANSHIP", lord.side):   # Seamanship (Y6/L6): just 1 action
         state.campaign.actions_remaining -= 1
     else:
-        state.campaign.actions_remaining = 0   # Sail uses the entire card (4.2.1)
-    out = {"type": "sail", "by_lord": lord.lord_id, "to": dest,
-           "from_sea": from_sea, "to_sea": dest_sea}
-    if dest_has_enemy:                      # High Admiral: Sail triggers Approach (4.3.5)
+        state.campaign.actions_remaining = 0            # Sail uses the entire card (4.2.1)
+
+    # Reaction checkpoint (Q-004): Naval Blockade may cancel a Lancastrian Sail
+    # using a Port on this Sea, before the move resolves.
+    from plantagenet import reactions
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": [from_sea, dest_sea]}
+    finish_data = {"lord": lord.lord_id, "dest": dest, "from_sea": from_sea,
+                   "to_sea": dest_sea, "dest_has_enemy": dest_has_enemy,
+                   "decisions": action.get("decisions")}
+    return reactions.gate(state, "uses_port_on_sea", ctx, "commands:sail_finish", finish_data)
+
+
+def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Sail reaction window (4.6.1 / Q-004)."""
+    lord = state.lords[data["lord"]]
+    if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
+        return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
+                "cancelled": True}
+    lord.location = data["dest"]
+    lord.exile_box = None
+    lord.moved_fought = True
+    out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
+           "from_sea": data["from_sea"], "to_sea": data["to_sea"]}
+    if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
         from plantagenet import battle
-        out["approach"] = battle.approach(state, dest, [lord.lord_id],
-                                          action.get("decisions"))
+        out["approach"] = battle.approach(state, data["dest"], [lord.lord_id],
+                                          data.get("decisions"))
     return out
 
 
 # ---------------- new Command actions from Capabilities (1.9.1) -------------
 def _ec_ports() -> set[str]:
     return set(static_data.load_seas()["zones"]["english_channel"]["ports"])
+
+
+def exile_pact(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Exile Pact (Y8 Event): a Yorkist Lord may use a Command action to place
+    its cylinder into a Friendly Exile box at no Influence cost (this Campaign)."""
+    lord = campaign._active_command_lord(state, action)
+    _require(lord.side == "yorkist" and _active_event(state, "EXILE PACT", "yorkist"),
+             "no_exile_pact", "Exile Pact is not in effect for the Yorkist side (Y8)")
+    box = action.get("box")
+    boxes = static_data.load_exile_boxes()
+    _require(box in boxes, "bad_box", f"{box!r} is not an Exile box (Y8)")
+    _require(state.exile_alignment.get(box) == "yorkist", "not_friendly_box",
+             f"{box} is not a Friendly Exile box (Y8)")
+    lord.status = LordStatus.EXILE
+    lord.exile_box = box
+    lord.location = None
+    state.campaign.actions_remaining -= 1
+    return {"type": "exile_pact", "by_lord": lord.lord_id, "box": box}
 
 
 def agitators(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
