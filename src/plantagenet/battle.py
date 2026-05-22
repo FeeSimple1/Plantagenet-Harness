@@ -21,7 +21,7 @@ from __future__ import annotations
 from math import ceil
 from typing import Any
 
-from plantagenet import campaign, influence, static_data
+from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus
 
@@ -99,6 +99,17 @@ def _escape_route(state: GameState, locale: str, side: str) -> bool:
     return False
 
 
+def _apply_special_vassal_armour(state, forces):
+    """Special-Vassal Armour mods (e.g. Montagu gives Warwick's Retinue
+    Armour 1-5, 1.5.4)."""
+    special = static_data.load_vassals()["special"]
+    for f in forces.values():
+        for sv in state.lords[f.lord_id].special_vassals:
+            ra = special.get(sv, {}).get("modifiers", {}).get("retinue_armour")
+            if ra and "retinue" in f.prof:
+                f.prof["retinue"]["prot"] = list(ra)
+
+
 def _apply_barricades(state, forces, locale):
     """Barricades (Y9 Capability): at a Friendly Stronghold, this Lord's
     Men-at-Arms gain Armour 1-4 and Longbowmen/Militia Armour 1-2 (4.4.2).
@@ -131,7 +142,7 @@ class _Force:
             if lord.forces.get(t):
                 self.count[t] = lord.forces[t]
         self.routed: dict[str, int] = {t: 0 for t in self.count}
-        self.valour = static_data.load_lords()[lord_id]["ratings"]["valour"]
+        self.valour = ratings.rating(state, lord_id, "valour")
         self.fled = False
         self.lord_routed = False
 
@@ -325,6 +336,7 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
 
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
     _apply_barricades(state, forces, locale)
+    _apply_special_vassal_armour(state, forces)
     positions, reserves = _initial_array(attackers, defenders, decisions)
     rounds: list[dict[str, Any]] = []
 

@@ -111,7 +111,13 @@
         "edward_iv"
       ],
       "eligible_text": "Edward IV",
-      "effect": "Levied free; adds 2 Men-at-Arms units and Command +1 to Edward IV. Command +1 ends if Hastings Disbands. The 2 Men-at-Arms are not affected by Hastings Disbanding, but per FAQ #6 they ARE removed during Waste."
+      "effect": "Levied free; adds 2 Men-at-Arms units and Command +1 to Edward IV. Command +1 ends if Hastings Disbands. The 2 Men-at-Arms are not affected by Hastings Disbanding, but per FAQ #6 they ARE removed during Waste.",
+      "modifiers": {
+        "command": 1,
+        "add_forces": {
+          "men_at_arms": 2
+        }
+      }
     },
     "edward_prince_of_wales": {
       "name": "Edward (Prince of Wales)",
@@ -121,7 +127,10 @@
         "margaret"
       ],
       "eligible_text": "Margaret",
-      "effect": "Levied free; grants Valour +1 to Margaret."
+      "effect": "Levied free; grants Valour +1 to Margaret.",
+      "modifiers": {
+        "valour": 1
+      }
     },
     "montagu": {
       "name": "Montagu",
@@ -131,7 +140,13 @@
         "warwick_lancastrian"
       ],
       "eligible_text": "Warwick",
-      "effect": "Levied free; gives Warwick's Retinue Armour 1-5, including for the rest of any Battle in which Montagu Routs."
+      "effect": "Levied free; gives Warwick's Retinue Armour 1-5, including for the rest of any Battle in which Montagu Routs.",
+      "modifiers": {
+        "retinue_armour": [
+          1,
+          5
+        ]
+      }
     },
     "clifford": {
       "name": "Clifford",
@@ -139,7 +154,10 @@
       "capability_card": "L21",
       "eligible_lords": [],
       "eligible_text": "Any (Lancastrian)",
-      "effect": "Levied free; grants Valour +1 to the Lord. (Capability L21 'My Father's Blood'.)"
+      "effect": "Levied free; grants Valour +1 to the Lord. (Capability L21 'My Father's Blood'.)",
+      "modifiers": {
+        "valour": 1
+      }
     },
     "thomas_stanley": {
       "name": "Stanley",
@@ -151,7 +169,10 @@
         "henry_tudor"
       ],
       "eligible_text": "Jasper Tudor or Henry Tudor",
-      "effect": "Levied free; once per Levy, the Lord can Levy Troops for 0 Lordship while retaining the Capability and Special Vassal. (Capability L35 'Thomas Stanley'.)"
+      "effect": "Levied free; once per Levy, the Lord can Levy Troops for 0 Lordship while retaining the Capability and Special Vassal. (Capability L35 'Thomas Stanley'.)",
+      "modifiers": {
+        "free_levy_troops_per_levy": 1
+      }
     },
     "trollope": {
       "name": "Trollope",
@@ -165,7 +186,10 @@
         "somerset_2"
       ],
       "eligible_text": "Exeter, Buckingham, or Somerset",
-      "effect": "Levied free; grants Valour +1 to the Lord. (Capability L19 'Andrew Trollope'.)"
+      "effect": "Levied free; grants Valour +1 to the Lord. (Capability L19 'Andrew Trollope'.)",
+      "modifiers": {
+        "valour": 1
+      }
     }
   }
 }

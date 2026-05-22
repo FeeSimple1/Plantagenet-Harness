@@ -99,7 +99,8 @@ def _require(cond: bool, code: str, msg: str) -> None:
         raise IllegalAction(code, msg)
 
 
-def _active_lord(state: GameState, action: dict[str, Any]) -> LordState:
+def _active_lord(state: GameState, action: dict[str, Any],
+                 require_lordship: bool = True) -> LordState:
     side = action.get("side")
     _require(side in SIDES, "bad_side", "side must be 'lancastrian' or 'yorkist'")
     _require(state.levy_step == "muster", "wrong_step",
@@ -116,9 +117,10 @@ def _active_lord(state: GameState, action: dict[str, Any]) -> LordState:
              f"{lord_id} must be at a Locale to use Lordship (3.4)")
     _require(not lord.mustered_this_segment, "mustered_this_segment",
              f"{lord_id} was brought on this Muster and may not Levy (3.4)")
-    rating = _lordship(lord_id)
-    _require(lord.lordship_spent < rating, "lordship_exhausted",
-             f"{lord_id} has spent all {rating} Lordship this Levy (3.4)")
+    if require_lordship:
+        rating = _lordship(lord_id)
+        _require(lord.lordship_spent < rating, "lordship_exhausted",
+                 f"{lord_id} has spent all {rating} Lordship this Levy (3.4)")
     return lord
 
 
@@ -347,7 +349,10 @@ def _troops_in_play(state: GameState, force_id: str) -> int:
 def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Levy Troops (3.4.4): add the Stronghold's listed Troops, then Deplete
     (or Exhaust if already Depleted). No Influence check. Pool-limited (1.6)."""
-    lord = _active_lord(state, action)
+    pre = state.lords.get(action.get("by_lord"))
+    stanley_free = (pre is not None and "thomas_stanley" in pre.special_vassals
+                    and not pre.free_troops_used)
+    lord = _active_lord(state, action, require_lordship=not stanley_free)
     loc = lord_location(lord)
     _require(loc[0] == "stronghold", "in_exile_box",
              "Levy Troops requires a Stronghold, not an Exile box (3.4.4)")
@@ -370,9 +375,12 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             added[unit] = give
     # Deplete, or Exhaust if already Depleted (3.4.4).
     ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
-    lord.lordship_spent += 1
+    if stanley_free:
+        lord.free_troops_used = True       # Thomas Stanley: 0 Lordship, once/Levy (L35)
+    else:
+        lord.lordship_spent += 1
     return {"type": "levy_troops", "by_lord": lord.lord_id, "locale": here,
-            "added": added, "depletion": ls.depletion}
+            "added": added, "depletion": ls.depletion, "stanley_free": stanley_free}
 
 
 def _capabilities_in_play(state: GameState, side: str) -> set[str]:
@@ -428,8 +436,30 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
              "duplicate_capability", f"{lord.lord_id} already has a {new_title} Capability (3.4.6)")
     lord.capabilities.append(card_id)
     lord.lordship_spent += 1
+    sv = _muster_special_vassal(state, lord, card_id)
     return {"type": "levy_capability", "by_lord": lord.lord_id, "card": card_id,
-            "title": new_title}
+            "title": new_title, "special_vassal": sv}
+
+
+def _muster_special_vassal(state: GameState, lord, card_id: str) -> str | None:
+    """If ``card_id`` is a Special-Vassal Capability, Muster the Vassal free to
+    this Lord (1.5.4, 3.4.6) and apply any one-time Force addition (e.g.
+    Hastings adds 2 Men-at-Arms, pool-limited)."""
+    specials = static_data.load_vassals()["special"]
+    for vid, sv in specials.items():
+        if sv.get("capability_card") == card_id:
+            if vid not in lord.special_vassals:
+                lord.special_vassals.append(vid)
+            add = sv.get("modifiers", {}).get("add_forces", {})
+            forces_static = static_data.load_forces()
+            for unit, amount in add.items():
+                in_play = sum(v.forces.get(unit, 0) for v in state.lords.values())
+                free = forces_static[unit].get("pool", 0) - in_play
+                give = max(0, min(amount, free))
+                if give:
+                    lord.forces[unit] = lord.forces.get(unit, 0) + give
+            return vid
+    return None
 
 
 # ------------------------------------------------------------- end_muster

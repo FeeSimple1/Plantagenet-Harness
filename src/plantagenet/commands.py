@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plantagenet import campaign, influence, static_data
+from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.actions import (
     _adjacency,
     enemy_lord_at,
@@ -126,7 +126,7 @@ def _try_intercept(state: GameState, dest: str, side: str,
     _require(eligible, "bad_intercept",
              f"{iid} cannot Intercept at {dest} (must be an Enemy adjacent by Road/Highway, 4.3.4)")
     from plantagenet import battle
-    valour = static_data.load_lords()[iid]["ratings"]["valour"]
+    valour = ratings.rating(state, iid, "valour")
     flank = bool(decisions.get("flank_attack"))
     if flank:                            # Flank Attack (Y2/L2): auto-succeed, become Attacker
         cid = battle._side_held_event(state, itc.side, battle.FLANK_ATTACK)

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plantagenet import influence, static_data
+from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus, Side
 
@@ -124,7 +124,7 @@ def _reveal(state: GameState) -> None:
         c.actions_remaining = 0
     else:
         c.active_lord = lid
-        c.actions_remaining = _command_rating(lid)
+        c.actions_remaining = ratings.rating(state, lid, "command")
 
 
 def _active_command_lord(state: GameState, action: dict[str, Any]):
@@ -265,6 +265,11 @@ def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     for vid in list(lord.vassals):
         _disband_vassal(state, vid)
     lord.vassals = []
+    # Discard the Lord's Capability cards and release Special Vassals (1.5.3, 4.4.3).
+    for cid in list(lord.capabilities):
+        state.decks.setdefault(lord.side, {}).setdefault("discard", []).append(cid)
+    lord.capabilities = []
+    lord.special_vassals = []
     lord.forces = {}
     lord.assets = {}
     lord.location = None
@@ -515,3 +520,4 @@ def _reset_to_next_levy(state: GameState) -> None:
         lord.lordship_spent = 0
         lord.mustered_this_segment = False
         lord.moved_fought = False
+        lord.free_troops_used = False
