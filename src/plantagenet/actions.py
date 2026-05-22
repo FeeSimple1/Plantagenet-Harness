@@ -369,6 +369,10 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     ls = state.locales[here]
     _require(ls.depletion != "exhausted", "exhausted",
              f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
+    rising_wages = ratings.event_against(state, "RISING WAGES", lord.side)
+    if rising_wages:                          # L9: pay 1 Coin per Levy Troops action
+        _require(lord.assets.get("coin", 0) >= 1, "rising_wages_no_coin",
+                 "Rising Wages requires 1 Coin per Levy Troops action (L9)")
 
     if ratings.has_capability(state, lord.lord_id, "BELOVED WARWICK"):
         yields = {"militia": 5}                 # Y16: 5 Militia instead of the table
@@ -389,6 +393,8 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         lord.free_troops_used = True       # Thomas Stanley: 0 Lordship, once/Levy (L35)
     else:
         lord.lordship_spent += 1
+    if rising_wages:
+        lord.assets["coin"] = lord.assets.get("coin", 0) - 1
     return {"type": "levy_troops", "by_lord": lord.lord_id, "locale": here,
             "added": added, "depletion": ls.depletion, "stanley_free": stanley_free}
 

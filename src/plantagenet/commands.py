@@ -298,9 +298,10 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     fav = state.locales[target].favour
     _require(fav != lord.side, "already_friendly", f"{target} already Favours {lord.side}")
 
+    new_act = ratings.event_against(state, "NEW ACT OF PARLIAMENT", lord.side)
     if target == here:
         # Own location: automatic, no Influence check or spend (4.6.4).
-        state.campaign.actions_remaining -= 1
+        state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
         _shift_favour(state, target, lord.side)
         return {"type": "parley", "by_lord": lord.lord_id, "target": target,
                 "auto": True, "favour_change": _fav_desc(target, fav, lord.side)}
@@ -319,7 +320,7 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     extra = int(action.get("extra_spend", 0))
     chk = influence.check_influence(state, lord.lord_id, lord.side,
                                     extra_spend=extra, way_cost=1)
-    state.campaign.actions_remaining -= 1
+    state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
     changed = None
     if chk["success"]:
         changed = _fav_desc(target, fav, lord.side)
