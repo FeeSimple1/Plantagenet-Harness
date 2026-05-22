@@ -122,7 +122,11 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         m.moved_fought = True
 
     decisions = action.get("decisions") or {}
-    intercept_log = (None if dest_has_enemy
+    # Parliament's Truce (Y12/L20): no Approach or Intercept this Campaign.
+    truce = _active_event(state, "PARLIAMENT'S TRUCE")
+    _require(not (truce and dest_has_enemy), "parliaments_truce",
+             "Parliament's Truce prohibits Approach this Campaign (Y12/L20)")
+    intercept_log = (None if (dest_has_enemy or truce)
                      else _try_intercept(state, dest, lord.side, decisions))
     approach = None
     if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
@@ -133,16 +137,51 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         dest_has_enemy = True
 
     if approach is None and dest_has_enemy:
-        from plantagenet import battle
-        approach = battle.approach(state, dest, [m.lord_id for m in movers], decisions)
-        state.campaign.actions_remaining = 0   # Approach ends the card (4.3.5)
-    elif whole_card:
+        # Approach (4.3.5): commit the card cost, then open the reaction window
+        # (King's Parley / Parliament's Truce cancel; Blocked Ford forces Battle).
+        state.campaign.actions_remaining = 0
+        target_lords = [lid for lid, ls in state.lords.items()
+                        if ls.status == LordStatus.MUSTERED and ls.location == dest
+                        and ls.side != lord.side]
+        ctx = {"approaching_side": lord.side, "dest": dest, "target_lords": target_lords}
+        finish_data = {"movers": [m.lord_id for m in movers], "leader": lord.lord_id,
+                       "origin": here, "dest": dest, "way": way_kind,
+                       "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
+                       "intercept": intercept_log, "decisions": decisions}
+        from plantagenet import reactions
+        return reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
+    if whole_card:
         state.campaign.actions_remaining = 0
     else:
         state.campaign.actions_remaining -= 1
     return {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
             "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
             "intercept": intercept_log, "approach": approach}
+
+
+def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Approach reaction window (4.3.5 / Q-004)."""
+    base = {"type": "march", "by_lord": data["leader"], "to": data["dest"],
+            "way": data["way"], "group": data["group"], "whole_card": data["whole_card"],
+            "intercept": data["intercept"]}
+    if cancelled:
+        # King's Parley / Parliament's Truce: rewind the movers; the cancelled
+        # March's movers are not marked Moved/Fought; the Command card ends.
+        for mid in data["movers"]:
+            m = state.lords[mid]
+            m.location = data["origin"]
+            m.moved_fought = False
+        state.campaign.actions_remaining = 0
+        base["approach"] = None
+        base["approach_cancelled"] = data.get("cancel_reason", True)
+        return base
+    from plantagenet import battle
+    decisions = dict(data.get("decisions") or {})
+    if data.get("blocked_ford"):
+        decisions["blocked_ford"] = data["blocked_ford"]
+    base["approach"] = battle.approach(state, data["dest"], data["movers"], decisions)
+    state.campaign.actions_remaining = 0
+    return base
 
 
 def _try_intercept(state: GameState, dest: str, side: str,

@@ -8,7 +8,7 @@ import pytest
 from plantagenet import actions
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
-from plantagenet.state import GameState
+from plantagenet.state import GameState, LordStatus
 from tests._helpers import to_muster
 
 
@@ -119,3 +119,81 @@ def test_no_blockade_when_warwick_off_the_sea():
     r = actions.apply_action(s, {"type": "sail", "side": "lancastrian",
                                  "by_lord": lanc, "to": "pembroke"})
     assert r["type"] == "sail" and r["to"] == "pembroke"   # no reaction window
+
+
+def _approach_setup(seed=1, henry_holds_kings_parley=True):
+    """Yorkist 'march' (York) into Lincoln where Henry VI defends; Henry VI may
+    hold King's Parley. Returns (state, attacker_id, defender_id)."""
+    s = build_initial_state("henry_vi", seed=seed)
+    to_muster(s)
+    actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
+    actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
+    actions.apply_action(s, {"type": "begin_campaign"})
+    yk = [x for x, v in s.lords.items() if v.side == "yorkist" and v.status == "mustered"]
+    lc = [x for x, v in s.lords.items() if v.side == "lancastrian" and v.status == "mustered"]
+    n = s.campaign.cards_required
+
+    def pad(lo):
+        e = [{"lord": x} for x in lo][:n]
+        while len(e) < n:
+            e.append({"pass": True})
+        return e
+    actions.apply_action(s, {"type": "build_plan", "side": "yorkist", "plan": pad(yk)})
+    actions.apply_action(s, {"type": "build_plan", "side": "lancastrian", "plan": pad(lc)})
+
+    atk, dfn = "york", "henry_vi"
+    s.active_side = "yorkist"
+    s.campaign.active_lord = atk
+    s.campaign.actions_remaining = 2
+    s.lords[atk].location = "york"            # York locale, Highway to Lincoln
+    s.lords[atk].forces = {"retinue": 1, "men_at_arms": 2}
+    s.lords[dfn].status = LordStatus.MUSTERED.value
+    s.lords[dfn].location = "lincoln"
+    s.lords[dfn].forces = {"retinue": 1, "militia": 2}
+    s.lords[dfn].capabilities = ["L15"] if henry_holds_kings_parley else []
+    return s, atk, dfn
+
+
+def test_kings_parley_cancels_approach_and_rewinds():
+    s, atk, dfn = _approach_setup()
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist",
+                                 "by_lord": atk, "to": "lincoln"})
+    assert r["type"] == "pending_reactions"
+    assert r["awaiting"]["card"] == "L15" and r["awaiting"]["side"] == "lancastrian"
+    out = actions.apply_action(s, {"type": "react", "side": "lancastrian", "play": "L15"})
+    assert out["approach"] is None and out["approach_cancelled"] == "kings_parley"
+    assert s.lords[atk].location == "york"          # rewound to origin
+    assert s.lords[atk].moved_fought is False
+    assert "L15" not in s.lords[dfn].capabilities    # King's Parley discarded
+    assert s.campaign.actions_remaining == 0         # Command card ended
+
+
+def test_kings_parley_forecloses_blocked_ford():
+    s, atk, dfn = _approach_setup()
+    s.decks["yorkist"]["held"] = ["Y11"]             # Yorkist holds Blocked Ford
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist",
+                                 "by_lord": atk, "to": "lincoln"})
+    # King's Parley is offered first (priority 10).
+    assert r["awaiting"]["card"] == "L15"
+    out = actions.apply_action(s, {"type": "react", "side": "lancastrian", "play": "L15"})
+    # Cancel forecloses the downstream Blocked Ford offer entirely.
+    assert out["approach"] is None
+    assert "Y11" in s.decks["yorkist"]["held"]       # never consumed
+    assert len(out["reactions"]) == 1
+
+
+def test_blocked_ford_forces_battle_when_kings_parley_declined():
+    s, atk, dfn = _approach_setup()
+    s.decks["yorkist"]["held"] = ["Y11"]
+    actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": atk, "to": "lincoln"})
+    actions.apply_action(s, {"type": "react", "side": "lancastrian", "pass": True})  # decline L15
+    out = actions.apply_action(s, {"type": "react", "side": "yorkist", "play": "Y11"})
+    assert out["approach"] is not None               # Battle resolved (no Exile)
+    assert "Y11" not in s.decks["yorkist"]["held"]   # Blocked Ford consumed
+
+
+def test_no_approach_window_without_reactors():
+    s, atk, dfn = _approach_setup(henry_holds_kings_parley=False)
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist",
+                                 "by_lord": atk, "to": "lincoln"})
+    assert r["type"] == "march" and r["approach"] is not None   # resolves immediately

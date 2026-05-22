@@ -70,12 +70,40 @@ def _naval_blockade_offers(state, ctx):
                 and locs.get(ls.location, {}).get("port") \
                 and psea.get(ls.location) in set(ctx.get("seas", [])):
             offers.append({"side": "yorkist", "card": "Y15", "lord": lid,
-                           "kind": "capability", "priority": 20})
+                           "kind": "capability", "priority": 20, "effect": "naval_blockade"})
+    return offers
+
+
+def _other(side):
+    return "lancastrian" if side == "yorkist" else "yorkist"
+
+
+def _on_approach_offers(state, ctx):
+    """Reactions to an Approach (4.3.5): King's Parley (L15, Henry VI) and
+    Parliament's Truce cancel it; Blocked Ford forces Battle (no Exile).
+    Priority is canonical: King's Parley forecloses Blocked Ford (errata)."""
+    offers = []
+    appside = ctx["approaching_side"]
+    if appside == "yorkist" and "henry_vi" in ctx.get("target_lords", []) \
+            and _has_cap(state, "henry_vi", "KING'S PARLEY"):
+        offers.append({"side": "lancastrian", "card": "L15", "lord": "henry_vi",
+                       "kind": "capability", "priority": 10, "effect": "kings_parley"})
+    for side in ("lancastrian", "yorkist"):
+        cid = _held(state, side, "PARLIAMENT'S TRUCE")
+        if cid:
+            offers.append({"side": side, "card": cid, "kind": "held",
+                           "priority": 20, "effect": "parliaments_truce"})
+    for side in ("lancastrian", "yorkist"):
+        cid = _held(state, side, "BLOCKED FORD")
+        if cid:
+            offers.append({"side": side, "card": cid, "kind": "held",
+                           "priority": 30, "effect": "blocked_ford"})
     return offers
 
 
 _TRIGGER_OFFERS = {
     "uses_port_on_sea": [_naval_blockade_offers],
+    "on_approach": [_on_approach_offers],
 }
 
 
@@ -98,8 +126,44 @@ def _react_naval_blockade(state, inter, offer, action):
     return {"card": "Y15", "lord": offer["lord"], "roll": roll, "blocked": blocked}
 
 
-_REACTORS = {
-    "Y15": _react_naval_blockade,
+def _discard_held(state, side, cid):
+    held = state.decks.get(side, {}).get("held", [])
+    if cid in held:
+        held.remove(cid)
+    state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
+
+
+def _react_kings_parley(state, inter, offer, action):   # L15 (cap, discarded)
+    hv = state.lords["henry_vi"]
+    if offer["card"] in hv.capabilities:
+        hv.capabilities.remove(offer["card"])
+    state.decks.setdefault("lancastrian", {}).setdefault("discard", []).append(offer["card"])
+    inter["cancelled"] = True
+    inter["finish_data"]["cancel_reason"] = "kings_parley"
+    return {"card": offer["card"], "effect": "kings_parley", "cancels_approach": True}
+
+
+def _react_parliaments_truce(state, inter, offer, action):   # Y12/L20 (held)
+    _discard_held(state, offer["side"], offer["card"])
+    state.active_events.append({"card": offer["card"], "side": offer["side"],
+                                "scope": "this_campaign"})       # prohibits further A/I
+    inter["cancelled"] = True
+    inter["finish_data"]["cancel_reason"] = "parliaments_truce"
+    return {"card": offer["card"], "effect": "parliaments_truce", "cancels_approach": True}
+
+
+def _react_blocked_ford(state, inter, offer, action):   # Y11/L11 (held) -- forces Battle
+    # Signal only; the (tested) approach path consumes the Held Event and applies
+    # the no-Exile effect. 5a-iii unifies this consumption into the registry.
+    inter["finish_data"].setdefault("blocked_ford", []).append(offer["side"])
+    return {"card": offer["card"], "effect": "blocked_ford", "forces_battle": True}
+
+
+_EFFECT_REACTORS = {
+    "naval_blockade": _react_naval_blockade,
+    "kings_parley": _react_kings_parley,
+    "parliaments_truce": _react_parliaments_truce,
+    "blocked_ford": _react_blocked_ford,
 }
 
 
@@ -137,7 +201,7 @@ def resolve(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         card = action.get("play")
         _require(card == offer["card"], "wrong_reaction",
                  f"the awaiting reaction is {offer['card']} by {offer['side']}")
-        inter["log"].append(_REACTORS[card](state, inter, offer, action))
+        inter["log"].append(_EFFECT_REACTORS[offer["effect"]](state, inter, offer, action))
     inter["idx"] += 1
 
     if inter["cancelled"] or inter["idx"] >= len(inter["offers"]):
