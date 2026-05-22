@@ -285,3 +285,20 @@ Added ratings.has_capability and wired three economy capabilities:
   Ports across Seas as 1 Way for Parley, Tax, and Supply (NOT Sail, FAQ #1) -
   threaded via an all_seas flag through the Parley/Tax/Supply route finders.
 No SMOKEs. 192 tests pass; round-trip clean.
+
+## Round 20 (Phase 4-ix - influence/favour & active-event card effects)
+
+Added ratings.event_active / event_against helpers and wired three cards that
+turn on active This-Levy / This-Campaign events or a Held-in-Battle play:
+- Rising Wages (L9, This-Levy): the Yorkist side pays 1 Coin to Levy Troops
+  (normally free); enforced in actions._h_levy_troops via event_against, code
+  rising_wages_no_coin when the Coin is unavailable.
+- New Act of Parliament (L10, This-Campaign): a Yorkist campaign Parley
+  consumes the whole card (actions_remaining -> 0) instead of 1 action; wired
+  in commands.parley_campaign.
+- Suspicion (Y5, Hold in Battle): before Array, an Influence check (1.4.2) by
+  a Friendly Lord with strictly higher PRINTED Influence than an enemy Lord
+  disbands that enemy Lord with no Influence loss; wired via
+  battle._resolve_suspicion (codes bad_suspicion, no_suspicion,
+  suspicion_influence). Result attached as res["suspicion"].
+No SMOKEs. 196 tests pass; ruff clean; round-trip clean.

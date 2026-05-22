@@ -57,6 +57,7 @@ BLOCKED_FORD = "BLOCKED FORD"
 REGROUP = "REGROUP"
 ESCAPE_SHIP = "ESCAPE SHIP"
 FLANK_ATTACK = "FLANK ATTACK"
+SUSPICION = "SUSPICION"
 
 
 def _lord_has_capability(state: GameState, lord_id: str, title: str) -> str | None:
@@ -277,6 +278,35 @@ def _engagements(positions: dict, forces: dict) -> list[dict]:
 
 
 # ----------------------------------------------------------------- resolve
+def _resolve_suspicion(state, locale, attackers, defenders, forces, decisions):
+    """Suspicion (Y5/L5): a participating Lord checks Influence; on success
+    Disband one Enemy Lord at the Battle with a lower PRINTED Influence (no
+    Influence-point loss). The Disbanded Lord leaves the Battle (4.4.1)."""
+    sp = decisions.get("suspicion")
+    if not sp:
+        return None
+    by, target = sp.get("by"), sp.get("target")
+    _require(by in forces and target in forces, "bad_suspicion",
+             "Suspicion must name a Friendly and an Enemy Lord in the Battle (4.4.1)")
+    bside = state.lords[by].side
+    _require(state.lords[target].side != bside, "bad_suspicion", "target must be an Enemy Lord")
+    cid = _side_held_event(state, bside, SUSPICION)
+    _require(cid is not None, "no_suspicion", f"{bside} has no Suspicion Held Event (4.4.1)")
+    lords_static = static_data.load_lords()
+    _require(lords_static[by]["ratings"]["influence"]
+             > lords_static[target]["ratings"]["influence"], "suspicion_influence",
+             "the Friendly Lord must have a higher PRINTED Influence than the Enemy (Y5 errata)")
+    _use_held_event(state, bside, cid)
+    chk = influence.check_influence(state, by, bside)
+    if chk["success"]:
+        campaign._disband_lord(state, state.lords[target])   # no Influence-point loss (Y5)
+        for lst in (attackers, defenders):
+            if target in lst:
+                lst.remove(target)
+        forces.pop(target, None)
+    return {"by": by, "target": target, **chk}
+
+
 def resolve_battle(state: GameState, locale: str, attacker, defender,
                    decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     decisions = decisions or {}
@@ -337,6 +367,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
     _apply_barricades(state, forces, locale)
     _apply_special_vassal_armour(state, forces)
+
+    susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
     positions, reserves = _initial_array(attackers, defenders, decisions)
     rounds: list[dict[str, Any]] = []
 
@@ -417,8 +449,11 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         rounds.append(rlog)
 
     state.store_dice(dice)
-    return _ending(state, locale, forces, attackers, defenders, rounds,
-                   decisions.get("escape_ship", []))
+    res = _ending(state, locale, forces, attackers, defenders, rounds,
+                  decisions.get("escape_ship", []))
+    if susp is not None:
+        res["suspicion"] = susp
+    return res
 
 
 def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
