@@ -300,6 +300,11 @@
           "default": false,
           "title": "Moved Fought",
           "type": "boolean"
+        },
+        "free_troops_used": {
+          "default": false,
+          "title": "Free Troops Used",
+          "type": "boolean"
         }
       },
       "required": [

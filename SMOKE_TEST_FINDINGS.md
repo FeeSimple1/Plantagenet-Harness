@@ -258,3 +258,17 @@ to the Calendar marked Exile + Influence penalty) instead of rolling Death;
 Regroup (Y30 Hold) — once at a chosen Round, a Lord's Routed Troops roll
 their (modified) Protection to recover. All validated against held cards and
 consumed on use. No SMOKEs. 183 tests pass.
+
+## Round 18 (Phase 4-vii - Special Vassal effects)
+
+Added a `ratings.py` effective-rating layer (printed rating + Special-Vassal
+Command/Valour modifiers), wired into Campaign activation (Command), battle
+_Force Valour, and Intercept Valour. Levying a Special-Vassal Capability now
+Musters the linked Vassal free onto the Lord (`_muster_special_vassal`):
+Hastings (Y24) +2 Men-at-Arms + Command +1; Edward Prince of Wales (L26),
+Clifford (L21), Trollope (L19) +1 Valour; Montagu (L23) Warwick's Retinue
+Armour 1-5 in battle; Thomas Stanley (L35) a free Levy Troops once per Levy
+(0 Lordship; LordState.free_troops_used, reset each Levy). Disbanding a Lord
+now discards its Capabilities (to the deck discard) and releases Special
+Vassals (1.5.3/4.4.3). Structured `modifiers` added to vassals.json special
+entries. No SMOKEs. 188 tests pass.
