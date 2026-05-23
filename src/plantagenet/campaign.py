@@ -1,20 +1,17 @@
 """Campaign phase: Plan, Activation, Commands, Feed, and End Campaign (4.x).
 
-Phase 3a-i scope — the Campaign backbone:
   - Plan (4.1): build per-side ordered stacks of Command cards (Lord
     activations + Pass), sized by the season.
   - Activation (4.2): Rebel then King alternate revealing their top card;
     the shown Lord takes up to its Command rating in Command actions.
-  - Commands: forage (4.6.2) and pass (4.6.5). [March/Sail/Supply and the
-    route-economy Commands Tax/Parley arrive in 3a-ii.]
-  - Feed (4.7): Moved-Fought Lords feed after each card (no movement yet in
-    3a-i, so this is a no-op until 3a-ii adds March/Sail).
-  - End Campaign (4.8): Tides of War (4.8.1), Victory check (4.8.3 / 5.x),
-    Grow (4.8.4), Waste (4.8.5), Reset / advance Turn (4.8.6).
+  - Commands live in `commands.py` (March/Sail/Tax/Parley/Supply/...) and
+    here: forage (4.6.2), pass (4.6.5).
+  - Feed (4.7): Moved-Fought Lords feed after each card.
+  - End Campaign (4.8): Tides of War (4.8.1), Disembark (4.8.2), Victory
+    check (4.8.3 / 5.x), Grow (4.8.4), Waste (4.8.5), Reset / advance Turn
+    (4.8.6). A rolled-over Turn re-enters the Levy at the Arts of War draw.
 
-Pay (3.2) on Turn rollover and the Arts-of-War draw (3.1, Phase 4) are not
-yet executed: a rolled-over Turn lands at the Muster step (documented
-deferral). No combat (Approach/Battle) — that is Phase 3b.
+Combat (Approach/Battle) lives in `battle.py`.
 """
 
 from __future__ import annotations
@@ -208,7 +205,7 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         if ls is not None:
             ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
         elif kind == "exile":
-            pass  # exile-box depletion is not tracked separately in 3a-i
+            pass  # Exile boxes have no Depletion track (1.3.1)
     return {"type": "forage", "by_lord": lord.lord_id, "locale": here,
             "favour": fav, "enemy_adjacent": enemy_adjacent, "roll": roll,
             "success": success, "provender_added": added}
@@ -706,9 +703,8 @@ def _reset_to_next_levy(state: GameState) -> None:
     state.active_events = [e for e in state.active_events if e.get("scope") != "this_campaign"]
     state.turn_box += 1
     state.phase = "levy"
-    # A rolled-over Turn begins at the Arts of War draw (3.1), then Pay (3.2).
-    # Muster Exiles (3.3.1) is deferred (needs scenario Exile-box mapping and
-    # is a no-op without due Exile cylinders).
+    # A rolled-over Turn begins at the Arts of War draw (3.1), then Pay (3.2),
+    # then the Muster window (Muster Exiles 3.3.1 + Muster 3.4).
     state.levy_step = "arts_of_war"
     state.campaign = None
     state.active_side = _rebel(state)

@@ -28,12 +28,24 @@ def test_data_check_passes():
     assert '"errors": []' in result.stdout
 
 
-def test_pending_command_still_stubbed(tmp_path):
+def test_pending_shows_empty_when_no_reaction(tmp_path):
     out = tmp_path / "g.state.json"
     runner.invoke(app, ["new", "henry_vi", "--out", str(out)])
     result = runner.invoke(app, ["pending", str(out)])
-    assert result.exit_code != 0
-    assert "not yet implemented" in result.stdout
+    assert result.exit_code == 0
+    assert '"pending": []' in result.stdout
+
+
+def test_history_shows_recent_actions(tmp_path):
+    import json as _json
+    out = tmp_path / "g.state.json"
+    runner.invoke(app, ["new", "henry_vi", "--out", str(out)])
+    # An Arts of War draw is a recordable action.
+    runner.invoke(app, ["do", str(out), _json.dumps({"type": "draw", "side": "yorkist"})])
+    result = runner.invoke(app, ["history", str(out), "--n", "5"])
+    assert result.exit_code == 0
+    data = _json.loads(result.stdout)
+    assert data["total"] >= 1 and data["history"][-1]["action"]["type"] == "draw"
 
 
 def test_new_and_state_summary(tmp_path):

@@ -8,9 +8,9 @@ markers exactly as the Scenario Reference specifies.
 
 The Wars of the Roses grand scenario is initialized at its first War
 ("Plantagenets Go to War"), whose setup is Scenario Ia per the reference.
-The conditional Succession that selects later Wars' setups is game logic
-deferred to a later phase; `grand_scenario` metadata records the current
-War so that logic has what it needs.
+The conditional Succession that selects and builds later Wars' setups is
+implemented in `succession.py` and `renew_war`; `grand_scenario` metadata
+records the current War.
 
 Initial `active_side` is the Rebel side: the Levy sequence (cards, Pay,
 Muster) proceeds "Rebel then King's" each Turn (3.1-3.4).

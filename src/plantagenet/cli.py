@@ -1,12 +1,10 @@
 """Command-line interface for the Plantagenet harness.
 
-Phase 0 wires up the command skeleton and the data-inspection commands
-that work without game logic. Commands that require the state model and
-rules engine (``new``, ``state``, ``legal-moves``, ``do``, ``pending``,
-``history``) are present as stubs so the grammar is fixed early; they
-raise a clear "not yet implemented" message until their phase lands.
+Inspection commands (``version``, ``scenarios``, ``data-check``) work on the
+static data; the game-logic commands (``new``, ``state``, ``legal-moves``,
+``do``, ``pending``, ``history``) drive and inspect a saved state file.
 
-The action grammar for ``do`` is documented in ACTIONS.md as it grows.
+The action grammar for ``do`` is documented in ACTIONS.md.
 """
 
 from __future__ import annotations
@@ -23,7 +21,6 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-_NOT_YET = "not yet implemented — arrives in a later phase (see BRIEF.md)"
 
 
 @app.command()
@@ -56,7 +53,7 @@ def data_check() -> None:
         raise typer.Exit(code=1)
 
 
-# --- game-logic command stubs (grammar fixed now, behavior later) ---
+# --- game-logic commands ---
 
 
 @app.command()
@@ -140,18 +137,30 @@ def do(file: str, action: str) -> None:
 
 @app.command()
 def pending(file: str) -> None:
-    """Show pending sub-decisions and who owes a response. (Phase 3b+)"""
-    raise typer.Exit(_stub("pending"))
+    """Show any pending reaction(s) and who owes the next response (Q-004)."""
+    from plantagenet.state import GameState
+
+    gs = GameState.load(file)
+    out: dict = {"pending": gs.pending}
+    if gs.pending:
+        inter = gs.pending[0]
+        offers = inter.get("offers", [])
+        idx = inter.get("idx", 0)
+        out["trigger"] = inter.get("trigger")
+        if idx < len(offers):
+            out["awaiting"] = offers[idx]          # the next reactor who owes a `react`
+    typer.echo(json.dumps(out, indent=2))
 
 
 @app.command()
 def history(file: str, n: int = 10) -> None:
-    """Show the last N actions and results. (Phase 1+)"""
-    raise typer.Exit(_stub("history"))
+    """Show the last N actions and their results."""
+    from plantagenet.state import GameState
 
-
-def _stub(name: str) -> str:
-    return f"`{name}` is {_NOT_YET}"
+    gs = GameState.load(file)
+    shown = gs.history[-n:] if n > 0 else gs.history
+    typer.echo(json.dumps({"total": len(gs.history), "shown": len(shown),
+                           "history": shown}, indent=2))
 
 
 if __name__ == "__main__":

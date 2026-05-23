@@ -5,7 +5,7 @@ Static data lives as JSON under ``plantagenet/data/static/`` and
 
 This module is data plumbing only — it reads and validates the shape of
 the reference data. It contains no game logic (no rule enforcement, no
-action resolution). That arrives in later phases.
+action resolution); those live in the rules-engine modules.
 
 All data traces to the curated reference files in ``reference/`` and,
 where those are silent, the Rules of Play / Errata PDFs in ``source/``.

@@ -7,10 +7,10 @@ their Events — Hold Events go to the held pile, This Levy / This Campaign
 Events become active for the phase, and other Events resolve and return to
 the deck.
 
-Card EFFECTS are tracked as data (the consumer applies them) until coded in
-a later Phase-4 increment; this module wires the draw, deck, and Event-type
-lifecycle. Capability deployment defaults to the first eligible Mustered
-Lord.
+This module wires the draw, deck, and Event-type lifecycle; card effects
+themselves are applied by the rules-engine modules (events / ratings /
+battle / reactions). Capability deployment defaults to the first eligible
+Mustered Lord.
 """
 
 from __future__ import annotations

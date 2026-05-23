@@ -5,11 +5,9 @@ to one JSON file (BRIEF: "A single JSON file holds complete game state").
 Loading a state file fully reconstructs the game, including the seeded
 dice (`rng.DiceRoller`).
 
-Phase 1 scope: the model represents a faithfully-loaded scenario *setup*
-and supports display. It carries no rules logic — no action handlers, no
-turn-order enforcement, no victory math. Those arrive in later phases.
-Fields are intentionally permissive (``extra="allow"`` is NOT set; unknown
-keys are rejected) so that a typo in the loader fails loudly.
+The model holds the full live game state (carrying no rules logic itself --
+handlers live in the engine modules). Fields are strict (``extra="forbid"``)
+so that a typo in the loader or a handler fails loudly.
 """
 
 from __future__ import annotations
@@ -109,9 +107,8 @@ class StrongholdMarker(_Model):
 class InfluenceState(_Model):
     """Mirrors the scenario's Influence-track setup verbatim.
 
-    The Influence/scoring *mechanics* are not interpreted in Phase 1; the
-    values are stored as given so the display is faithful and later phases
-    can build the scoring logic on top.
+    Setup values are loaded verbatim; the scoring mechanics (Tides of War,
+    Victory) are implemented in `campaign.py` / `influence.py`.
     """
 
     marker_at: int

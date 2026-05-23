@@ -690,3 +690,15 @@ Finished the standalone-scenario special rules:
   a `held` set; tracked once via new GameState.flags).
 Schema regenerated (CAPTURED/captured_by, flags). tests/test_special_rules.py:
 17 tests. 396 pass; ruff clean. ALL scenario special rules now implemented.
+
+## Round (2026-05-23): CLI pending/history + stale-comment cleanup
+
+- CLI: implemented the `pending` (shows state.pending + the awaiting reactor) and
+  `history` (last N action/result entries) commands, replacing their stubs;
+  removed the unused _NOT_YET/_stub plumbing and the "stubs" module docstring.
+- Documentation debt: rewrote stale module docstrings / comments across
+  actions.py, campaign.py, commands.py, legal_moves.py, scenarios.py,
+  static_data.py, arts_of_war.py, state.py that still described implemented
+  features as "deferred to Phase N / not yet". Schema regenerated (state.py
+  docstring feeds the model schema). tests/test_cli.py updated. 397 pass; ruff
+  clean.

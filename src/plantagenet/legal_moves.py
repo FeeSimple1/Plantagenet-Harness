@@ -8,8 +8,8 @@ static data, it is wrapped so a data hiccup suppresses the option rather
 than crashing the enumerator (bias: miss a legal move over offering a
 phantom-legal one).
 
-The one deferred Muster action intentionally NOT enumerated is
-levy_capability (Arts of War cards, Phase 4).
+All Muster actions (incl. levy_capability and muster_exiles) and the
+Campaign Command actions are enumerated, each mirroring its handler check.
 """
 
 from __future__ import annotations
