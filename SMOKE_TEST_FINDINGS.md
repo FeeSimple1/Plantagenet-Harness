@@ -671,3 +671,22 @@ Arms, Bosworth).
   Corrected a test that wrongly expected a 5.3 victory for Towton.
 391 pass; ruff clean. Remaining standalone: King Richard, Norfolk is Late,
 Capture of the King, Bosworth (Victory / On Bosworth Field).
+
+## Round (2026-05-23): standalone special rules complete (batch 3b)
+
+Finished the standalone-scenario special rules:
+- King Richard (My Kingdom): crown_richard action replaces Gloucester at London
+  with Richard III in place.
+- Bosworth (battle-only): battle._ending now skips the Influence award/Spoils
+  when there is no Influence track/map Locale -- the battle winner wins the
+  scenario (all-Rout = draw). Fixed a crash resolving Bosworth.
+- Capture of the King (Scenario Ia): Yorkists beating Henry VI capture him onto
+  an Unrouted Yorkist Lord's mat (no Death roll, +10 Yorkist) -- new
+  LordStatus.CAPTURED + LordState.captured_by; when the holder leaves play
+  (campaign._release_captive in _disband_lord, covering Disband/Exile/Death),
+  Henry VI returns to the Calendar and the Lancastrians gain +10.
+- Norfolk is Late (Towton): in the first Battle including Norfolk and another
+  Yorkist Lord, Norfolk stays in Reserve until Round 2 (battle._reposition gains
+  a `held` set; tracked once via new GameState.flags).
+Schema regenerated (CAPTURED/captured_by, flags). tests/test_special_rules.py:
+17 tests. 396 pass; ruff clean. ALL scenario special rules now implemented.

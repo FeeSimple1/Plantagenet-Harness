@@ -48,6 +48,7 @@ class LordStatus(str, Enum):
     EXILE = "exile"            # cylinder in an Exile box
     AVAILABLE = "available"    # Lord card in the scenario, not yet in play
     REMOVED = "removed"        # permanently out of the game
+    CAPTURED = "captured"      # held on an enemy Lord's mat (Capture of the King)
 
 
 class _Model(BaseModel):
@@ -63,6 +64,7 @@ class LordState(_Model):
     calendar_box: int | None = None    # Turn box when CALENDAR
     calendar_exile: bool = False       # cylinder marked Exile on the Calendar
     at_sea: str | None = None          # Sea zone id when Sailing "into a Sea" (4.6.1)
+    captured_by: str | None = None     # holder Lord id when CAPTURED (Capture of the King)
     ring: str | None = None            # "silver" | "gold" (Heir ring), if any
     forces: dict[str, int] = Field(default_factory=dict)
     assets: dict[str, int] = Field(default_factory=dict)
@@ -164,6 +166,7 @@ class GameState(_Model):
     arts_of_war: dict[str, str] = Field(default_factory=dict)   # side -> deck composition text
     history: list[dict[str, Any]] = Field(default_factory=list)
     pending: list[dict[str, Any]] = Field(default_factory=list)
+    flags: dict[str, Any] = Field(default_factory=dict)   # scenario-level one-shot flags
 
     # -- dice -------------------------------------------------------------
     def dice(self) -> DiceRoller:

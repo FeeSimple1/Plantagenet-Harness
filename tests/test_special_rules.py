@@ -189,3 +189,90 @@ def test_plain_5_3_victory_when_no_test_of_arms():
     s.turn_box = s.calendar.last_box
     res = campaign._victory_check(s)
     assert res is not None and res["rule"] in ("5.3", "5.1")
+
+
+def test_king_richard_replaces_gloucester_at_london():
+    s = build_initial_state("my_kingdom_for_a_horse")
+    g = "gloucester_1" if "gloucester_1" in s.lords else "gloucester_2"
+    s.lords[g].status = LordStatus.MUSTERED
+    s.lords[g].location = "london"
+    r = actions.apply_action(s, {"type": "crown_richard", "side": "yorkist"})
+    assert r["with"] == "richard_iii"
+    assert s.lords["richard_iii"].location == "london"
+    assert s.lords[g].status == LordStatus.REMOVED
+
+
+def test_king_richard_requires_gloucester_at_london():
+    s = build_initial_state("my_kingdom_for_a_horse")
+    for g in ("gloucester_1", "gloucester_2"):
+        if g in s.lords:
+            s.lords[g].location = "york"     # not London
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "crown_richard", "side": "yorkist"})
+    assert e.value.code == "no_gloucester_at_london"
+
+
+def test_bosworth_battle_resolves_and_picks_a_winner():
+    from plantagenet import battle
+    s = build_initial_state("bosworth")               # battle-only: no Influence track
+    yk = ["richard_iii", "northumberland_2", "norfolk"]
+    lc = ["henry_tudor", "jasper_tudor_2", "oxford"]
+    for lid in yk + lc:
+        s.lords[lid].location = "leicester"
+    r = battle.resolve_battle(s, "leicester", yk, lc)
+    assert r["winner_side"] in ("yorkist", "lancastrian", None)   # None == all-Rout draw
+    assert "influence_award" not in r                  # no Influence on a battle-only scenario
+
+
+def test_capture_of_the_king_captures_henry_vi_and_releases_on_holder_loss():
+    from plantagenet import battle, influence
+    captured = False
+    for seed in range(1, 30):
+        s = build_initial_state("henry_vi", seed=seed)
+        for lid in ("york", "henry_vi"):
+            s.lords[lid].location = "cambridge"
+            s.lords[lid].status = LordStatus.MUSTERED
+            s.lords[lid].capabilities = []
+        s.lords["york"].forces = {"retinue": 1, "men_at_arms": 4, "longbow": 2}
+        s.lords["henry_vi"].forces = {"retinue": 1}        # weak -> likely Routs
+        r = battle.resolve_battle(s, "cambridge", "york", "henry_vi", {})
+        if "captured" in r:
+            captured = True
+            hv = s.lords["henry_vi"]
+            assert hv.status == LordStatus.CAPTURED and hv.captured_by == "york"
+            before = influence._net_lanc(s.influence["track"])
+            campaign._disband_lord(s, s.lords["york"])     # holder leaves play
+            assert s.lords["henry_vi"].status == LordStatus.CALENDAR   # released to Calendar
+            assert influence._net_lanc(s.influence["track"]) - before == 10  # Lancastrian +10
+            break
+    assert captured
+
+
+def _round_participants(rnd):
+    out = set()
+    for e in rnd["engagements"]:
+        out.update(e.get("attacker", []))
+        out.update(e.get("defender", []))
+    return out
+
+
+def test_norfolk_is_late_holds_norfolk_in_reserve_round_one():
+    from plantagenet import battle
+    s = build_initial_state("towton")
+    yk, lc = ["march", "norfolk"], ["somerset_1"]
+    for lid in yk + lc:
+        s.lords[lid].location = "york"
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].forces = {"retinue": 1, "men_at_arms": 3}
+    r = battle.resolve_battle(s, "york", yk, lc)
+    assert "norfolk" not in _round_participants(r["rounds"][0])     # Reserve in Round 1
+    assert s.flags.get("norfolk_is_late_used") is True
+    # Fires only for the first qualifying Battle.
+    s2 = build_initial_state("towton")
+    s2.flags["norfolk_is_late_used"] = True
+    for lid in yk + lc:
+        s2.lords[lid].location = "york"
+        s2.lords[lid].status = LordStatus.MUSTERED
+        s2.lords[lid].forces = {"retinue": 1, "men_at_arms": 3}
+    r2 = battle.resolve_battle(s2, "york", yk, lc)
+    assert "norfolk" in _round_participants(r2["rounds"][0])        # no longer delayed
