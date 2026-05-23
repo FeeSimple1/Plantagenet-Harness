@@ -256,6 +256,18 @@
           "default": null,
           "title": "At Sea"
         },
+        "captured_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured By"
+        },
         "ring": {
           "anyOf": [
             {
@@ -343,7 +355,8 @@
         "calendar",
         "exile",
         "available",
-        "removed"
+        "removed",
+        "captured"
       ],
       "title": "LordStatus",
       "type": "string"
@@ -623,6 +636,11 @@
       },
       "title": "Pending",
       "type": "array"
+    },
+    "flags": {
+      "additionalProperties": true,
+      "title": "Flags",
+      "type": "object"
     }
   },
   "required": [

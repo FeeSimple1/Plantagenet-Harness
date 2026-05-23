@@ -339,7 +339,7 @@ def _initial_array(attackers: list[str], defenders: list[str],
             {"attacker": res_atk, "defender": res_def})
 
 
-def _reposition(positions: dict, reserves: dict, forces: dict) -> None:
+def _reposition(positions: dict, reserves: dict, forces: dict, held=frozenset()) -> None:
     for side in ("defender", "attacker"):
         pos = positions[side]
         for idx in list(pos):                                  # Rout removal
@@ -347,8 +347,11 @@ def _reposition(positions: dict, reserves: dict, forces: dict) -> None:
                 pos.pop(idx, None)
         reserves[side] = [r for r in reserves[side] if not forces[r].lord_routed]
         for idx in _FILL_ORDER:                                # Advance reserves
-            if idx not in pos and reserves[side]:
-                pos[idx] = reserves[side].pop(0)
+            if idx not in pos:
+                nxt = next((r for r in reserves[side] if r not in held), None)
+                if nxt is not None:                            # held reserves wait (Norfolk)
+                    reserves[side].remove(nxt)
+                    pos[idx] = nxt
         if 1 not in pos:                                       # Center fill
             for i in (0, 2):
                 if i in pos:
@@ -596,6 +599,23 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
     ftrust = _resolve_for_trust(state, attackers, defenders, forces, decisions)
     positions, reserves = _initial_array(attackers, defenders, decisions)
+    # Norfolk is Late (Towton): in the first Battle including Norfolk and another
+    # Yorkist Lord, Norfolk stays in Reserve until Round 2.
+    norfolk_late = False
+    if "norfolk" in attackers + defenders \
+            and "Norfolk is Late" in campaign._active_special_rules(state) \
+            and not state.flags.get("norfolk_is_late_used"):
+        nf_side = state.lords["norfolk"].side
+        if any(lid != "norfolk" and state.lords[lid].side == nf_side
+               for lid in attackers + defenders):
+            norfolk_late = True
+            state.flags["norfolk_is_late_used"] = True
+            for side in ("attacker", "defender"):
+                pos = positions[side]
+                for idx in [i for i, lid in pos.items() if lid == "norfolk"]:
+                    pos.pop(idx, None)
+                    if "norfolk" not in reserves[side]:
+                        reserves[side].append("norfolk")
     rounds: list[dict[str, Any]] = []
 
     def side_alive(ids):
@@ -612,7 +632,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         if not side_alive(attackers) or not side_alive(defenders):
             rounds.append(rlog)
             break
-        _reposition(positions, reserves, forces)               # REPOSITION
+        _reposition(positions, reserves, forces,               # REPOSITION
+                    held=frozenset({"norfolk"}) if (norfolk_late and n == 1) else frozenset())
         if regroup_lord is not None and n == regroup_round:    # Regroup: recover Troops
             f = forces[regroup_lord]
             for t in [x for x in f.count if x in _TROOP_TYPES]:
@@ -785,6 +806,19 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
             exiles.append(lid)
             continue
         ld0 = state.lords[lid]
+        # Capture of the King (Scenario Ia): Yorkists beating Henry VI capture him
+        # onto an Unrouted Yorkist Lord's mat (no Death roll) for +10 Influence.
+        if (lid == "henry_vi" and win_ids and state.lords[win_ids[0]].side == "yorkist"
+                and "Capture of the King" in campaign._active_special_rules(state)):
+            holder = next((w for w in win_ids if not forces[w].lord_routed), None)
+            if holder is not None:
+                influence.gain_influence(state, "yorkist", 10)
+                campaign._disband_lord(state, ld0)        # Disband him ...
+                ld0.status = LordStatus.CAPTURED          # ... onto the holder's mat
+                ld0.captured_by = holder
+                ld0.calendar_box = None
+                result.setdefault("captured", []).append({"lord": "henry_vi", "by": holder})
+                continue
         if warden and ld0.side == "lancastrian" and \
                 static_data.load_locales().get(locale, {}).get("region") == "north":
             dest = _friendly_north_stronghold(state)     # L16: move to Friendly North Stronghold

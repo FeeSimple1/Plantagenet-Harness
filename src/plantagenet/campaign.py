@@ -263,10 +263,25 @@ def _pillage(state: GameState, lord, locale_id: str) -> dict[str, Any]:
 
 
 # ------------------------------------------------------- 3.2.4 Disband
+def _release_captive(state: GameState, holder_id: str) -> None:
+    """Capture of the King: if ``holder_id`` (a Yorkist Lord holding Henry VI)
+    leaves play, place Henry VI on the Calendar as if just Disbanded and the
+    Lancastrians gain +10 Influence."""
+    for ls in state.lords.values():
+        if ls.captured_by == holder_id and ls.status == LordStatus.CAPTURED:
+            ls.captured_by = None
+            ls.status = LordStatus.CALENDAR
+            ls.calendar_box = state.turn_box + 1
+            ls.location = ls.exile_box = None
+            ls.calendar_exile = False
+            influence.gain_influence(state, "lancastrian", 10)
+
+
 def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     """Disband a Lord (3.2.4): Disband its Vassals, return Forces/Assets, and
     place the cylinder on the Calendar 6-minus-Influence boxes right of the
     current Turn (Exile-marked if Disbanding from an Exile box)."""
+    _release_captive(state, lord.lord_id)        # Capture of the King: free any captive
     inf = static_data.load_lords()[lord.lord_id]["ratings"]["influence"]
     for vid in list(lord.vassals):
         _disband_vassal(state, vid)
