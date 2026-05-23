@@ -155,6 +155,12 @@ Approach, Avoid Battle, Withdraw, Battle Array choices, Hit allocation,
 Reserve advance, etc. flow through a decision context and are documented
 when implemented.
 
+Naval Blockade (Y15) gates Lancastrian Sea actions via the `uses_port_on_sea`
+reaction trigger: `sail`, `tax`, `parley` (campaign), and `supply` pause for a
+Yorkist Warwick (Y15) at a Port whenever the action uses a Port on his Sea. The
+Command-action cost is spent regardless; a block cancels the action before the
+Influence check / effect.
+
 In-Battle Held-Event / Capability plays are passed via the `resolve_battle`
 `decisions` payload at the Event step (4.4.1): e.g. `leeward`, `caltrops`,
 `ravine`, `suspicion`, and `for_trust_not_him` (L7 -- a participating Lord

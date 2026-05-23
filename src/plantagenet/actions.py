@@ -150,7 +150,8 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 # ------------------------------------------------------------- 3.4.1 Parley
 def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
-                       side: str, has_ship: bool, all_seas: bool = False) -> int | None:
+                       side: str, has_ship: bool, all_seas: bool = False,
+                       block_sea: str | None = None) -> int | None:
     """Shortest Route cost in Ways from the Lord to ``target`` Stronghold.
 
     A Route is a chain of adjacent Locales free of Enemy Lords whose
@@ -168,10 +169,12 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
         out = [n for n, _t in adj.get(node, [])]
         if node in port_sea:
             if all_seas:                          # Great Ships: connect all Ports (any Sea)
-                out += [p for p in port_sea if p != node]
+                out += [p for p in port_sea if p != node
+                        and not (block_sea and block_sea in (port_sea[node], port_sea[p]))]
             elif has_ship:                        # Sea hop (1.4.2): same-Sea Ports
                 sea = port_sea[node]
-                out += [p for p, z in port_sea.items() if z == sea and p != node]
+                if sea != block_sea:              # Naval Blockade: no hops over the blocked Sea
+                    out += [p for p, z in port_sea.items() if z == sea and p != node]
         return out
 
     # BFS over Ways; expanding a node requires it to be a legal Route step.

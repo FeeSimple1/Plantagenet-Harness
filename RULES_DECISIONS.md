@@ -168,9 +168,17 @@ adjudicator to decide:
   flag is removed from `reactions.py`. Tests in `tests/test_card_for_trust.py`.
 - **(b) Naval Blockade (Y15).** The card's own text/Tips enumerate every
   gated action — Parley, Levy Ship, Supply, Sail, and Tax (3.4.1, 4.6.4,
-  3.4.5, 4.5, 4.6.1, 4.6.3). The engine currently gates Sail only; extending
-  to the rest needs route->sea introspection so the engine knows a given
-  action uses a Port on the blockaded Sea. No ambiguity.
+  3.4.5, 4.5, 4.6.1, 4.6.3). IMPLEMENTED (2026-05-22): the `uses_port_on_sea`
+  reaction now also gates Lancastrian Tax / Campaign Parley / Supply, not just
+  Sail. Route->sea introspection: an action "uses a Port on Sea S" when a Ship
+  sea-hop over S is load-bearing for its Route -- i.e. blocking S raises the
+  Way cost or makes the target unreachable (`commands._route_used_seas`); an
+  equally short overland route routes around the Blockade. Campaign Parley uses
+  S only when it reaches a non-adjacent same-Sea Port by Ship, and Ship Supply
+  uses the Sea of its Port Source. Ordering follows the Y15 tips: the
+  Command-action cost is committed before the reaction window; on a block the
+  Influence check is never made (no Influence paid, no effect). Tests in
+  `tests/test_naval_blockade_actions.py`.
 - **(c) Wars IIY / IIIY base-scenario setup.** The conditional Lord
   placements and the Natural Causes post-victory rolls are fully specified by
   the scenario prose (Scenario Reference E4 "War IIY" / E6 "War IIIY") plus
