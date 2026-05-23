@@ -711,6 +711,32 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     return {"type": "muster_exiles", "side": side, "mustered": mustered}
 
 
+# --------------------------------------------------------- 6.1.1 Surrender
+def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Surrender / Concede a War (6.1.1-.2): in the grand scenario's first or
+    second War, a side with an Heir still present may concede that War as the
+    loser, setting the War's victory so the consumer proceeds to Renewed War
+    (6.1). (Timing -- "just before the last Heir's Death roll" -- is the
+    consumer's to choose; the harness exposes the action.)"""
+    side = action.get("side")
+    _require(side in SIDES, "bad_side", "side must be 'lancastrian' or 'yorkist'")
+    _require(state.grand_scenario is not None, "not_grand",
+             "Surrender applies only to the grand scenario (6.1.1)")
+    wars = {w["war_id"]: w for w in static_data.load_scenario("wars_of_the_roses")["wars"]}
+    order = wars.get(state.grand_scenario.get("current_war"), {}).get("order")
+    _require(order in (1, 2), "no_surrender",
+             "a side may concede only the first or second War (6.1.1)")
+    from plantagenet import succession
+    in_play = (LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE)
+    has_heir = any(ls.status in in_play and succession.heir_rank(state, side, lid) is not None
+                   for lid, ls in state.lords.items() if ls.side == side)
+    _require(has_heir, "no_heir_to_concede",
+             "the conceding side has no Heir still present to surrender (6.1.1)")
+    winner = other_side(side)
+    state.victory = {"result": winner, "rule": "6.1.1 Surrender", "conceded_by": side}
+    return {"type": "concede", "side": side, "winner": winner, "rule": "6.1.1"}
+
+
 # ------------------------------------------------------------- end_muster
 def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     side = action.get("side")
@@ -771,6 +797,7 @@ _HANDLERS = {
     "levy_troops": _h_levy_troops,
     "levy_capability": _h_levy_capability,
     "muster_exiles": _h_muster_exiles,
+    "concede": _h_concede,
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),

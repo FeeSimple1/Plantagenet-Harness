@@ -624,3 +624,24 @@ guard; a Lord already at Sea may still reach a Port on an adjacent Sea) and the
 Sea" moves and at-Sea-origin Sails, and mirrors French Fleet / Owain Glyndwr).
 The round-trip activation sweep caught the enumerator/handler mismatch.
 tests/test_sail_cross_sea.py: 4 tests. 379 pass; ruff clean.
+
+## Round (2026-05-23): rules-coverage audit + scenario special rules (batch 1)
+
+Thorough audit found the engine core complete (all 74 cards, full Levy/Campaign/
+Battle/End sequence, victory 5.1/5.2/5.3, all six War setups). The remaining work
+is scenario special rules (prose, unimplemented) + Surrender. Batch 1 (the
+bounded, scoring/flow rules), all data-driven via `campaign._active_special_rules`
+(reads the active scenario/War's own special_rules):
+- Ravaged Land (IIIY/IIIL/My Kingdom): skip Grow AND Waste at End-Campaign.
+- Brief Rebellion (Somerset's Return): skip Waste.
+- Queen Regent (Warwick's Rebellion): Margaret at London -> +3 Lancastrian at Tides.
+- Surrender / Concede a War (6.1.1-.2): new `concede` action -- in the grand
+  scenario's first/second War a side with an Heir present concedes, setting the
+  War victory to the other side (consumer then calls renew_war). Rejected in the
+  third War / non-grand.
+- Gloucester special rule (IIY/IIL): once Y28 GLOUCESTER AS HEIR is played/set
+  aside, the FIRST SON Capability becomes unavailable (suppressed at Tides).
+tests/test_special_rules.py: 7 tests. 386 pass; ruff clean.
+STILL TO BUILD: Foreign Haven + Shaky Allies (IIY movement/battle), and the
+standalone-scenario batch (Capture of the King, King Richard, Montagu, Norfolk
+is Late, Test of Arms, Bosworth).
