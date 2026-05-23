@@ -411,6 +411,31 @@
       }
      ]
     }
+   },
+   "arts_of_war_spec": {
+    "yorkist": {
+     "add": [
+      "Y25",
+      "Y26",
+      "Y27",
+      "Y29",
+      "Y30"
+     ],
+     "except": []
+    },
+    "lancastrian": {
+     "add": [
+      "L23",
+      "L24",
+      "L25",
+      "L29",
+      "L30",
+      "L36"
+     ],
+     "except": [
+      "L4"
+     ]
+    }
    }
   },
   {
@@ -737,6 +762,35 @@
       }
      ]
     }
+   },
+   "arts_of_war_spec": {
+    "lancastrian": {
+     "add": [
+      "L18",
+      "L19",
+      "L20",
+      "L21",
+      "L25",
+      "L29",
+      "L34"
+     ],
+     "except": [
+      "L4"
+     ]
+    },
+    "yorkist": {
+     "add": [
+      "Y15",
+      "Y16",
+      "Y17",
+      "Y22",
+      "Y28",
+      "Y29",
+      "Y31",
+      "Y34"
+     ],
+     "except": []
+    }
    }
   },
   {
@@ -879,6 +933,23 @@
        ]
       }
      ]
+    }
+   },
+   "arts_of_war_spec": {
+    "yorkist": {
+     "add": [
+      "Y36"
+     ],
+     "except": []
+    },
+    "lancastrian": {
+     "add": [
+      "L33",
+      "L34",
+      "L36",
+      "L37"
+     ],
+     "except": []
     }
    }
   },
@@ -1098,6 +1169,22 @@
        ]
       }
      ]
+    }
+   },
+   "arts_of_war_spec": {
+    "lancastrian": {
+     "add": [
+      "L25",
+      "L34",
+      "L36"
+     ],
+     "except": []
+    },
+    "yorkist": {
+     "add": [
+      "Y36"
+     ],
+     "except": []
     }
    }
   }

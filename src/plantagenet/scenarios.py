@@ -277,3 +277,142 @@ def _build_grand(scn: dict, seed: int) -> GameState:
     from plantagenet import succession
     succession.apply_setup(state)            # register while_remains deck sources (6.2)
     return state
+
+
+# ---------------------------------------------------------------------------
+# Renewed War (E1 6.1): on a War victory, transition the grand scenario to the
+# next War -- select it by winner, rebuild the board/decks/favour from the new
+# War's structured setup, carry forward removed Heirs (and their -8 Influence),
+# resolve the King via Succession, then run setup-time Succession.
+# ---------------------------------------------------------------------------
+def _war_deck(war: dict, side: str) -> list[str]:
+    """A side's base Arts of War deck for a War (all no-rose + adds - excepts).
+    Succession then layers further cards on top (deck_sources)."""
+    spec = war.get("arts_of_war_spec", {}).get(side, {})
+    cards = static_data.load_cards()
+    base = {cid for cid, c in cards.items()
+            if c.get("side") == side and c.get("rose") == 0}
+    return sorted((base | set(spec.get("add", []))) - set(spec.get("except", [])))
+
+
+def _war_as_scenario(war: dict) -> dict:
+    return {
+        "title": war["title"],
+        "sides": {s: {"role": war["sides"][s]["role"],
+                      "lord_cards": war.get("lord_cards", {}).get(s, []),
+                      "mustered": []} for s in SIDES},
+        "setup": war.get("setup", {}),
+        "turns": war.get("turns", {}),
+    }
+
+
+def _resolve_kings(state: GameState, war: dict, removed: set) -> dict[str, str]:
+    """Seat the King token(s) in a War's setup.on_map as the highest surviving
+    Heir of that side (6.2); fire its Muster Succession trigger."""
+    from plantagenet import succession
+    seated: dict[str, str] = {}
+    for e in war.get("setup", {}).get("on_map", []):
+        if str(e.get("lord", "")).upper() != "KING":
+            continue
+        side = "lancastrian" if e.get("color") == "red" else "yorkist"
+        king = succession.highest_heir_for_setup(state, side, removed)
+        if king is None:
+            continue
+        statics = static_data.load_lords()[king]
+        ls = state.lords.get(king)
+        if ls is None:
+            ls = LordState(lord_id=king, side=Side(side), status=LordStatus.MUSTERED)
+            state.lords[king] = ls
+        ls.status = LordStatus.MUSTERED
+        ls.location = e.get("locale")
+        ls.exile_box = None
+        ls.calendar_box = None
+        ls.forces = dict(statics.get("forces", {}))
+        ls.assets = dict(statics.get("assets", {}))
+        seated[side] = king
+        succession.on_muster_lord(state, king)        # e.g. Margaret -> L26 EDWARD
+    return seated
+
+
+def _apply_lost_heir_influence(state: GameState, removed: set) -> int:
+    """Each Heir (not Warwick) removed in an earlier War costs that side -8
+    Influence (E2 / 6.x). Returns total points spent."""
+    from plantagenet import influence, succession
+    total = 0
+    for lid in removed:
+        if "warwick" in lid:
+            continue
+        side = state.lords[lid].side if lid in state.lords else None
+        if side and (succession.heir_rank(state, side, lid) is not None):
+            influence.spend_influence(state, side, 8)
+            total += 8
+    return total
+
+
+def next_war_id(scn_grand: dict, current_war: str, winner: str) -> str | None:
+    wars = {w["war_id"]: w for w in scn_grand["wars"]}
+    order = wars[current_war]["order"]
+    rw = scn_grand["respite_and_war"]["renewed_war"]
+    table = rw["after_first"] if order == 1 else rw["after_second"] if order == 2 else {}
+    return table.get(f"{winner}_won")
+
+
+def renew_war(state: GameState, seed: int | None = None) -> GameState:
+    """Transition a won grand scenario to its next War (E1 6.1)."""
+    from plantagenet import succession
+    from plantagenet.errors import IllegalAction
+    gs = state.grand_scenario
+    if not gs:
+        raise IllegalAction("not_grand", "Renewed War applies only to the grand scenario")
+    winner = (state.victory or {}).get("result")
+    if winner not in ("lancastrian", "yorkist"):
+        raise IllegalAction("no_winner", "Renewed War needs a decisive War victory (6.1)")
+    scn_grand = static_data.load_scenario("wars_of_the_roses")
+    nxt = next_war_id(scn_grand, gs["current_war"], winner)
+    if nxt is None:
+        raise IllegalAction("game_over", "the final War is concluded; no Renewed War (6.1)")
+    war = {w["war_id"]: w for w in scn_grand["wars"]}[nxt]
+
+    removed_prior = {lid for lid, ls in state.lords.items()
+                     if ls.status == LordStatus.REMOVED}
+    set_aside_keep = dict(gs.get("set_aside_on_disband", {}))
+    seed = state.seed if seed is None else seed
+
+    if "lord_cards" in war and "setup" in war:          # structured War setup (IIL / IIIL)
+        new = _build_standalone(_war_as_scenario(war), seed, "wars_of_the_roses", war["title"])
+    else:                                               # base-scenario War (IIY / IIIY)
+        base = static_data.load_scenario(war["base_scenario"])
+        new = _build_standalone(base, seed, "wars_of_the_roses", war["title"])
+
+    new.grand_scenario = {
+        "current_war": nxt, "war_title": war["title"],
+        "base_scenario": war.get("base_scenario"),
+        "allied_networks": war.get("allied_networks", {}),
+        "victory_threshold": war.get("victory_threshold"),
+        "deck_sources": {}, "succession_fired": [], "current_king": {},
+        "set_aside_on_disband": set_aside_keep,
+    }
+    new.victory = None
+    new.phase = "levy"
+
+    for lid in removed_prior:                           # Heirs removed earlier stay out (6.2.2)
+        ls = new.lords.get(lid)
+        if ls is not None:
+            ls.status = LordStatus.REMOVED
+            ls.location = ls.exile_box = ls.calendar_box = None
+
+    in_play_caps = {c for ls in new.lords.values() for c in ls.capabilities}
+    roller = new.dice()
+    for side in SIDES:                                  # base decks from the War's spec
+        draw = [c for c in _war_deck(war, side) if c not in in_play_caps]
+        roller.shuffle(draw)
+        prior_set_aside = state.decks.get(side, {}).get("set_aside", [])
+        new.decks[side] = {"draw": draw, "discard": [], "held": [],
+                           "set_aside": list(prior_set_aside)}
+    new.store_dice(roller)
+
+    _resolve_kings(new, war, removed_prior)
+    _apply_lost_heir_influence(new, removed_prior)
+    succession.apply_setup(new)                         # setup-time Succession (6.2)
+    new.levy_step = "arts_of_war"
+    return new

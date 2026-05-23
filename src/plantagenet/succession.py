@@ -116,7 +116,7 @@ def apply_setup(state: GameState) -> dict[str, Any]:
         return log
     for side in ("lancastrian", "yorkist"):
         for trig in _succ(state, side).get("triggers", []):
-            if trig.get("on") in ("while_remains", "while_king"):
+            if trig.get("on") == "while_remains":   # while_king is handled by _recompute
                 lord = trig["lord"]
                 ls = state.lords.get(lord)
                 if ls is not None and ls.status in (
@@ -370,6 +370,17 @@ def set_aside_cards(state: GameState, lord_id: str) -> list[str]:
     """Capabilities to set aside (not discard) when ``lord_id`` Disbands (6.2)."""
     gs = state.grand_scenario or {}
     return list(gs.get("set_aside_on_disband", {}).get(lord_id, []))
+
+
+def highest_heir_for_setup(state: GameState, side: str, removed: set) -> str | None:
+    """The lord to seat as King at War setup: the highest-ranked Heir slot whose
+    members are not removed (resolving a group to its surviving member, e.g.
+    somerset_1 else somerset_2). Uses the current War's heir ranking."""
+    for entry in sorted(_heir_table(state, side), key=lambda e: e["rank"]):
+        for lid in entry["lord_ids"]:
+            if lid not in removed:
+                return lid
+    return None
 
 
 def _is_third_war(state: GameState) -> bool:

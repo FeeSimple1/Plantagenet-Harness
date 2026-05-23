@@ -212,3 +212,66 @@ def test_setup_only_war_does_not_fire_in_play_removal():
     r = _remove(s, "york")
     assert "succession" not in r and "recompute" not in r        # setup_only: no in-play effect
     assert _deck_side(s, "yorkist") == before
+
+
+# ------------------- Phase 5b-ii-b: Renewed-War setup transition (E1 6.1) -------------------
+def test_next_war_selection_by_winner():
+    from plantagenet import static_data
+    from plantagenet.scenarios import next_war_id
+    g = static_data.load_scenario("wars_of_the_roses")
+    assert next_war_id(g, "war_i", "lancastrian") == "war_iil"
+    assert next_war_id(g, "war_i", "yorkist") == "war_iiy"
+    assert next_war_id(g, "war_iil", "yorkist") == "war_iiiy"
+    assert next_war_id(g, "war_iiiy", "yorkist") is None     # final War: no Renewed War
+
+
+def test_war_i_lancastrian_win_transitions_to_iil():
+    from plantagenet.scenarios import build_initial_state, renew_war
+    s = build_initial_state("wars_of_the_roses")
+    s.victory = {"result": "lancastrian", "rule": "5.2"}
+    n = renew_war(s)
+    assert n.grand_scenario["current_war"] == "war_iil"
+    assert n.phase == "levy" and n.levy_step == "arts_of_war"
+    assert n.lords["henry_vi"].status == LordStatus.MUSTERED   # King at London
+    assert n.lords["henry_vi"].location == "london"
+    assert n.locales["london"].favour == "lancastrian"
+    deck = set(n.decks["lancastrian"]["draw"])
+    assert "L4" not in deck and "L18" in deck                  # base deck per arts_of_war_spec
+    assert "L15" in deck and "L17" in deck                     # Henry VI while_king (Succession)
+
+
+def test_renew_carries_removed_heirs_and_minus_eight_influence():
+    from plantagenet import influence
+    from plantagenet.scenarios import build_initial_state, renew_war
+    s = build_initial_state("wars_of_the_roses")
+    s.lords["somerset_1"].status = LordStatus.REMOVED.value    # lost in War I
+    s.victory = {"result": "lancastrian"}
+    before = influence._net_lanc(s.influence["track"])
+    n = renew_war(s)
+    assert n.lords["somerset_1"].status == LordStatus.REMOVED  # stays out
+    after = influence._net_lanc(n.influence["track"])
+    assert before - after == 8                                 # -8 Lancastrian Influence
+
+
+def test_renew_requires_a_decisive_winner():
+    import pytest
+
+    from plantagenet.errors import IllegalAction
+    from plantagenet.scenarios import build_initial_state, renew_war
+    s = build_initial_state("wars_of_the_roses")
+    with pytest.raises(IllegalAction) as e:
+        renew_war(s)                                           # victory is None
+    assert e.value.code == "no_winner"
+
+
+def test_renew_after_final_war_is_game_over():
+    import pytest
+
+    from plantagenet.errors import IllegalAction
+    from plantagenet.scenarios import build_initial_state, renew_war
+    s = build_initial_state("wars_of_the_roses")
+    s.grand_scenario["current_war"] = "war_iiiy"
+    s.victory = {"result": "yorkist"}
+    with pytest.raises(IllegalAction) as e:
+        renew_war(s)
+    assert e.value.code == "game_over"
