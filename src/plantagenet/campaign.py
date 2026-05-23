@@ -393,6 +393,19 @@ def _cap_dominates(state: GameState, side: str, area: str, in_area: list[str]) -
     return False
 
 
+def _foreign_haven_shift(state: GameState) -> None:
+    """Foreign Haven (IIY / Warwick's Rebellion): when Warwick chooses Exile on
+    Approach or dies as a defender, shift all Lancastrians on the Calendar left
+    to the current Turn box and all Yorkists left to the next Turn box."""
+    cur = state.turn_box
+    for ls in state.lords.values():
+        if ls.status == LordStatus.CALENDAR and ls.calendar_box is not None:
+            if ls.side == "lancastrian" and ls.calendar_box > cur:
+                ls.calendar_box = cur
+            elif ls.side == "yorkist" and ls.calendar_box > cur + 1:
+                ls.calendar_box = cur + 1
+
+
 def _active_special_rules(state: GameState) -> set:
     """Names of the special rules in force for the current scenario or, in the
     grand scenario, the current War (read from the scenario data)."""

@@ -111,3 +111,58 @@ def test_gloucester_set_aside_suppresses_first_son():
     s.grand_scenario["gloucester_as_heir_played"] = True    # Y28 Event set aside
     after = campaign.tides_of_war(s)
     assert not any("First Son" in d for d in after["detail"])   # Capability unavailable
+
+
+def _iiy():
+    from plantagenet.scenarios import renew_war
+    s = build_initial_state("wars_of_the_roses")
+    s.victory = {"result": "yorkist"}
+    return renew_war(s)                                   # IIY (Shaky Allies + Foreign Haven)
+
+
+def test_shaky_allies_blocks_co_locating_margaret_and_warwick():
+    from plantagenet import commands
+    n = _iiy()
+    n.lords["warwick_lancastrian"].status = LordStatus.MUSTERED
+    n.lords["warwick_lancastrian"].location = "york"
+    assert commands._shaky_allies_block(n, ["margaret"], "york") is True
+    assert commands._shaky_allies_block(n, ["margaret"], "london") is False
+    assert commands._shaky_allies_block(n, ["margaret", "warwick_lancastrian"], "ely") is True
+    # Not active outside the Shaky-Allies scenario.
+    base = build_initial_state("henry_vi")
+    assert commands._shaky_allies_block(base, ["margaret"], "york") is False
+
+
+def test_foreign_haven_shift_pulls_calendars_in():
+    n = _iiy()
+    n.turn_box = 3
+    for ls in n.lords.values():
+        if ls.status == LordStatus.CALENDAR:
+            ls.calendar_box = 9
+    campaign._foreign_haven_shift(n)
+    for ls in n.lords.values():
+        if ls.status == LordStatus.CALENDAR:
+            assert ls.calendar_box == (3 if ls.side == "lancastrian" else 4)
+
+
+def test_foreign_haven_fires_when_warwick_exiles_on_approach():
+    from plantagenet import battle
+    n = _iiy()
+    n.turn_box = 3
+    for ls in n.lords.values():                           # Lancastrian Calendar lords out at 9
+        if ls.status == LordStatus.CALENDAR and ls.side == "lancastrian":
+            ls.calendar_box = 9
+    wk = n.lords["warwick_lancastrian"]
+    wk.status = LordStatus.MUSTERED
+    wk.location = "cambridge"
+    wk.forces = {"retinue": 1}
+    yk = next(lid for lid, ls in n.lords.items()
+              if ls.side == "yorkist" and lid != "warwick_lancastrian")
+    n.lords[yk].status = LordStatus.MUSTERED
+    n.lords[yk].location = "cambridge"
+    n.lords[yk].forces = {"retinue": 1}
+    r = battle.approach(n, "cambridge", [yk],
+                        {"responses": {"warwick_lancastrian": "exile"}})
+    assert r.get("foreign_haven") is True
+    assert all(ls.calendar_box == 3 for ls in n.lords.values()
+               if ls.status == LordStatus.CALENDAR and ls.side == "lancastrian")

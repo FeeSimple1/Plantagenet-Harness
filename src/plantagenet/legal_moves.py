@@ -210,6 +210,8 @@ def _sail_moves(state, lord_id, lord, side, from_sea, *, here, origin_at_sea):
             continue
         if owain and locales.get(dest, {}).get("region") == "wales":   # Owain Glyndwr (Y25)
             continue
+        if commands._shaky_allies_block(state, [lord_id], dest):        # IIY Shaky Allies
+            continue
         moves.append({"type": "sail", "side": side, "by_lord": lord_id, "to": dest})
     for z in zones:                                    # into the current or an adjacent Sea
         if z == from_sea or frozenset({from_sea, z}) in adj:
@@ -245,6 +247,8 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
             if actions.enemy_lord_at(state, dest, side):
                 continue
             if commands._enemy_adjacent_by_land(state, dest, side):
+                continue
+            if commands._shaky_allies_block(state, [lord_id], dest):   # IIY Shaky Allies
                 continue
             out.append({"type": "march", "side": side, "by_lord": lord_id, "to": dest})
     except (KeyError, AttributeError, IndexError):
