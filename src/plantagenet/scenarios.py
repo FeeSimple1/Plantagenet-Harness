@@ -530,9 +530,9 @@ def _place_iiiy_yorkist(state: GameState, slot: str, role: str, king_slot: str) 
     return "gloucester_1"
 
 
-def _apply_iiiy_favour(state: GameState) -> None:
-    """E6 Map: suppress base Favour; London Yorkist, and each in-play Lord's
-    (other) marked Seat to that Lord's side."""
+def _apply_succession_favour(state: GameState, king_side: str) -> None:
+    """E6/E7 Map: suppress base Favour; London to the King's side, and each
+    in-play Lord's (other) marked Seat to that Lord's side."""
     for lid in state.locales:
         state.locales[lid].favour = Favour.NEUTRAL.value
     statics = static_data.load_lords()
@@ -542,7 +542,7 @@ def _apply_iiiy_favour(state: GameState) -> None:
             seat = statics.get(lid, {}).get("seat")
             if seat and seat != "london" and seat in state.locales:
                 state.locales[seat].favour = ls.side
-    state.locales["london"].favour = Favour.YORKIST.value
+    state.locales["london"].favour = Favour(king_side).value
 
 
 def apply_iiiy_setup(state: GameState, removed: set) -> dict:
@@ -615,8 +615,93 @@ def apply_iiiy_setup(state: GameState, removed: set) -> dict:
         else:
             _place_lord(state, lid, "lancastrian", location="calais")
 
-    _apply_iiiy_favour(state)
+    _apply_succession_favour(state, "yorkist")
     _recompute_stronghold_markers(state)          # E6: adjust markers per Favour
+    return log
+
+
+_IIIL_LANC_HEIRS = ["henry_vi", "margaret", "somerset_1", "somerset_2"]
+_IIIL_LANC_KING_CARDS = {
+    "henry_vi": ["L15", "L17"],
+    "margaret": ["L27", "L31"],
+    "somerset_1": ["L18", "L20", "L27"],
+}
+_IIIL_YORKIST_SLOTS = {
+    "york": ["york"],
+    "march": ["march", "edward_iv"],
+    "rutland": ["rutland"],
+    "gloucester": ["gloucester_1", "gloucester_2", "richard_iii"],
+}
+_IIIL_SLOT_ORDER = ["york", "march", "rutland", "gloucester"]
+
+
+def apply_iiil_setup(state: GameState, removed: set) -> dict:
+    """War IIIL succession-driven roster (Scenario Reference E7 / 6.2.2). The
+    Lancastrians are King (highest surviving L Heir at London; Somerset (2)
+    yields to Somerset (1)), with Oxford and Jasper Tudor (2). The Yorkist
+    Rebels are placed by Succession in the Burgundy Exile box -- or at Calais if
+    a Yorkist Warwick is the Heir -- with Norfolk and (when only one Heir)
+    Salisbury. Favour = London Lancastrian + each in-play Lord's marked Seat."""
+    from plantagenet import succession
+    log: dict[str, Any] = {}
+    for lid in list(state.lords):                       # clear base build; re-place per E7
+        _unplace_lord(state, lid)
+
+    # ---- Lancastrian King (highest surviving L Heir) ----
+    l_present = [h for h in _IIIL_LANC_HEIRS if h not in removed]
+    king = l_present[0] if l_present else None
+    if king == "somerset_2":                            # Somerset (2) yields to Somerset (1)
+        king = "somerset_1"
+    if king is not None:
+        _place_lord(state, king, "lancastrian", location="london")
+        for c in _IIIL_LANC_KING_CARDS.get(king, []):
+            succession._register_source(state, "lancastrian", c, king)
+        if king == "margaret":
+            succession.on_muster_lord(state, "margaret")      # L26 EDWARD (free, mandatory)
+        log["lancastrian_king"] = king
+    _place_lord(state, "oxford", "lancastrian", location="oxford")
+    _place_lord(state, "jasper_tudor_2", "lancastrian", location="pembroke")
+
+    # ---- Yorkist Rebels (Succession; forms revert to non-King) ----
+    present = [slot for slot in _IIIL_SLOT_ORDER
+               if not any(lid in removed for lid in _IIIL_YORKIST_SLOTS[slot])]
+    glos_set_aside = bool((state.grand_scenario or {}).get("gloucester_as_heir_played"))
+    heirs: list[tuple] = []        # (lord_id, [cards])
+    warwick_heir = False
+    if present and ((glos_set_aside and "gloucester" in present) or present[0] == "gloucester"):
+        heirs = [("gloucester_2", ["Y35"])]             # Gloucester (2) the sole Heir
+    elif "york" in present:
+        heirs = [("york", ["Y14", "Y18"])]
+        rest = [slot for slot in present if slot != "york"]
+        nxt = rest[0] if rest else None
+        if nxt in ("march", "rutland"):
+            heirs.append((nxt, ["Y20"]))
+        elif nxt == "gloucester":
+            heirs.append(("gloucester_1", ["Y34"]))
+    else:
+        warwick_heir = True                             # highest is March/Rutland, or none
+    if not heirs and not warwick_heir:
+        warwick_heir = True
+    if warwick_heir:
+        heirs = [("warwick_yorkist", ["Y16"])]
+    salisbury = len(heirs) == 1                          # exactly one Heir -> Salisbury + Y17/Y22
+
+    # Placement: Burgundy Exile box, or Calais if the Yorkist Warwick is Heir.
+    y_at = {"location": "calais"} if warwick_heir else {"exile_box": "burgundy"}
+    for lord_id, cards in heirs:
+        _place_lord(state, lord_id, "yorkist", **y_at)
+        for c in cards:
+            succession._register_source(state, "yorkist", c, lord_id)
+    if salisbury:
+        _place_lord(state, "salisbury", "yorkist", **y_at)
+        for c in ("Y17", "Y22"):
+            succession._register_source(state, "yorkist", c, "salisbury")
+    _place_lord(state, "norfolk", "yorkist", **y_at)    # Norfolk always
+    log["yorkist_heirs"] = [h for h, _ in heirs]
+    log["salisbury"] = salisbury
+
+    _apply_succession_favour(state, "lancastrian")      # London Lancastrian + marked Seats
+    _recompute_stronghold_markers(state)
     return log
 
 
@@ -731,6 +816,8 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
         apply_iiy_setup(new, removed_prior)
     elif nxt == "war_iiiy":                             # E6: succession-driven roster
         apply_iiiy_setup(new, removed_prior)
+    elif nxt == "war_iiil":                             # E7: succession-driven roster
+        apply_iiil_setup(new, removed_prior)
     succession.apply_setup(new)                         # setup-time Succession (6.2)
     new.levy_step = "arts_of_war"
     return new

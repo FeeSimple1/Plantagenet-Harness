@@ -1022,10 +1022,8 @@
      "france": "lancastrian",
      "burgundy": "yorkist"
     },
-    "favour": {
-     "lancastrian": "London and each other Lancastrian Lord Seat marker (only).",
-     "yorkist": "Each Yorkist Lord Seat marker (only)."
-    },
+    "favour": {},
+    "favour_note": "Set by scenarios.apply_iiil_setup (E7): London + each Lancastrian Lord Seat -> Lancastrian; each Yorkist Lord Seat -> Yorkist.",
     "vassals_on_map": {
      "mode": "all_except",
      "except": [
@@ -1048,11 +1046,6 @@
       "lord": "jasper_tudor_2",
       "locale": "pembroke",
       "color": "red"
-     },
-     {
-      "lord": "yorkist_lords_per_succession",
-      "where": "Burgundy, or at Calais if Warwick present",
-      "color": "white"
      }
     ],
     "calendar": [
