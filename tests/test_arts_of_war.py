@@ -43,9 +43,13 @@ def test_later_levy_draws_events_into_hold_active_or_deck():
     before = len(s.decks["yorkist"]["draw"])
     r = actions.apply_action(s, {"type": "draw", "side": "yorkist"})
     assert r["first_levy"] is False
-    # Each drawn Event is held, active (This Levy/Campaign), or resolved-to-deck.
-    assert len(r["held"]) + len(r["active"]) + len(r["resolved"]) == len(r["drawn"])
-    # Held cards leave the draw pile; resolved/immediate return to it.
-    assert len(s.decks["yorkist"]["draw"]) == before - 2 + len(r["resolved"])
+    # Each drawn Event is held, active (This Levy/Campaign), resolved, or queued
+    # as a pending immediate awaiting play_event (3.1.3).
+    assert (len(r["held"]) + len(r["active"]) + len(r["resolved"])
+            + len(r["pending"]) == len(r["drawn"]))
+    # Every drawn card leaves the draw pile; a pending immediate returns to the
+    # deck only once resolved, so the pile shrinks by all drawn cards for now.
+    assert len(s.decks["yorkist"]["draw"]) == before - len(r["drawn"]) + len(r["resolved"])
+    assert [pe["card"] for pe in s.pending_events] == r["pending"]
     for cid in r["active"]:
         assert any(e["card"] == cid for e in s.active_events)

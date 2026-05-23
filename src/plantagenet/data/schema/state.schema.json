@@ -637,6 +637,14 @@
       "title": "Pending",
       "type": "array"
     },
+    "pending_events": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Pending Events",
+      "type": "array"
+    },
     "flags": {
       "additionalProperties": true,
       "title": "Flags",

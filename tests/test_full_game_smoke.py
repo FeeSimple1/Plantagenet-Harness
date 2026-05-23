@@ -13,6 +13,7 @@ import pytest
 from plantagenet import actions, invariants, legal_moves, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state, renew_war
+from tests._helpers import fill_event_decisions
 
 _FLOW_ENDERS = {"end_muster", "end_activation", "end_campaign", "pass", "react"}
 
@@ -62,6 +63,8 @@ def _play_to_end(sid, seed, budget=8000):
         mv = _pick(moves, rng)
         if mv.get("type") == "build_plan" and "plan" not in mv:
             mv = _fill_plan(state, mv)
+        elif mv.get("type") == "play_event" and "decisions" not in mv:
+            mv = {**mv, "decisions": fill_event_decisions(state, mv["card"], mv["side"])}
         try:
             actions.apply_action(state, mv)
         except IllegalAction as e:                 # the menu must never offer an illegal move
