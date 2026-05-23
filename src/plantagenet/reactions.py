@@ -242,3 +242,69 @@ def resolve(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         return final
     return {"type": "pending_reactions", "trigger": inter["trigger"],
             "awaiting": inter["offers"][inter["idx"]], "resolved": inter["log"]}
+
+
+# ---------------------------------------------------------------------------
+# at_battle_phase: the single declarative catalog of in-Battle reaction windows
+# (1.9.1). Battle resolution stays synchronous (all participants are known at
+# Battle entry), but every battle card window is *declared* here so there is one
+# registry/mental model. ``available_battle_reactions`` reports which plays are
+# live for a given Battle; resolve_battle consumes them via its ``decisions``.
+# Each entry: card -> {effect, window, side, kind, priority}.
+#   window: "event"  (4.4.1 Event step, after Array, before Round 1)
+#           "round"  (during a Round)
+#           "death"  (4.4.3 Death-check step)
+#           "intercept" (4.3.4, before the Battle)
+# ---------------------------------------------------------------------------
+BATTLE_REACTIONS = {
+    "Y1": {"effect": "leeward", "window": "event", "kind": "held", "priority": 10},
+    "L1": {"effect": "leeward", "window": "event", "kind": "held", "priority": 10},
+    "Y2": {"effect": "flank_attack", "window": "intercept", "kind": "held", "priority": 10},
+    "L2": {"effect": "flank_attack", "window": "intercept", "kind": "held", "priority": 10},
+    "Y19": {"effect": "caltrops", "window": "event", "kind": "held", "priority": 20},
+    "L12": {"effect": "ravine", "window": "event", "kind": "held", "priority": 20},
+    "Y5": {"effect": "suspicion", "window": "event", "kind": "held", "priority": 5},
+    "L5": {"effect": "suspicion", "window": "event", "kind": "held", "priority": 5},
+    "Y37": {"effect": "patrick", "window": "event", "kind": "held", "priority": 15},
+    "Y36": {"effect": "swift_maneuver", "window": "round", "kind": "held", "priority": 30},
+    "Y30": {"effect": "regroup", "window": "round", "kind": "held", "priority": 30},
+    "Y3": {"effect": "escape_ship", "window": "death", "kind": "held", "priority": 40},
+    "Y9": {"effect": "escape_ship", "window": "death", "kind": "held", "priority": 40},
+    "L3": {"effect": "escape_ship", "window": "death", "kind": "held", "priority": 40},
+    "L16": {"effect": "warden", "window": "death", "kind": "held", "priority": 40},
+    "L36": {"effect": "talbot", "window": "death", "kind": "held", "priority": 40},
+    "L7": {"effect": "for_trust_not_him", "window": "event", "kind": "held",
+           "priority": 25, "deferred": True},     # mechanics tracked in Q-005
+}
+
+# Capability-based battle window (Culverins) keyed by its title (any holder).
+_BATTLE_CAPS = {"CULVERINS AND FALCONETS": {"effect": "culverins", "window": "event",
+                                            "priority": 15}}
+
+
+def available_battle_reactions(state, attackers, defenders):
+    """List the in-Battle reaction windows currently playable (1.9.1): Held
+    Events in each participating side's held pile and battle Capabilities on the
+    participating Lords' mats, ordered by window then priority. Declarative --
+    resolve_battle still applies the effects via its ``decisions`` payload."""
+    cards = static_data.load_cards()
+    sides = {state.lords[a].side for a in attackers} | {state.lords[d].side for d in defenders}
+    out = []
+    for side in sides:
+        for cid in state.decks.get(side, {}).get("held", []):
+            title = cards[cid]["event"]["title"]
+            for k, meta in BATTLE_REACTIONS.items():
+                if meta["kind"] == "held" and cards.get(k, {}).get("event", {}).get(
+                        "title") == title:
+                    out.append({"side": side, "card": cid, **{m: meta[m] for m in
+                                ("effect", "window", "priority")}})
+                    break
+    for lid in list(attackers) + list(defenders):
+        for cid in state.lords[lid].capabilities:
+            title = cards[cid]["capability"]["title"]
+            meta = _BATTLE_CAPS.get(title)
+            if meta:
+                out.append({"side": state.lords[lid].side, "card": cid, "lord": lid,
+                            **meta})
+    out.sort(key=lambda o: (o["window"], o["priority"]))
+    return out
