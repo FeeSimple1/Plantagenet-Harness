@@ -222,6 +222,10 @@ adjudicator to decide:
     Seat. The Y28 set-aside is tracked from `arts_of_war` (event activation) and
     carried into IIIY by `renew_war`. Tests in `tests/test_war_iiiy_setup.py`.
   - **(c) is now fully implemented; all of D-006 residue (a)/(b)/(c) is closed.**
+  - **War IIIL setup IMPLEMENTED (2026-05-23):** `scenarios.apply_iiil_setup` (E7),
+    the Lancastrian-victory mirror of IIIY, closes the last grand-scenario
+    transition (the IIL->IIIL crash from the unimplemented prose-Favour setup).
+    All four second->third War transitions now build co-location-clean.
 
 **Citation.** Card texts L7, Y15; Scenario Reference E4 (War IIY), E6
 (War IIIY); Rules of Play §2.2 (Calendar), §3.4.3 (Levy Vassal), §4.3.5,

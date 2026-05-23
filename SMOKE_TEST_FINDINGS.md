@@ -588,3 +588,24 @@ placeholder, so IIL->IIIL renew_war raises DataError before any board exists.
 This is a setup-completeness gap (not a co-location bug); surfaced explicitly as
 a strict xfail (test_iil_to_iiil_transition_builds) rather than swallowed. IIIL
 needs a succession-driven setup like IIIY (E7). 368 pass, 1 xfailed; ruff clean.
+
+## Round (2026-05-23): War IIIL succession-driven setup (E7) -- closes the last transition
+
+Implemented `scenarios.apply_iiil_setup`, the Lancastrian-victory mirror of IIIY,
+fixing the IIL->IIIL crash surfaced last round. Fixed war_iiil JSON (prose Favour
+-> {}; removed the yorkist_lords_per_succession on_map placeholder). The setup:
+Lancastrian King = highest surviving L Heir at London (Somerset(2) yields to
+Somerset(1)) with King cards (Henry VI L15/L17; Margaret L27/L31 + L26; Somerset
+L18/L20/L27), plus Oxford@Oxford and Jasper Tudor(2)@Pembroke. Yorkist Rebels by
+Succession (form reversion edward_iv->march / richard_iii->gloucester_2; the
+Y28/Gloucester-sole branch + Y35; York + single next-highest with Y14/Y18 and
+Y20 or Gloucester(1)+Y34; Warwick-as-Heir + Y16 when no York-line Heir; Salisbury
++ Y17/Y22 when exactly one Heir; Norfolk always) placed in the Burgundy Exile box
+-- or at Calais if a Yorkist Warwick is the Heir. Favour = London Lancastrian +
+each in-play Lord's marked Seat; markers recomputed. Generalized the IIIY favour
+helper to `_apply_succession_favour(state, king_side)`.
+
+All four second->third War transitions (IIY/IIL x Yorkist/Lancastrian win) now
+build with no co-location. Flipped the IIIL strict-xfail to a passing test.
+tests/test_war_iiil_setup.py: 6 tests. 375 pass; ruff clean. The grand scenario
+now transitions end-to-end through every War.

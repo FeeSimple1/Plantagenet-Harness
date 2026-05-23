@@ -86,13 +86,12 @@ def test_iiy_to_iiiy_transition_is_co_location_clean():
         assert invariants.co_location_violations(n) == []
 
 
-@pytest.mark.xfail(strict=True, reason="KNOWN GAP: War IIIL setup is unimplemented "
-                   "(E7) -- its JSON has prose Favour and a 'yorkist_lords_per_succession' "
-                   "placeholder, so renew_war crashes building it. Surfaced (not swallowed) "
-                   "per Advisory #2. Flip when IIIL gets a succession-driven setup like IIIY.")
-def test_iil_to_iiil_transition_builds():
-    s = build_initial_state("wars_of_the_roses")
-    s.grand_scenario["current_war"] = "war_iil"
-    s.turn_box = 3
-    s.victory = {"result": "lancastrian"}
-    renew_war(s)                                          # IIL -> IIIL (currently DataError)
+def test_iil_to_iiil_transition_is_co_location_clean():
+    for seed in range(1, 5):
+        s = build_initial_state("wars_of_the_roses", seed=seed)
+        s.grand_scenario["current_war"] = "war_iil"
+        s.turn_box = 3
+        s.victory = {"result": "lancastrian"}
+        n = renew_war(s)                                  # IIL -> IIIL (E7 implemented)
+        assert n.grand_scenario["current_war"] == "war_iiil"
+        assert invariants.co_location_violations(n) == []
