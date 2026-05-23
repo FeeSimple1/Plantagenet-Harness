@@ -609,3 +609,18 @@ All four second->third War transitions (IIY/IIL x Yorkist/Lancastrian win) now
 build with no co-location. Flipped the IIIL strict-xfail to a passing test.
 tests/test_war_iiil_setup.py: 6 tests. 375 pass; ruff clean. The grand scenario
 now transitions end-to-end through every War.
+
+## Round (2026-05-23): Sail FAQ #1 fix (resolves the Phase 5j flag)
+
+Resolved the cross-Sea Sail flag raised during Phase 5j. Per 4.6.1 + Errata
+FAQ #1 (both cited by decision D-001), a Lord at a Port/Exile box may Sail
+Port-to-Port only WITHIN a Sea; cross-Sea travel must transit at Sea. The
+existing code allowed a direct Port-to-Port hop between adjacent Seas, violating
+FAQ #1 (which D-001 endorses) -- so this fixes a real bug and implements D-001
+correctly (it does not re-open the decision; D-001's Sea adjacency still governs
+the at-Sea transit). Fixed both `commands.sail` (new `cross_sea_port_to_port`
+guard; a Lord already at Sea may still reach a Port on an adjacent Sea) and the
+`legal_moves` enumerator (new shared `_sail_moves`, which also enumerates "into a
+Sea" moves and at-Sea-origin Sails, and mirrors French Fleet / Owain Glyndwr).
+The round-trip activation sweep caught the enumerator/handler mismatch.
+tests/test_sail_cross_sea.py: 4 tests. 379 pass; ruff clean.

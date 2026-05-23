@@ -36,6 +36,14 @@ Ports share a Sea, nor the Sea adjacency used by Sail.
 (sea_zone + acts_as_port), `data_integrity.py` (sea-zone checks),
 `reference/Plantagenet Map Reference.txt` (new Sea Adjacency section). Commit: see the phase-0-map-corrections merge.
 
+**FAQ #1 enforcement (2026-05-23).** Per this decision's own citation, `commands.sail`
+and `legal_moves._sail_moves` now enforce FAQ #1: a Lord at a Port/Exile box may
+Sail Port-to-Port only *within* one Sea; cross-Sea travel transits at Sea (Sail
+"into" an adjacent Sea, then from at Sea to a Port -- a Lord already at Sea may
+reach a Port on an adjacent Sea). The earlier code allowed a direct Port-to-Port
+hop between adjacent Seas, which contradicted FAQ #1; that is corrected.
+Tests: `tests/test_sail_cross_sea.py`.
+
 ---
 
 ## D-002 — Leicester land connections (resolves Q-002)

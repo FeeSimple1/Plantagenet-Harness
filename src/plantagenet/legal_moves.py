@@ -178,6 +178,45 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
     return []
 
 
+def _sail_moves(state, lord_id, lord, side, from_sea, *, here, origin_at_sea):
+    """Enumerate Sail destinations (4.6.1) for a Lord on ``from_sea``. A Lord at
+    a Port/Exile box may Sail Port-to-Port only WITHIN a Sea; a Lord at Sea may
+    also reach a Port on an adjacent Sea (FAQ #1: no direct cross-Sea Port hop).
+    Either may Sail "into" the current or an adjacent Sea (ending at Sea)."""
+    from plantagenet import commands
+    seas = static_data.load_seas()
+    zones = seas["zones"]
+    port_sea = {p: z for z, zone in zones.items() for p in zone.get("ports", [])}
+    adj = {frozenset(pr) for pr in seas["adjacency"]}
+    moves: list[dict[str, Any]] = []
+    if from_sea is None:
+        return moves
+    if side == "yorkist" and commands._active_event(state, "FRENCH FLEET"):
+        return moves                                   # French Fleet bars Yorkist Sail (L21)
+    ships = lord.assets.get("ship", 0)
+    need = max(-(-commands._forces_units(lord) // 6),
+               -(-lord.assets.get("provender", 0) // 2),
+               -(-lord.assets.get("cart", 0) // 2))
+    if ships < need:
+        return moves
+    owain = side == "lancastrian" and commands._active_event(state, "OWAIN GLYNDWR")
+    locales = static_data.load_locales()
+    for dest, dsea in port_sea.items():
+        if dest == here:
+            continue
+        reachable = (dsea == from_sea or frozenset({from_sea, dsea}) in adj) \
+            if origin_at_sea else (dsea == from_sea)
+        if not reachable or actions.enemy_lord_at(state, dest, side):
+            continue
+        if owain and locales.get(dest, {}).get("region") == "wales":   # Owain Glyndwr (Y25)
+            continue
+        moves.append({"type": "sail", "side": side, "by_lord": lord_id, "to": dest})
+    for z in zones:                                    # into the current or an adjacent Sea
+        if z == from_sea or frozenset({from_sea, z}) in adj:
+            moves.append({"type": "sail", "side": side, "by_lord": lord_id, "to": z})
+    return moves
+
+
 def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, Any]]:
     """Enumerate Command actions for the Active Lord (4.3-4.6), mirroring the
     handler pre-checks so nothing offered is rejected (round-trip discipline)."""
@@ -186,6 +225,9 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     loc = actions.lord_location(lord)
     out: list[dict[str, Any]] = [{"type": "pass", "side": side, "by_lord": lord_id}]
     if loc is None:
+        if lord.at_sea is not None:           # a Lord at Sea may only Sail (4.6.1) or Pass
+            out.extend(_sail_moves(state, lord_id, lord, side, lord.at_sea,
+                                   here=None, origin_at_sea=True))
         return out
     kind, here = loc
     # Forage (4.6.2): any Locale not yet Exhausted (Exile boxes are foragable).
@@ -208,7 +250,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     except (KeyError, AttributeError, IndexError):
         pass
 
-    # Sail (4.6.1): same/adjacent-Sea Ports, free of enemy, ship requirement met.
+    # Sail (4.6.1): Port-to-Port within a Sea (cross-Sea moves transit at Sea).
     try:
         seas = static_data.load_seas()
         port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
@@ -216,19 +258,8 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         from_sea = box_sea.get(here) if kind == "exile" else port_sea.get(here)
         on_sea = kind == "exile" or static_data.load_locales()[here].get("port")
         if from_sea is not None and on_sea:
-            adj = {frozenset(pr) for pr in seas["adjacency"]}
-            ships = lord.assets.get("ship", 0)
-            need = max(-(-commands._forces_units(lord) // 6),
-                       -(-lord.assets.get("provender", 0) // 2),
-                       -(-lord.assets.get("cart", 0) // 2))
-            if ships >= need:
-                for dest, dsea in port_sea.items():
-                    if dest == here:
-                        continue
-                    if dsea == from_sea or frozenset({from_sea, dsea}) in adj:
-                        if not actions.enemy_lord_at(state, dest, side):
-                            out.append({"type": "sail", "side": side,
-                                        "by_lord": lord_id, "to": dest})
+            out.extend(_sail_moves(state, lord_id, lord, side, from_sea,
+                                   here=here, origin_at_sea=False))
     except (KeyError, AttributeError, IndexError):
         pass
 

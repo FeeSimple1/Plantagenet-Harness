@@ -329,7 +329,8 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     adj = {frozenset(pair) for pair in seas["adjacency"]}
 
     # Origin Sea: at a Port, an Exile box, or already at Sea (4.6.1).
-    if lord.at_sea is not None:
+    origin_at_sea = lord.at_sea is not None
+    if origin_at_sea:
         from_sea = lord.at_sea
     else:
         loc = lord_location(lord)
@@ -355,11 +356,20 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         _require(dest_sea == from_sea or frozenset({from_sea, dest_sea}) in adj,
                  "seas_not_adjacent", f"{dest} is not the current or an adjacent Sea (4.6.1)")
         dest_has_enemy = False
-    else:                              # to a Port on the same or an adjacent Sea, Enemy-free
+    else:                              # to a Port, Enemy-free
         _require(dest in port_sea, "dest_not_port", f"{dest!r} is not a Port or a Sea (4.6.1)")
         dest_sea = port_sea[dest]
-        _require(dest_sea == from_sea or frozenset({from_sea, dest_sea}) in adj,
-                 "seas_not_adjacent", f"{dest} is not on the same or an adjacent Sea (4.6.1)")
+        # A Lord at a Port/Exile box may Sail Port-to-Port only WITHIN a Sea; a
+        # Lord already at Sea may also reach a Port on an adjacent Sea. Direct
+        # cross-Sea Port-to-Port is never allowed -- transit at Sea (4.6.1, FAQ #1).
+        if origin_at_sea:
+            reachable = dest_sea == from_sea or frozenset({from_sea, dest_sea}) in adj
+            _require(reachable, "seas_not_adjacent",
+                     f"{dest} is not on the current or an adjacent Sea (4.6.1)")
+        else:
+            _require(dest_sea == from_sea, "cross_sea_port_to_port",
+                     f"{dest} is on a different Sea; a Port-to-Port Sail stays within one "
+                     "Sea -- cross-Sea moves transit at Sea (4.6.1, FAQ #1)")
         dest_has_enemy = enemy_lord_at(state, dest, lord.side)
         if dest_has_enemy:
             _require(ratings.has_capability(state, lord.lord_id, "HIGH ADMIRAL"),
