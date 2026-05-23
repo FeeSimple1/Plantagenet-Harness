@@ -520,3 +520,20 @@ Somerset(1) lead from box 9 (Exile), displacing Margaret / Somerset(2). Verified
 Succession cards track the roster (York Y14/18/19/20 present; Edward IV
 Y23/24/28/31 when promoted). 5 new tests; 333 pass; ruff clean. STILL PENDING:
 IIIY conditional setup.
+
+## Round (2026-05-23): War IIIY succession-driven setup (D-006 residue (c), part 3 -- COMPLETE)
+
+`scenarios.apply_iiiy_setup` clears the base Scenario III roster (E6 "hold off
+setting up any Lords") and rebuilds the whole roster from Succession: King =
+highest surviving Yorkist Heir at London, next Heir kept, all others removed;
+per-Heir placements with ring variants (Gloucester(1) silver@Gloucester / (2)
+gold@London / Richard III gold@London; March@Ludlow vs Edward IV@London;
+Rutland@Canterbury or King@London); the Y28 set-aside displaces Rutland; the
+Warwick-as-King branch (+ Salisbury, Y16/17/22); Northumberland(2)@Carlisle + Y37
+when one senior Heir remains; Norfolk@Arundel always; the single Lancastrian
+leader (Margaret / Henry Tudor / Warwick by condition) with Oxford + Jasper
+Tudor(2); Favour = London Yorkist + each in-play Lord's marked Seat. Y28
+"Gloucester As Heir" set-aside is recorded at event activation in arts_of_war and
+carried into IIIY by renew_war (only from a second War). Verified across all
+branches incl. the co-location invariant (clean). 9 new tests; 342 pass; ruff
+clean. (c) complete -- all of D-006 residue (a)/(b)/(c) is now closed.

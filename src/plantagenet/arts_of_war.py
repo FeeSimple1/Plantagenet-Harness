@@ -78,6 +78,11 @@ def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             elif etype in ("this_levy", "this_campaign"):
                 state.active_events.append({"card": cid, "side": side, "scope": etype})
                 result["active"].append(cid)
+                # Gloucester (IIY/IIL special rule): playing Y28 GLOUCESTER AS HEIR
+                # sets it aside for reference in the next War's setup (6.2.2).
+                if state.grand_scenario and \
+                        cards[cid]["event"]["title"] == "GLOUCESTER AS HEIR":
+                    state.grand_scenario["gloucester_as_heir_played"] = True
             else:                                    # immediate: resolve, return to deck
                 deck["draw"].append(cid)             # (Event effect applied by the consumer)
                 result["resolved"].append(cid)
