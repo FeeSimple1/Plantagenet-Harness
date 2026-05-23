@@ -38,7 +38,8 @@ The Levy begins with the Arts of War draw, Rebel then King:
 
 | Action | Args | Rule | Status |
 |---|---|---|---|
-| `draw` | `side` | 3.1 | done (first Levy deploys 2 Capabilities; later Levies draw 2 Events) |
+| `draw` | `side` | 3.1 | done (first Levy deploys 2 Capabilities; later Levies draw 2 Events; immediate Events queue on `pending_events` for resolution) |
+| `play_event` | `card`, `side`, `decisions?` | 3.1.3 / 1.9.1 | done (resolve a drawn immediate Event as far as able; returns card to deck; only legal move while `pending_events` set) |
 
 First Levy of a scenario (3.1.2): each side draws two cards and deploys them
 as Capabilities at Mustered Lord mats (default first eligible Lord; discard

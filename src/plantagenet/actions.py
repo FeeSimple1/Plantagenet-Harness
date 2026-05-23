@@ -138,6 +138,11 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         result = reactions.resolve(state, action)
         state.history.append({"action": action, "result": result})
         return result
+    # While immediate Events drawn during Arts of War await resolution (3.1.3),
+    # only play_event is legal and the Levy does not advance.
+    if state.pending_events and atype != "play_event":
+        raise IllegalAction("events_pending",
+                            "resolve drawn immediate Events with play_event first (3.1.3)")
     handler = _HANDLERS.get(atype)
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")

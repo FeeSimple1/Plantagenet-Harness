@@ -35,11 +35,22 @@ def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
             {"type": "react", "side": side, "pass": True}]
 
 
+def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
+    """While immediate Events drawn during Arts of War (3.1.3) await resolution,
+    the only legal move is to play each (the consumer supplies any ``decisions``;
+    some Events are deterministic). ``apply_action`` rejects all else."""
+    side = state.active_side
+    return [{"type": "play_event", "side": side, "card": pe["card"]}
+            for pe in state.pending_events if pe.get("side") == side]
+
+
 def legal_moves(state: GameState) -> list[dict[str, Any]]:
     if state.phase == "over":
         return []
     if state.pending:                 # a reaction window is open: only react/pass
         return _reaction_moves(state)
+    if state.pending_events:          # drawn immediate Events await resolution (3.1.3)
+        return _pending_event_moves(state)
     if state.phase == "campaign":
         return _campaign_moves(state)
     if state.phase == "levy" and state.levy_step == "done":
@@ -405,4 +416,6 @@ def validated_legal_moves(state: GameState) -> dict[str, Any]:
 def _is_templated(mv: dict[str, Any]) -> bool:
     """A move the consumer must parameterize before it can apply (4.1 Plan is a
     free construction): not directly probeable, so kept and flagged."""
-    return mv.get("type") == "build_plan" and "plan" not in mv
+    if mv.get("type") == "build_plan" and "plan" not in mv:
+        return True
+    return mv.get("type") == "play_event" and "decisions" not in mv

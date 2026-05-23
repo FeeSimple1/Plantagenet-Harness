@@ -759,3 +759,26 @@ enumerations, all fixed by mirroring the handler gate in legal_moves:
 Also: the validated palette now keeps build_plan as a templated/unvalidated
 candidate (4.1 Plan is a free construction) rather than probing+rejecting it.
 A 20-seed x 6-scenario sweep is clean post-fix. 448 pass; ruff clean.
+
+## Round (2026-05-23): ChatGPT play -- immediate Arts of War Events never resolved
+
+A ChatGPT playthrough (via scripts/chatgpt_play_helper.py) reported that immediate
+Arts of War Event resolution was not integrated into the draw/legal-action flow.
+Confirmed and fixed -- it was actually three coupled defects in the 3.1.3 draw:
+  1. The draw routed an immediate Event's card back to the deck with the effect
+     "applied by the consumer" -- but nothing applied it, and legal_moves never
+     offered play_event, so the effect was silently dropped.
+  2. play_event DISCARDED the card while 3.1.3 says immediate Events "return to
+     deck"; resolving a drawn Event would then put one card in two zones (a
+     card_zone invariant break waiting to happen).
+  3. The many decision-bearing immediates can't take decisions at random-draw
+     time, so a post-draw resolution step is required.
+Fix: draw queues immediates on state.pending_events (no advance); legal_moves
+offers a play_event template per pending Event and nothing else (apply_action
+guards with events_pending); play_event resolves "as far as able", returns the
+card to the deck (3.1.3), and advances the Levy when the queue empties. Five
+precondition resolvers (Y26, L22, L32, L23/L24, L27) now resolve to no effect
+when their card-text "No effect if ..." condition is unmet rather than raising,
+and the two selection Events size to availability ("select 3 ... or all if fewer").
+New tests in test_immediate_events_draw.py; full-game smoke + test helper fill
+play_event decisions. 453 pass; ruff clean.

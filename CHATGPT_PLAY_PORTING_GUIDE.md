@@ -61,6 +61,24 @@ The number of plan entries must equal the `cards_required` shown on the move
 (the `// ...` note on the menu line spells this out, including the side's
 Mustered Lord ids).
 
+### Resolving drawn Events (`play_event`)
+
+On the second and later Levies, the Arts of War draw (3.1.3) reveals Events.
+Immediate Events are queued and must be resolved before the Levy proceeds: the
+menu then offers a `play_event` move per drawn Event, and nothing else is legal
+until they are resolved. Most Events are deterministic — apply them by their menu
+number. Selection Events (e.g. Warwick's Propaganda picks Strongholds, L'Universelle
+Aragne picks Vassals) need a choice, supplied as a raw dict:
+
+```python
+nv.apply({"type":"play_event","side":"lancastrian","card":"L23",
+          "decisions":{"strongholds":{"york":"remove","coventry":"pay","hull":"remove"}}})
+```
+
+An Event whose precondition isn't met (its card text reads "No effect if …")
+resolves to no effect rather than being rejected. Resolved cards return to the
+deck (3.1.3).
+
 ## §RNG — why the validated palette is safe here
 
 The validated palette deep-copies the state, applies a candidate, and discards

@@ -163,6 +163,10 @@ class GameState(_Model):
     arts_of_war: dict[str, str] = Field(default_factory=dict)   # side -> deck composition text
     history: list[dict[str, Any]] = Field(default_factory=list)
     pending: list[dict[str, Any]] = Field(default_factory=list)
+    # Immediate Arts of War Events drawn this Levy step awaiting resolution by
+    # active_side (3.1.3): [{"card": id, "side": side}]. While non-empty, only
+    # play_event is legal and the Levy does not advance.
+    pending_events: list[dict[str, Any]] = Field(default_factory=list)
     flags: dict[str, Any] = Field(default_factory=dict)   # scenario-level one-shot flags
 
     # -- dice -------------------------------------------------------------

@@ -119,6 +119,15 @@ def _expand(state, mv):
                 f'{{"type":"build_plan","side":"{side}","plan":[{{"lord":"<id>"}}'
                 f', {{"pass":true}}, ...]}} ({n} entries).')
         return {**mv, "plan": _default_plan(state, side, n), "note": note}
+    if mv.get("type") == "play_event" and "decisions" not in mv:
+        # A drawn immediate Event (3.1.3). Deterministic Events resolve with no
+        # decisions; selection Events (e.g. Warwick's Propaganda) need a choice,
+        # supplied as a raw dict so the player -- not a default -- chooses.
+        note = ('resolve this drawn Event. Deterministic Events: apply as-is. '
+                'Selection Events need decisions, e.g. a raw dict '
+                f'{{"type":"play_event","side":"{mv.get("side")}",'
+                f'"card":"{mv.get("card")}","decisions":{{...}}}}.')
+        return {**mv, "note": note}
     return mv
 
 
@@ -162,6 +171,9 @@ def _validated(side, log_rejects=True):
         return cands
     out = []
     for a in cands:
+        if a.get("type") == "play_event" and "decisions" not in a:
+            out.append(a)          # decisions template: keep, don't probe-reject
+            continue
         minimal = _clean(a)
         probe = deep_copy(_S["state"])
         try:
@@ -274,8 +286,8 @@ def _classify(action, acts):
     - "offmenu": not currently offered at all. Rejected -> player mistake; but if
       the handler *accepts* it, the menu under-enumerated a legal move -> notable.
     """
-    if action.get("type") == "build_plan":
-        if any(a.get("type") == "build_plan" and a.get("side") == action.get("side")
+    if action.get("type") in ("build_plan", "play_event"):
+        if any(a.get("type") == action.get("type") and a.get("side") == action.get("side")
                for a in acts):
             return "template"
         return "offmenu"
@@ -294,7 +306,11 @@ def apply(choice):
             print(f"index {choice} out of range; pass a valid index or an action dict")
             return show()
         action = _clean(acts[choice])
-        cls = "vouched"
+        # A play_event with no decisions is a template (selection Events need a
+        # choice); a bare apply that the engine rejects is player error, not a
+        # vouched-move divergence.
+        cls = ("template" if action.get("type") == "play_event"
+               and "decisions" not in action else "vouched")
     elif isinstance(choice, dict):
         action = _clean(choice)
         cls = _classify(action, acts)

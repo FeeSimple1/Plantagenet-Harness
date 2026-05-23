@@ -58,7 +58,7 @@ def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     drawn = [deck["draw"].pop(0) for _ in range(min(2, len(deck["draw"])))]
     result: dict[str, Any] = {"type": "draw", "side": side, "first_levy": first_levy,
                               "drawn": drawn, "deployed": [], "held": [], "active": [],
-                              "resolved": [], "discarded": []}
+                              "pending": [], "resolved": [], "discarded": []}
 
     if first_levy:                                   # 3.1.2 Draw Capabilities
         for cid in drawn:
@@ -83,17 +83,29 @@ def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                 if state.grand_scenario and \
                         cards[cid]["event"]["title"] == "GLOUCESTER AS HEIR":
                     state.grand_scenario["gloucester_as_heir_played"] = True
-            else:                                    # immediate: resolve, return to deck
-                deck["draw"].append(cid)             # (Event effect applied by the consumer)
-                result["resolved"].append(cid)
+            else:                                    # immediate (3.1.3): queue for resolution
+                # The effect is resolved by a subsequent play_event action (the
+                # consumer supplies any decisions); the card returns to the deck
+                # then. The Levy does not advance until pending_events is empty.
+                state.pending_events.append({"card": cid, "side": side})
+                result["pending"].append(cid)
 
+    if state.pending_events:                          # immediate Events await play_event
+        result["next"] = "resolve_events"
+        return result
+    result["next"] = advance_after_draw(state, side, first_levy)
+    return result
+
+
+def advance_after_draw(state: GameState, side: str, first_levy: bool) -> str:
+    """Advance the Arts of War sequence once `side` has finished its draw and
+    resolved any immediate Events: Rebel -> King draw, then -> muster (first
+    Levy) or pay (later Levy). Returns the "next" label."""
     rebel = [s for s, r in state.roles.items() if r == "rebel"][0]
     king = [s for s, r in state.roles.items() if r == "king"][0]
     if side == rebel:
         state.active_side = king
-        result["next"] = "king_draw"
-    else:
-        state.levy_step = "muster" if first_levy else "pay"
-        state.active_side = rebel
-        result["next"] = state.levy_step
-    return result
+        return "king_draw"
+    state.levy_step = "muster" if first_levy else "pay"
+    state.active_side = rebel
+    return state.levy_step

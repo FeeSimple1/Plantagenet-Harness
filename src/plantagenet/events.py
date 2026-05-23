@@ -79,12 +79,19 @@ def _scots(state, side, d):                                  # L14: up to 1 MaA 
     return {"added": add}
 
 
-def _french_troops(state, side, d):                          # L22: a Lord at a Port
+def _french_troops(state, side, d):                          # L22: a Lord at a Port (optional)
+    locales = static_data.load_locales()
+    at_port = [lid for lid, ls in _on_map(state, "lancastrian")
+               if ls.location in locales and locales[ls.location].get("port")]
+    if not at_port:                                          # "No effect if no ... at a Port"
+        return {"no_effect": "no Lancastrian Lord at a Port (L22)"}
     lid = d.get("lord")
+    if lid is None:                                          # Optional: declined
+        return {"no_effect": "declined (L22 is optional)"}
     ls = state.lords.get(lid)
     _require(ls is not None and ls.side == "lancastrian"
              and ls.status == LordStatus.MUSTERED, "bad_lord", "name a Lancastrian Lord (L22)")
-    _require(bool(static_data.load_locales()[ls.location].get("port")),
+    _require(ls.location in locales and bool(locales[ls.location].get("port")),
              "not_port", "French Troops reinforce a Lancastrian Lord at a Port (L22)")
     a = _pool_add(state, ls, "men_at_arms", min(2, int(d.get("men_at_arms", 2))))
     b = _pool_add(state, ls, "militia", min(2, int(d.get("militia", 2))))
@@ -165,11 +172,10 @@ def _henrys_proclamation(state, side, d):                    # L19: Yorkist Vass
 
 def _dubious_clarence(state, side, d):                       # Y26
     ed = state.lords.get("edward_iv")
-    _require(ed is not None and ed.status == LordStatus.MUSTERED,
-             "no_edward", "Dubious Clarence needs Edward IV on the map (Y26)")
     clar = state.lords.get("clarence")
-    _require(clar is not None and clar.status == LordStatus.MUSTERED,
-             "no_clarence", "Clarence is not on the map (Y26)")
+    if not (ed is not None and ed.status == LordStatus.MUSTERED
+            and clar is not None and clar.status == LordStatus.MUSTERED):
+        return {"no_effect": "requires Edward IV and Clarence on the map (Y26)"}
     chk = influence.check_influence(state, "edward_iv", "yorkist",
                                     extra_spend=int(d.get("extra_spend", 0)))
     if chk["success"]:
@@ -180,9 +186,17 @@ def _dubious_clarence(state, side, d):                       # Y26
 
 def _luniverselle_aragne(state, side, d):                    # L27
     from plantagenet import campaign
+    from plantagenet.state import VassalStatus
+    available = [vid for vid, v in state.vassals.items()
+                 if v.status == VassalStatus.MUSTERED and v.on_lord is not None
+                 and state.lords.get(v.on_lord) is not None
+                 and state.lords[v.on_lord].side == "yorkist"]
+    if not available:                                        # "No effect if no ... Vassals"
+        return {"no_effect": "no Yorkist Mustered Vassals (L27)"}
+    need = min(2, len(available))                            # "Select 2 ... or fewer if fewer"
     targets = d.get("vassals", [])
-    _require(1 <= len(targets) <= 2, "bad_targets",
-             "L'Universelle Aragne targets up to 2 Yorkist Mustered Vassals (L27)")
+    _require(len(targets) == need, "bad_targets",
+             f"L'Universelle Aragne targets {need} Yorkist Mustered Vassals (L27)")
     out = []
     for vid in targets:
         v = state.vassals.get(vid)
@@ -197,13 +211,17 @@ def _luniverselle_aragne(state, side, d):                    # L27
 
 
 def _warwicks_propaganda(state, side, d):                    # L23/L24
+    available = [loc for loc, ls in state.locales.items() if ls.favour == "yorkist"]
+    if not available:                                        # "No effect if no ... Favour"
+        return {"no_effect": "no Yorkist Favour to target (L23/L24)"}
+    need = min(3, len(available))                            # "Select 3 ... or all if fewer"
     choices = d.get("strongholds", {})   # {locale: "pay" | "remove"}
-    _require(len(choices) == 3, "bad_count",
-             "Warwick's Propaganda selects 3 Yorkist Strongholds (L23/L24)")
+    _require(len(choices) == need, "bad_count",
+             f"Warwick's Propaganda selects {need} Yorkist Strongholds (L23/L24)")
     out = []
     for loc, how in choices.items():
-        _require(state.locales[loc].favour == "yorkist", "not_yorkist",
-                 f"{loc} must Favour Yorkist (L23/L24)")
+        _require(loc in state.locales and state.locales[loc].favour == "yorkist",
+                 "not_yorkist", f"{loc} must Favour Yorkist (L23/L24)")
         if how == "pay":
             influence.spend_influence(state, "yorkist", 2)
             out.append({loc: "paid 2 Influence"})
@@ -277,10 +295,10 @@ def _robins_rebellion(state, side, d):                       # L31
 def _tudor_banners(state, side, d):                          # L32
     from plantagenet.commands import _adjacency
     ht = state.lords.get("henry_tudor")
-    _require(ht is not None and ht.status == LordStatus.MUSTERED,
-             "no_henry_tudor", "Henry Tudor must be on the map (L32)")
-    _require(state.locales[ht.location].favour == "lancastrian", "not_friendly",
-             "Henry Tudor must be at a Friendly Stronghold (L32)")
+    if not (ht is not None and ht.status == LordStatus.MUSTERED
+            and ht.location in state.locales
+            and state.locales[ht.location].favour == "lancastrian"):
+        return {"no_effect": "Henry Tudor not at a Friendly Stronghold (L32)"}
     york = {ls.location for _lid, ls in _on_map(state, "yorkist")}
     marked = []
     for n, _t in _adjacency().get(ht.location, []):
@@ -421,23 +439,45 @@ _PERSIST = {"Y34"}   # immediate Events that stay in effect (active_events)
 
 
 def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    """Resolve an immediate Event card's effect (1.9.1)."""
+    """Resolve an immediate Event card's effect (1.9.1 / 3.1.3).
+
+    A drawn immediate Event sits in ``state.pending_events`` until resolved; on
+    resolution it returns to the deck (3.1.3) and, once the side's queue empties,
+    the Arts of War sequence advances. An Event whose precondition is unmet
+    resolves to no effect (the card text's "No effect if ..."). Standalone calls
+    (not from a draw) just apply the effect, leaving deck membership untouched."""
     cid = action.get("card")
     side = action.get("side")
     cards = static_data.load_cards()
+    in_pending = any(pe.get("card") == cid and pe.get("side") == side
+                     for pe in state.pending_events)
     if cid in _PERSIST:
         _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
         state.active_events.append({"card": cid, "side": side, "scope": "this_campaign"})
-        return {"type": "play_event", "card": cid, "side": side, "active": True}
-    _require(cid in _IMMEDIATE, "not_immediate_event",
-             f"{cid} is not a coded immediate Event")
-    _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
-    # Henry Released (L26): cannot occur while L26 is on a mat / set aside (Succession).
-    if cid == "L26":
-        d = state.decks.get(side, {})
-        in_deck = any("L26" in d.get(pile, []) for pile in ("draw", "discard", "held"))
-        _require(in_deck, "event_suppressed",
-                 "Henry Released cannot occur: L26 EDWARD is assigned/set aside (6.2)")
-    res = _IMMEDIATE[cid](state, side, action.get("decisions", {}))
-    state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
+        res: dict[str, Any] = {"active": True}
+    else:
+        _require(cid in _IMMEDIATE, "not_immediate_event",
+                 f"{cid} is not a coded immediate Event")
+        _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
+        # Henry Released (L26): cannot occur while L26 is on a mat / set aside.
+        if cid == "L26":
+            d = state.decks.get(side, {})
+            # A just-drawn L26 is live by definition (in_pending); otherwise it is
+            # suppressed when assigned to a mat / set aside (not in any deck pile).
+            live = in_pending or any("L26" in d.get(pile, [])
+                                     for pile in ("draw", "discard", "held"))
+            _require(live, "event_suppressed",
+                     "Henry Released cannot occur: L26 EDWARD is assigned/set aside (6.2)")
+        res = _IMMEDIATE[cid](state, side, action.get("decisions", {}))
+        # 3.1.3: a drawn immediate Event returns to the deck after resolving. Only
+        # in the drawn (pending) context -- standalone calls leave the card alone.
+        if in_pending:
+            state.decks.setdefault(side, {}).setdefault("draw", []).append(cid)
+    if in_pending:
+        state.pending_events = [pe for pe in state.pending_events
+                                if not (pe.get("card") == cid and pe.get("side") == side)]
+        if not state.pending_events:
+            from plantagenet.arts_of_war import advance_after_draw
+            first_levy = state.turn_box == (state.calendar.first_box or state.turn_box)
+            res["next"] = advance_after_draw(state, side, first_levy)
     return {"type": "play_event", "card": cid, "side": side, **res}
