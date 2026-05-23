@@ -261,6 +261,30 @@ def show():
     return acts
 
 
+def _classify(action, acts):
+    """How much the engine vouches for a submitted action, so apply() can tell a
+    real enumerator/handler bug from an ordinary player mistake:
+
+    - "vouched": this exact action is on the current validated menu (always true
+      for an index pick). An IllegalAction here is a genuine validator/handler
+      divergence -> notable.
+    - "template": a build_plan free-construction while a build_plan template is
+      offered. The engine vouches the *template*, not a specific plan, so a bad
+      plan is player error and a good one is unremarkable.
+    - "offmenu": not currently offered at all. Rejected -> player mistake; but if
+      the handler *accepts* it, the menu under-enumerated a legal move -> notable.
+    """
+    if action.get("type") == "build_plan":
+        if any(a.get("type") == "build_plan" and a.get("side") == action.get("side")
+               for a in acts):
+            return "template"
+        return "offmenu"
+    for a in acts:
+        if _clean(a) == action:
+            return "vouched"
+    return "offmenu"
+
+
 def apply(choice):
     s = _S["state"]
     side = active_side(s)
@@ -270,17 +294,30 @@ def apply(choice):
             print(f"index {choice} out of range; pass a valid index or an action dict")
             return show()
         action = _clean(acts[choice])
+        cls = "vouched"
     elif isinstance(choice, dict):
         action = _clean(choice)
+        cls = _classify(action, acts)
     else:
         raise TypeError("choice must be an int index or an action dict")
     try:
         apply_action_local(s, action)
     except ILLEGAL_EXCEPTIONS as e:
-        _S["findings"].append({"kind": "illegal_action", "turn": _S["turn"],
-                               "side": side, "action": action,
-                               "code": getattr(e, "code", ""), "msg": str(e)[:160]})
-        print(f"!! ILLEGAL (recorded): {str(e)[:160]}")
+        if cls == "vouched":
+            # the validated menu vouched this exact move but apply rejected it:
+            # a genuine validator/handler divergence (the bug class we hunt).
+            _S["findings"].append({"kind": "illegal_action", "turn": _S["turn"],
+                                   "side": side, "action": action,
+                                   "code": getattr(e, "code", ""), "msg": str(e)[:160]})
+            print(f"!! ILLEGAL -- engine divergence (recorded): {str(e)[:160]}")
+        else:
+            # a move not on the current menu (raw dict / bad custom plan): an
+            # ordinary player mistake, not an engine defect -- non-notable.
+            _S["findings"].append({"kind": "player_illegal", "turn": _S["turn"],
+                                   "side": side, "action": action,
+                                   "code": getattr(e, "code", ""), "msg": str(e)[:160]})
+            print(f"not a currently-legal move ({getattr(e, 'code', '')}); "
+                  f"call nv.show() for the current menu.")
         return show()
     except Exception as e:
         _S["findings"].append({"kind": "exception", "turn": _S["turn"],
@@ -289,6 +326,13 @@ def apply(choice):
                                "tb": traceback.format_exc()[-700:]})
         print(f"!! EXCEPTION (recorded): {type(e).__name__}: {e}")
         return
+    if cls == "offmenu":
+        # the handler accepted a move the menu never offered: under-enumeration
+        # (the enumerator missed a legal move) -- a real engine defect.
+        _S["findings"].append({"kind": "under_enum_accepted", "turn": _S["turn"],
+                               "side": side, "action": action})
+        print("note: applied a LEGAL move that was not on the menu "
+              "(under-enumeration; recorded).")
     _S["history"].append({"turn": _S["turn"], "side": side, "action": action})
     _S["turn"] += 1
     if _check_invariants():
@@ -332,8 +376,11 @@ def auto(max_steps=300):
 
 def findings_report():
     notable = [f for f in _S["findings"] if f["kind"] in (
-        "illegal_action", "over_enum_filtered", "exception", "exception_in_probe",
-        "no_legal_moves", "invariant", "invariant_crash")]
+        "illegal_action", "over_enum_filtered", "under_enum_accepted",
+        "exception", "exception_in_probe", "no_legal_moves",
+        "invariant", "invariant_crash")]
+    # player_illegal (an off-menu move the engine correctly rejected) is a
+    # player mistake, not an engine defect -- kept in the log but not notable.
     print(f"\n===== FINDINGS: {len(_S['findings'])} total, "
           f"{len(notable)} notable =====")
     for f in notable:
