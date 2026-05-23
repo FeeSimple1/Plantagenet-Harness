@@ -107,3 +107,18 @@ def test_iiiy_favour_is_london_yorkist_plus_marked_seats():
     assert n.locales["london"].favour == "yorkist"
     assert n.locales["arundel"].favour == "yorkist"      # Norfolk's Seat
     assert n.locales["ludlow"].favour == "yorkist"       # March's Seat
+
+
+def test_iiiy_recomputes_stronghold_markers_from_favour():
+    n = _to_iiiy()
+    locs_static = __import__("plantagenet.static_data", fromlist=["x"]).load_locales()
+    track = n.influence["track"]
+    for typ in ("city", "town", "fortress"):
+        counts = {s: sum(1 for lid, lc in locs_static.items()
+                         if lc.get("type") == typ and n.locales[lid].favour == s)
+                  for s in ("yorkist", "lancastrian")}
+        m = track.stronghold_markers[typ]
+        assert m.at == abs(counts["yorkist"] - counts["lancastrian"])
+        if counts["yorkist"] != counts["lancastrian"]:
+            assert m.side == ("yorkist" if counts["yorkist"] > counts["lancastrian"]
+                              else "lancastrian")
