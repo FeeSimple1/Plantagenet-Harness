@@ -62,6 +62,7 @@ class LordState(_Model):
     exile_box: str | None = None       # exile box id when EXILE
     calendar_box: int | None = None    # Turn box when CALENDAR
     calendar_exile: bool = False       # cylinder marked Exile on the Calendar
+    at_sea: str | None = None          # Sea zone id when Sailing "into a Sea" (4.6.1)
     ring: str | None = None            # "silver" | "gold" (Heir ring), if any
     forces: dict[str, int] = Field(default_factory=dict)
     assets: dict[str, int] = Field(default_factory=dict)

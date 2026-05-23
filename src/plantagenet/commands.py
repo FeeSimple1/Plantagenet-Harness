@@ -295,37 +295,50 @@ def _forces_units(lord) -> int:
 
 def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
-    loc = lord_location(lord)
-    _require(loc is not None, "lord_not_on_locale",
-             "the Lord must be at a Port or Exile box to Sail")
-    kind, here = loc
     seas = static_data.load_seas()
-    port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
-    box_sea = {b: zone_id for zone_id, zone in seas["zones"].items()
+    zones = seas["zones"]
+    port_sea = {p: z for z, zone in zones.items() for p in zone.get("ports", [])}
+    box_sea = {b: zone_id for zone_id, zone in zones.items()
                for b in zone.get("exile_boxes", [])}
-    if kind == "exile":
-        from_sea = box_sea.get(here)
+    adj = {frozenset(pair) for pair in seas["adjacency"]}
+
+    # Origin Sea: at a Port, an Exile box, or already at Sea (4.6.1).
+    if lord.at_sea is not None:
+        from_sea = lord.at_sea
     else:
-        _require(static_data.load_locales()[here].get("port"), "not_port",
-                 "Sail requires a Port or Exile box (4.6.1)")
-        from_sea = port_sea.get(here)
-    _require(from_sea is not None, "no_sea", f"{here} is not on a Sea")
+        loc = lord_location(lord)
+        _require(loc is not None, "lord_not_on_locale",
+                 "the Lord must be at a Port, Exile box, or at Sea to Sail")
+        kind, here = loc
+        if kind == "exile":
+            from_sea = box_sea.get(here)
+        else:
+            _require(static_data.load_locales()[here].get("port"), "not_port",
+                     "Sail requires a Port, Exile box, or being at Sea (4.6.1)")
+            from_sea = port_sea.get(here)
+    _require(from_sea is not None, "no_sea", "the Lord is not on a Sea")
 
     # French Fleet (L21): Yorkist Lords may not Sail this Campaign.
     _require(not (lord.side == "yorkist" and _active_event(state, "FRENCH FLEET")),
              "french_fleet", "French Fleet prohibits Yorkist Sailing this Campaign (L21)")
+
     dest = action.get("to")
-    _require(dest in port_sea, "dest_not_port", f"{dest!r} is not a Port (4.6.1)")
-    dest_sea = port_sea[dest]
-    adj = {frozenset(pair) for pair in seas["adjacency"]}
-    reachable = dest_sea == from_sea or frozenset({from_sea, dest_sea}) in adj
-    _require(reachable, "seas_not_adjacent",
-             f"{dest} is not on the same or an adjacent Sea (4.6.1)")
-    dest_has_enemy = enemy_lord_at(state, dest, lord.side)
-    if dest_has_enemy:
-        _require(ratings.has_capability(state, lord.lord_id, "HIGH ADMIRAL"),
-                 "dest_has_enemy",
-                 f"{dest} is not free of Enemy Lords (4.6.1)")   # High Admiral (L29): allowed
+    into_sea = dest in zones
+    if into_sea:                       # 4.6.1: move "into that or an adjacent Sea" -> at Sea
+        dest_sea = dest
+        _require(dest_sea == from_sea or frozenset({from_sea, dest_sea}) in adj,
+                 "seas_not_adjacent", f"{dest} is not the current or an adjacent Sea (4.6.1)")
+        dest_has_enemy = False
+    else:                              # to a Port on the same or an adjacent Sea, Enemy-free
+        _require(dest in port_sea, "dest_not_port", f"{dest!r} is not a Port or a Sea (4.6.1)")
+        dest_sea = port_sea[dest]
+        _require(dest_sea == from_sea or frozenset({from_sea, dest_sea}) in adj,
+                 "seas_not_adjacent", f"{dest} is not on the same or an adjacent Sea (4.6.1)")
+        dest_has_enemy = enemy_lord_at(state, dest, lord.side)
+        if dest_has_enemy:
+            _require(ratings.has_capability(state, lord.lord_id, "HIGH ADMIRAL"),
+                     "dest_has_enemy",
+                     f"{dest} is not free of Enemy Lords (4.6.1)")   # High Admiral (L29)
 
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
     ships = lord.assets.get("ship", 0)
@@ -339,6 +352,7 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     # Owain Glyndwr (Y25): no Lancastrian Sail to a Stronghold in Wales.
     _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
+                  and not into_sea
                   and static_data.load_locales().get(dest, {}).get("region") == "wales"),
              "owain_glyndwr", "Owain Glyndwr bars Lancastrian Sail into Wales (Y25)")
 
@@ -352,9 +366,9 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # using a Port on this Sea, before the move resolves.
     from plantagenet import reactions
     ctx = {"actor": lord.lord_id, "side": lord.side, "seas": [from_sea, dest_sea]}
-    finish_data = {"lord": lord.lord_id, "dest": dest, "from_sea": from_sea,
-                   "to_sea": dest_sea, "dest_has_enemy": dest_has_enemy,
-                   "decisions": action.get("decisions")}
+    finish_data = {"lord": lord.lord_id, "dest": dest, "into_sea": into_sea,
+                   "from_sea": from_sea, "to_sea": dest_sea,
+                   "dest_has_enemy": dest_has_enemy, "decisions": action.get("decisions")}
     return reactions.gate(state, "uses_port_on_sea", ctx, "commands:sail_finish", finish_data)
 
 
@@ -364,9 +378,15 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
     if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
         return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
                 "cancelled": True}
-    lord.location = data["dest"]
     lord.exile_box = None
     lord.moved_fought = True
+    if data.get("into_sea"):            # ended the Sail at Sea (4.6.1); Disembark at 4.8.2
+        lord.location = None
+        lord.at_sea = data["dest"]
+        return {"type": "sail", "by_lord": lord.lord_id, "to_sea": data["dest"],
+                "at_sea": data["dest"]}
+    lord.location = data["dest"]
+    lord.at_sea = None
     out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
            "from_sea": data["from_sea"], "to_sea": data["to_sea"]}
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
