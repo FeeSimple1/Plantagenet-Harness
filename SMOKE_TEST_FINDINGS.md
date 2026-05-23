@@ -480,3 +480,25 @@ list (`succession.is_global_heir`) plus a static-side fallback, so a Heir absent
 from the next War's roster (Henry VI in IIIY) is still penalised. 6 new tests; 318
 pass; ruff clean. STILL PENDING for (c): the IIY/IIIY conditional Lord/Seat/Favour
 placements (large; no rules ambiguity -- implementation only).
+
+## Round (2026-05-22): co-location invariant (cross-project advisory audit)
+
+Audited the "Retreat penalizes but never relocates" advisory against Plantagenet.
+FINDING: the bug class does not apply -- Plantagenet has no Retreat and no
+Siege/Storm (Rules summary p.1: "There is no Retreat: Routed Lords either Die or
+Disband"; "Siege and Storm: There are none"). A battle loser is the side whose
+Lords all Rout; every Routed Lord leaves the Locale via _kill_lord (REMOVED),
+campaign._disband_lord (location=None, cylinder to Calendar), Escape-Ship Exile,
+or the L16 Warden move. Verified the relocation mutation exists.
+
+The one latent path: the 60-round safety cap (`while ... and n < 60`) -- if a
+battle ever exits with un-Routed Lords on both sides, _ending's "both lose"
+branch disposes only Routed Lords, leaving opposing Lords co-located. Not
+reachable by normal play (no Concede in Plantagenet), but real.
+
+Per advisory #3, added a runtime invariant regardless (closes the class):
+`invariants.co_location_violations` / `assert_board_invariants` -- no two opposing
+Mustered Lords share a `location`, exempting a Locale with an open Approach
+reaction (4.3.5 / Q-004), where the Marching Lord legally co-locates while the
+defender's cancel/Battle resolves. All 7 scenario setups and post-battle states
+are clean. 10 new tests; 328 pass; ruff clean.
