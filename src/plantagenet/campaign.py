@@ -271,9 +271,15 @@ def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     for vid in list(lord.vassals):
         _disband_vassal(state, vid)
     lord.vassals = []
-    # Discard the Lord's Capability cards and release Special Vassals (1.5.3, 4.4.3).
+    # Discard the Lord's Capability cards (or set aside per Succession, 6.2) and
+    # release Special Vassals (1.5.3, 4.4.3).
+    set_aside = set()
+    if state.grand_scenario:
+        from plantagenet import succession
+        set_aside = set(succession.set_aside_cards(state, lord.lord_id))
     for cid in list(lord.capabilities):
-        state.decks.setdefault(lord.side, {}).setdefault("discard", []).append(cid)
+        pile = "set_aside" if cid in set_aside else "discard"
+        state.decks.setdefault(lord.side, {}).setdefault(pile, []).append(cid)
     lord.capabilities = []
     lord.special_vassals = []
     lord.forces = {}

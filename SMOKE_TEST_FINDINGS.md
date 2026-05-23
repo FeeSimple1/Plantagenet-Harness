@@ -374,3 +374,24 @@ No SMOKEs. 280 tests pass; ruff clean. NOTE: in-Battle plays (Y5/Y30/Y36/Y37/
 Y19/Y2/L2/L7) still resolve via the synchronous `decisions` channel; unifying
 them under an at_battle_phase trigger requires making resolve_battle resumable
 (5a-iii, see report).
+
+## Round 30 (Phase 5b-i: structured Succession engine + War I)
+
+succession.py rewritten as a structured trigger engine for the grand scenario.
+War I encoded in wars_of_the_roses.json under successions: heirs, triggers
+(while_remains henry_vi -> L15/L17; remove henry_vi -> to_calendar margaret +
+add L27/L31; muster margaret -> assign L26 EDWARD free/mandatory, set-aside on
+disband; remove somerset_1 -> somerset_2), and Automatic War Victory.
+
+Mechanism: deck membership of Succession-managed cards is reference-counted by
+source (deck_sources[side][card] = [lord...]); a card stays while >=1 source,
+so cards repeated across Lords stay put (errata). Grand loader now assembles
+War I decks from Scenario Ia and runs apply_setup; decks gained a set_aside
+pile. _disband_lord sets aside flagged Capabilities; levy_lord fires on_muster;
+play_event suppresses Henry Released (L26) once L26 is assigned; _kill_lord
+surfaces Automatic War Victory to state.victory.
+
+No SMOKEs. 289 tests pass; ruff clean. REMAINING (5b-ii): encode Wars IIY/IIL/
+IIIY/IIIL succession triggers (need on_becomes_highest_heir,
+on_heir_count_at_or_below, replace_lord_in_place vocabulary) AND the Renewed-War
+setup transition (E1 6.1) -- the latter is a new setup subsystem, scoped to Eric.

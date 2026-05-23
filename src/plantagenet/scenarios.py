@@ -261,7 +261,19 @@ def _build_grand(scn: dict, seed: int) -> GameState:
         "base_scenario": base_id,
         "allied_networks": war1.get("allied_networks", {}),
         "victory_threshold": war1.get("victory_threshold"),
-        "note": "Initialized at War I (setup = Scenario Ia). Later Wars' setups "
-                "are selected by Succession (a later-phase concern).",
+        "deck_sources": {},
+        "set_aside_on_disband": {},
+        "note": "Initialized at War I (setup = Scenario Ia).",
     }
+    # War I uses Scenario Ia's Arts of War decks; assemble them from the base.
+    roller = state.dice()
+    in_play = {c for ls in state.lords.values() for c in ls.capabilities}
+    for s_side in SIDES:
+        draw = [cid for cid in static_data.scenario_card_deck(base_id, s_side)
+                if cid not in in_play]
+        roller.shuffle(draw)
+        state.decks[s_side] = {"draw": draw, "discard": [], "held": [], "set_aside": []}
+    state.store_dice(roller)
+    from plantagenet import succession
+    succession.apply_setup(state)            # register while_remains deck sources (6.2)
     return state
