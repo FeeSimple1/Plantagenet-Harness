@@ -25,6 +25,42 @@ from plantagenet.actions import (
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus
 
+_NAVAL_BLOCKADE = "NAVAL BLOCKADE"        # Y15 (Warwick): gates Lancastrian Sea actions
+
+
+def _port_sea_map() -> dict[str, str]:
+    seas = static_data.load_seas()
+    return {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
+
+
+def _live_blockade_seas(state: GameState) -> set[str]:
+    """Seas on which a Mustered Yorkist Lord with Naval Blockade (Y15) sits at a
+    Port -- the only Seas on which the Blockade can fire (Y15 reaction)."""
+    psea = _port_sea_map()
+    locs = static_data.load_locales()
+    out: set[str] = set()
+    for lid, ls in state.lords.items():
+        if (ls.side == "yorkist" and ls.status == LordStatus.MUSTERED
+                and ratings.has_capability(state, lid, _NAVAL_BLOCKADE)
+                and locs.get(ls.location, {}).get("port")):
+            sea = psea.get(ls.location)
+            if sea:
+                out.add(sea)
+    return out
+
+
+def _route_used_seas(base_cost, recompute, candidates) -> list[str]:
+    """Among ``candidates`` Seas, those whose Ship sea-hops are load-bearing for
+    a Route -- i.e. blocking that Sea raises the Way cost (or makes the target
+    unreachable). Per Naval Blockade (Y15) the action only "uses a Port on that
+    Sea" when that Sea is needed; an equally short land route routes around it."""
+    used = []
+    for sea in candidates:
+        c = recompute(sea)
+        if c is None or c > base_cost:
+            used.append(sea)
+    return used
+
 
 def _require(cond: bool, code: str, msg: str) -> None:
     if not cond:
@@ -435,12 +471,13 @@ def heralds(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 # --------------------------------------------------------------- 4.6.3 Tax
 def _tax_route_cost(state: GameState, here: str, target: str, side: str,
-                    has_ship: bool, all_seas: bool = False) -> int | None:
+                    has_ship: bool, all_seas: bool = False,
+                    block_sea: str | None = None) -> int | None:
     """Shortest Route (Friendly chain free of Enemy Lords) from the Lord to
     the Taxed Stronghold (4.6.3). Returns Way count, or None."""
     from plantagenet.actions import _parley_route_cost
     return _parley_route_cost(state, ("stronghold", here), target, side, has_ship,
-                              all_seas=all_seas)
+                              all_seas=all_seas, block_sea=block_sea)
 
 
 def _active_event(state: GameState, title: str, side: str | None = None) -> bool:
@@ -503,12 +540,41 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                      f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
 
     extra = int(action.get("extra_spend", 0))
-    if auto:
+    _require(extra in (0, 1, 3), "bad_extra_spend",
+             "added Influence spend must be 0, 1, or 3 (1.4.2)")
+    # Which blockaded Sea(s) (if any) does the Tax Route use (Y15)?
+    used_seas: list[str] = []
+    if not auto and not (target == here) and lord.side == "lancastrian":
+        blk = _live_blockade_seas(state)
+        if blk:
+            gs2 = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
+            hs2 = lord.assets.get("ship", 0) > 0
+            used_seas = _route_used_seas(
+                way_cost,
+                lambda sea: _tax_route_cost(state, here, target, lord.side, hs2,
+                                            all_seas=gs2, block_sea=sea),
+                blk)
+    # Command-action cost is spent regardless of any Naval Blockade (Y15 tips).
+    state.campaign.actions_remaining -= 1
+    from plantagenet import reactions
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}
+    finish = {"lord": lord.lord_id, "target": target, "auto": auto,
+              "way_cost": way_cost, "extra": extra}
+    return reactions.gate(state, "uses_port_on_sea", ctx, "commands:tax_finish", finish)
+
+
+def tax_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Tax reaction window (4.6.3 / Naval Blockade Y15)."""
+    lord = state.lords[data["lord"]]
+    target = data["target"]
+    if cancelled:                       # Blockaded: no Influence paid (Y15 tips), no Coin.
+        return {"type": "tax", "by_lord": lord.lord_id, "target": target, "cancelled": True}
+    if data["auto"]:
         chk = {"success": True, "auto": True, "roll": None, "spent": 0}
     else:
         chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                        extra_spend=extra, way_cost=way_cost, action="tax")
-    state.campaign.actions_remaining -= 1
+                                        extra_spend=data["extra"], way_cost=data["way_cost"],
+                                        action="tax")
     coin_added = 0
     if chk["success"]:
         coin_added = static_data.stronghold_yields(target).get("tax", {}).get("coin", 0)
@@ -558,18 +624,43 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "Campaign Parley reaches only an adjacent Stronghold or a same-Sea Port (4.6.4)")
 
     extra = int(action.get("extra_spend", 0))
+    _require(extra in (0, 1, 3), "bad_extra_spend",
+             "added Influence spend must be 0, 1, or 3 (1.4.2)")
     # Dorset (Y29): Devon at Exeter Parleys for no Influence cost and auto-success.
     dorset = (lord.lord_id == "devon" and here == "exeter"
               and _active_event(state, "DORSET", "yorkist"))
     way = 0 if dorset else 1
-    chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=extra, way_cost=way, action="parley")
-    if dorset:
-        chk["success"] = True
+    # The Parley "uses a Port on a Sea" only when it reaches a non-adjacent
+    # same-Sea Port by Ship (Y15). Adjacent reach is overland -> no Blockade.
+    used_seas: list[str] = []
+    if sea_reach and not adjacent and lord.side == "lancastrian":
+        sea = _port_sea_map().get(here)
+        if sea and sea in _live_blockade_seas(state):
+            used_seas = [sea]
+    # Command-action cost is spent regardless of any Naval Blockade (Y15 tips).
     state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
+    from plantagenet import reactions
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}
+    finish = {"lord": lord.lord_id, "target": target, "extra": extra,
+              "way": way, "dorset": dorset, "fav_before": fav}
+    return reactions.gate(state, "uses_port_on_sea", ctx, "commands:parley_finish", finish)
+
+
+def parley_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Campaign Parley reaction window (4.6.4 / Y15)."""
+    lord = state.lords[data["lord"]]
+    target = data["target"]
+    if cancelled:                       # Blockaded: no Influence paid, no Favour shift.
+        return {"type": "parley", "by_lord": lord.lord_id, "target": target,
+                "cancelled": True}
+    chk = influence.check_influence(state, lord.lord_id, lord.side,
+                                    extra_spend=data["extra"], way_cost=data["way"],
+                                    action="parley")
+    if data["dorset"]:
+        chk["success"] = True
     changed = None
     if chk["success"]:
-        changed = _fav_desc(target, fav, lord.side)
+        changed = _fav_desc(target, data["fav_before"], lord.side)
         _shift_favour(state, target, lord.side)
     return {"type": "parley", "by_lord": lord.lord_id, "target": target,
             **chk, "favour_change": changed}
@@ -596,7 +687,7 @@ def _fav_desc(target: str, before: str, side: str) -> str:
 
 # --------------------------------------------------------------- 4.5 Supply
 def _supply_route_cost(state: GameState, here: str, source: str, side: str,
-                       all_seas: bool = False) -> int | None:
+                       all_seas: bool = False, block_sea: str | None = None) -> int | None:
     """Shortest land Supply Route (Friendly chain free of Enemy Lords, NOT
     across any Sea), including both the Lord's Locale and the Source, which
     must itself be Friendly (4.5.1). Returns the Way count, or None."""
@@ -615,7 +706,8 @@ def _supply_route_cost(state: GameState, here: str, source: str, side: str,
         node, dist = q.popleft()
         nbrs = [n for n, _t in _adjacency().get(node, [])]
         if all_seas and node in port_sea:          # Great Ships: all Ports 1 Way apart
-            nbrs += [p for p in port_sea if p != node]
+            nbrs += [p for p in port_sea if p != node
+                     and not (block_sea and block_sea in (port_sea[node], port_sea[p]))]
         for nxt in nbrs:
             if nxt in seen:
                 continue
@@ -649,48 +741,82 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                  "exile_needs_ship_port",
                  "an Exile-box Lord must Supply via Ship from a Port on the same Sea (4.5.1)")
 
+    gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
+    blk = _live_blockade_seas(state) if lord.side == "lancastrian" else set()
+    used_seas: list[str] = []
+
     if use_ships:
         _require(is_port, "ships_need_port", "Ship Supply requires a Port Source (4.5.1)")
         ships = lord.assets.get("ship", 0)
         _require(ships > 0, "no_ships", "Ship Supply requires at least one Ship (4.5.1)")
-        per_ship = 2 if ratings.has_capability(state, lord.lord_id, "GREAT SHIPS") else 1
+        per_ship = 2 if gs else 1
         sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \
             and _same_sea_port_or_box(here, source)
+        ways_out = None
         if sea_direct:
             added = ships * per_ship               # by Sea: no Carts (4.5.2)
+            sea = _port_sea_map().get(source)       # Ship Supply uses the Source Port's Sea
+            if sea and sea in blk:
+                used_seas = [sea]
         else:
-            ways = _supply_route_cost(state, here, source, lord.side,
-                                      all_seas=ratings.has_capability(state, lord.lord_id,
-                                                                      "GREAT SHIPS"))
+            ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
             _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
             added = ships * per_ship if ways == 0 else min(ships * per_ship, carts // ways)
             _require(added > 0, "insufficient_carts",
                      "need one Cart per Provender per intervening Way (4.5.1)")
+            ways_out = ways
+            if blk:
+                used_seas = _route_used_seas(
+                    ways, lambda sea: _supply_route_cost(state, here, source, lord.side,
+                                                         all_seas=gs, block_sea=sea), blk)
         added = _supply_bonuses(state, lord, source, added)
-        lord.assets["provender"] = lord.assets.get("provender", 0) + added
-        state.campaign.actions_remaining -= 1
-        return {"type": "supply", "by_lord": lord.lord_id, "source": source,
-                "via": "ship", "provender_added": added}
+        state.campaign.actions_remaining -= 1       # Command cost spent regardless (Y15)
+        from plantagenet import reactions
+        ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}
+        finish = {"lord": lord.lord_id, "source": source, "via": "ship",
+                  "added": added, "ways": ways_out, "deplete": False}
+        return reactions.gate(state, "uses_port_on_sea", ctx, "commands:supply_finish", finish)
 
     # Stronghold Source: table Provender, Cart-limited, then Deplete (4.5.2).
     _require(state.locales[source].depletion != "exhausted", "exhausted",
              f"{source} is Exhausted and may not be a Supply Source (4.5.1)")
-    ways = _supply_route_cost(state, here, source, lord.side,
-                              all_seas=ratings.has_capability(state, lord.lord_id, "GREAT SHIPS"))
+    ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
     _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
     base = static_data.stronghold_yields(source).get("supply", {}).get("provender", 0)
     added = base if ways == 0 else min(base, carts // ways)
     _require(added > 0, "insufficient_carts",
              "need one Cart per Provender per intervening Way to a Source (4.5.1)")
     added = _supply_bonuses(state, lord, source, added)
-    lord.assets["provender"] = lord.assets.get("provender", 0) + added
-    src = state.locales[source]
-    if not (ratings.has_capability(state, lord.lord_id, "CHAMBERLAINS")
-            and _is_own_vassal_seat(state, lord, source)):
+    deplete = not (ratings.has_capability(state, lord.lord_id, "CHAMBERLAINS")
+                   and _is_own_vassal_seat(state, lord, source))
+    if blk:
+        used_seas = _route_used_seas(
+            ways, lambda sea: _supply_route_cost(state, here, source, lord.side,
+                                                 all_seas=gs, block_sea=sea), blk)
+    state.campaign.actions_remaining -= 1           # Command cost spent regardless (Y15)
+    from plantagenet import reactions
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}
+    finish = {"lord": lord.lord_id, "source": source, "via": "stronghold",
+              "added": added, "ways": ways, "deplete": deplete}
+    return reactions.gate(state, "uses_port_on_sea", ctx, "commands:supply_finish", finish)
+
+
+def supply_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    """Resume after the Supply reaction window (4.5 / Naval Blockade Y15)."""
+    lord = state.lords[data["lord"]]
+    source = data["source"]
+    if cancelled:                       # Blockaded: no Provender gained, Source not Depleted.
+        return {"type": "supply", "by_lord": lord.lord_id, "source": source,
+                "cancelled": True}
+    lord.assets["provender"] = lord.assets.get("provender", 0) + data["added"]
+    if data["deplete"]:
+        src = state.locales[source]
         src.depletion = "exhausted" if src.depletion == "depleted" else "depleted"
-    state.campaign.actions_remaining -= 1
-    return {"type": "supply", "by_lord": lord.lord_id, "source": source,
-            "via": "stronghold", "ways": ways, "provender_added": added}
+    out = {"type": "supply", "by_lord": lord.lord_id, "source": source,
+           "via": data["via"], "provender_added": data["added"]}
+    if data["ways"] is not None:
+        out["ways"] = data["ways"]
+    return out
 
 
 def _same_sea_port_or_box(a: str, b: str) -> bool:

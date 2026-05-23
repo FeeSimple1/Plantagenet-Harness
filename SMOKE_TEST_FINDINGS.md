@@ -453,3 +453,17 @@ current Battle for its new Lord (`_Force` vassal-count swing) -- with its
 Calendar service marker reset as if newly Levied. Salisbury's Vassals are immune
 (Y17 Alice Montagu). The `deferred` flag is removed from the L7 BATTLE_REACTIONS
 entry. 6 new tests; 306 pass; ruff clean.
+
+## Round (2026-05-22): Naval Blockade gates Tax/Parley/Supply (D-006 residue (b))
+
+Extended the Y15 `uses_port_on_sea` reaction beyond Sail. `tax`, `parley_campaign`,
+and `supply` now compute the Sea(s) their Route uses and gate through
+`reactions.gate(... "uses_port_on_sea" ...)` with new `tax_finish` /
+`parley_finish` / `supply_finish` resumes. Route->sea introspection threads a
+`block_sea` argument through `_parley_route_cost` / `_supply_route_cost`;
+`_route_used_seas` deems a Sea "used" when blocking it raises the Way cost (so an
+equally short land route routes around the Blockade), while Campaign Parley uses
+the Port's Sea on a non-adjacent same-Sea reach and Ship Supply uses the Source
+Port's Sea. Per the Y15 tips the Command-action cost is committed before the
+reaction window and a block makes no Influence payment / applies no effect. 6 new
+tests; 312 pass; ruff clean.
