@@ -270,7 +270,148 @@
      "text": "After victory in this War, roll two dice each for Henry VI and York if still present - a roll less than the last Turn played removes that Heir. Then roll one die for Edward IV (only, not March) - remove him on a roll of '6'."
     }
    ],
-   "victory_threshold": 40
+   "victory_threshold": 40,
+   "successions": {
+    "_source": "Scenario Reference E2; War IIY prose.",
+    "setup_only": false,
+    "yorkist": {
+     "heirs": [
+      "york",
+      [
+       "march",
+       "edward_iv"
+      ],
+      "rutland",
+      [
+       "gloucester_1",
+       "richard_iii"
+      ]
+     ],
+     "triggers": [
+      {
+       "on": "while_remains",
+       "lord": "york",
+       "cards": [
+        "Y14",
+        "Y18",
+        "Y19",
+        "Y20"
+       ]
+      },
+      {
+       "on": "becomes_highest_heir",
+       "lord": "march",
+       "replace_lord_in_place": {
+        "old": "march",
+        "new": "edward_iv"
+       },
+       "add_cards": [
+        "Y23",
+        "Y24",
+        "Y28",
+        "Y31"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "rutland",
+       "cards": [
+        "Y20",
+        "Y21",
+        "Y28",
+        "Y35"
+       ]
+      },
+      {
+       "on": "becomes_highest_heir",
+       "lord": "gloucester_1",
+       "replace_lord_in_place": {
+        "old": "gloucester_1",
+        "new": "richard_iii"
+       },
+       "add_cards": [
+        "Y32",
+        "Y33",
+        "Y34",
+        "Y35"
+       ]
+      },
+      {
+       "on": "heir_count_at_or_below",
+       "n": 2,
+       "add_lord": "pembroke"
+      }
+     ]
+    },
+    "lancastrian": {
+     "heirs": [
+      "henry_vi",
+      "margaret",
+      "somerset_1",
+      "somerset_2"
+     ],
+     "triggers": [
+      {
+       "on": "while_remains",
+       "lord": "henry_vi",
+       "cards": [
+        "L17",
+        "L18",
+        "L20",
+        "L21"
+       ]
+      },
+      {
+       "on": "remove",
+       "lord": "henry_vi",
+       "to_calendar": "margaret"
+      },
+      {
+       "on": "while_remains",
+       "lord": "margaret",
+       "cards": [
+        "L27",
+        "L28",
+        "L31"
+       ]
+      },
+      {
+       "on": "muster",
+       "lord": "margaret",
+       "assign_capability": {
+        "lord": "margaret",
+        "card": "L26",
+        "free": true,
+        "mandatory": true,
+        "on_disband": "set_aside"
+       }
+      },
+      {
+       "on": "while_king",
+       "lord": "somerset_1",
+       "cards": [
+        "L20",
+        "L21",
+        "L27"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "somerset_2",
+       "cards": [
+        "L20",
+        "L21",
+        "L27"
+       ]
+      },
+      {
+       "on": "remove",
+       "lord": "somerset_1",
+       "to_calendar": "somerset_2"
+      }
+     ]
+    }
+   }
   },
   {
    "war_id": "war_iil",
@@ -482,7 +623,121 @@
      "text": "After victory in this War, roll two dice each for Henry VI and York if still present - a roll less than the last Turn played removes that Heir."
     }
    ],
-   "victory_threshold": 40
+   "victory_threshold": 40,
+   "successions": {
+    "_source": "Scenario Reference E2; War IIL prose.",
+    "setup_only": false,
+    "lancastrian": {
+     "heirs": [
+      "henry_vi",
+      "margaret",
+      [
+       "somerset_1",
+       "somerset_2"
+      ]
+     ],
+     "triggers": [
+      {
+       "on": "while_king",
+       "lord": "henry_vi",
+       "cards": [
+        "L15",
+        "L17"
+       ]
+      },
+      {
+       "on": "remove",
+       "lord": "henry_vi",
+       "to_calendar": "margaret"
+      },
+      {
+       "on": "muster",
+       "lord": "margaret",
+       "assign_capability": {
+        "lord": "margaret",
+        "card": "L26",
+        "free": true,
+        "mandatory": true,
+        "on_disband": "set_aside"
+       }
+      },
+      {
+       "on": "while_king",
+       "lord": "margaret",
+       "cards": [
+        "L27",
+        "L31"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "somerset_1",
+       "cards": [
+        "L16",
+        "L27"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "somerset_2",
+       "cards": [
+        "L16",
+        "L27"
+       ]
+      },
+      {
+       "on": "remove",
+       "lord": "somerset_1",
+       "replace_lord_in_place": {
+        "old": "somerset_1",
+        "new": "somerset_2"
+       }
+      }
+     ]
+    },
+    "yorkist": {
+     "heirs": [
+      "york",
+      "march",
+      "rutland",
+      "gloucester_1"
+     ],
+     "triggers": [
+      {
+       "on": "while_king",
+       "lord": "york",
+       "cards": [
+        "Y14",
+        "Y20"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "march",
+       "cards": [
+        "Y20",
+        "Y21"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "rutland",
+       "cards": [
+        "Y20",
+        "Y21"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "gloucester_1",
+       "cards": [
+        "Y25",
+        "Y30"
+       ]
+      }
+     ]
+    }
+   }
   },
   {
    "war_id": "war_iiiy",
@@ -521,7 +776,111 @@
      "text": "Skip all Grow and Waste (4.8.4 - 4.8.5)."
     }
    ],
-   "victory_threshold": 45
+   "victory_threshold": 45,
+   "successions": {
+    "_source": "Scenario Reference E2; War IIIY prose. Heir removal affects only setup.",
+    "setup_only": true,
+    "yorkist": {
+     "heirs": [
+      "york",
+      [
+       "march",
+       "edward_iv"
+      ],
+      "rutland",
+      [
+       "gloucester_1",
+       "richard_iii"
+      ]
+     ],
+     "triggers": [
+      {
+       "on": "while_king",
+       "lord": "york",
+       "cards": [
+        "Y14",
+        "Y21"
+       ]
+      },
+      {
+       "on": "becomes_highest_heir",
+       "lord": "march",
+       "replace_lord_in_place": {
+        "old": "march",
+        "new": "edward_iv"
+       },
+       "add_cards": [
+        "Y23",
+        "Y24"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "rutland",
+       "cards": [
+        "Y20",
+        "Y21"
+       ]
+      },
+      {
+       "on": "becomes_highest_heir",
+       "lord": "gloucester_1",
+       "replace_lord_in_place": {
+        "old": "gloucester_1",
+        "new": "richard_iii"
+       },
+       "add_cards": [
+        "Y32",
+        "Y33"
+       ]
+      }
+     ]
+    },
+    "lancastrian": {
+     "heirs": [
+      "margaret",
+      "henry_tudor",
+      "warwick_lancastrian"
+     ],
+     "triggers": [
+      {
+       "on": "while_remains",
+       "lord": "margaret",
+       "cards": [
+        "L27",
+        "L31"
+       ]
+      },
+      {
+       "on": "muster",
+       "lord": "margaret",
+       "assign_capability": {
+        "lord": "margaret",
+        "card": "L26",
+        "free": true,
+        "mandatory": true,
+        "on_disband": "set_aside"
+       }
+      },
+      {
+       "on": "while_remains",
+       "lord": "henry_tudor",
+       "cards": [
+        "L32",
+        "L35"
+       ]
+      },
+      {
+       "on": "while_remains",
+       "lord": "warwick_lancastrian",
+       "cards": [
+        "L23",
+        "L30"
+       ]
+      }
+     ]
+    }
+   }
   },
   {
    "war_id": "war_iiil",
@@ -646,7 +1005,101 @@
      "text": "Skip all Grow and Waste (4.8.4 - 4.8.5)."
     }
    ],
-   "victory_threshold": 45
+   "victory_threshold": 45,
+   "successions": {
+    "_source": "Scenario Reference E2; War IIIL prose. Heir removal affects only setup.",
+    "setup_only": true,
+    "lancastrian": {
+     "heirs": [
+      "henry_vi",
+      "margaret",
+      [
+       "somerset_1",
+       "somerset_2"
+      ]
+     ],
+     "triggers": [
+      {
+       "on": "while_king",
+       "lord": "henry_vi",
+       "cards": [
+        "L15",
+        "L17"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "margaret",
+       "cards": [
+        "L27",
+        "L31"
+       ]
+      },
+      {
+       "on": "muster",
+       "lord": "margaret",
+       "assign_capability": {
+        "lord": "margaret",
+        "card": "L26",
+        "free": true,
+        "mandatory": true,
+        "on_disband": "set_aside"
+       }
+      },
+      {
+       "on": "while_king",
+       "lord": "somerset_1",
+       "cards": [
+        "L18",
+        "L20",
+        "L27"
+       ]
+      },
+      {
+       "on": "while_king",
+       "lord": "somerset_2",
+       "cards": [
+        "L18",
+        "L20",
+        "L27"
+       ]
+      },
+      {
+       "on": "becomes_highest_heir",
+       "lord": "somerset_2",
+       "replace_lord_in_place": {
+        "old": "somerset_2",
+        "new": "somerset_1"
+       }
+      }
+     ]
+    },
+    "yorkist": {
+     "heirs": [
+      "york",
+      "march",
+      "rutland",
+      "gloucester_1"
+     ],
+     "triggers": [
+      {
+       "on": "while_remains",
+       "lord": "york",
+       "cards": [
+        "Y14",
+        "Y18"
+       ]
+      },
+      {
+       "on": "heir_count_at_or_below",
+       "n": 1,
+       "add_cards": [
+        "Y16"
+       ]
+      }
+     ]
+    }
+   }
   }
  ]
 }

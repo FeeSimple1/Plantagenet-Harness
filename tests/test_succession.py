@@ -116,3 +116,99 @@ def test_automatic_war_victory_on_henry_and_somerset_removed():
     assert s.victory is None or s.phase != "over"        # not yet
     battle._kill_lord(s, "somerset_1")
     assert s.phase == "over" and s.victory["result"] == "yorkist"
+
+
+# ------------------- Phase 5b-ii-a: other Wars' trigger vocabulary -------------------
+def _stage_war(war_id, side, present, seed=1):
+    """Stage a grand state at ``war_id`` with ``present`` Heir lords Mustered and
+    fresh decks, then run Succession setup. Returns the state."""
+    from plantagenet import succession
+    from plantagenet.state import LordStatus
+    s = build_initial_state("wars_of_the_roses", seed=seed)
+    gs = s.grand_scenario
+    gs["current_war"] = war_id
+    gs["deck_sources"] = {}
+    gs["set_aside_on_disband"] = {}
+    gs["succession_fired"] = []
+    gs["current_king"] = {}
+    from plantagenet import static_data
+    from plantagenet.state import LordState
+    statics = static_data.load_lords()
+    for _lid, ls in s.lords.items():
+        if ls.side == side:
+            ls.status = LordStatus.AVAILABLE.value
+    for lid in present:
+        if lid not in s.lords:
+            s.lords[lid] = LordState(lord_id=lid, side=side, status=LordStatus.AVAILABLE.value)
+        s.lords[lid].status = LordStatus.MUSTERED.value
+        s.lords[lid].location = "london"
+    # Ensure replacement targets exist as AVAILABLE so they can enter play.
+    for lid in ("edward_iv", "richard_iii", "somerset_2", "pembroke"):
+        if lid not in s.lords and lid in statics:
+            s.lords[lid] = LordState(lord_id=lid, side=side, status=LordStatus.AVAILABLE.value)
+    s.decks[side] = {"draw": [], "discard": [], "held": [], "set_aside": []}
+    succession.apply_setup(s)
+    return s
+
+
+def _deck_side(s, side):
+    d = s.decks[side]
+    return set(d["draw"]) | set(d["discard"]) | set(d["held"])
+
+
+def _remove(s, lid):
+    from plantagenet import succession
+    from plantagenet.state import LordStatus
+    s.lords[lid].status = LordStatus.REMOVED.value      # _kill_lord sets this first
+    return succession.on_heir_removed(s, lid)
+
+
+def test_iiy_while_remains_york_contributes_cards():
+    s = _stage_war("war_iiy", "yorkist", ["york", "march", "rutland", "gloucester_1"])
+    assert {"Y14", "Y18", "Y19", "Y20"} <= _deck_side(s, "yorkist")
+
+
+def test_iiy_replace_march_with_edward_on_becoming_king():
+    from plantagenet.state import LordStatus
+    s = _stage_war("war_iiy", "yorkist", ["york", "march", "rutland", "gloucester_1"])
+    _remove(s, "york")                                  # March becomes highest Heir
+    assert s.lords["edward_iv"].status == LordStatus.MUSTERED
+    assert s.lords["march"].status == LordStatus.REMOVED
+    assert {"Y23", "Y24", "Y28", "Y31"} <= _deck_side(s, "yorkist")
+
+
+def test_iiy_pembroke_added_when_two_or_fewer_heirs_remain():
+    from plantagenet.state import LordStatus
+    s = _stage_war("war_iiy", "yorkist", ["york", "march", "rutland", "gloucester_1"])
+    _remove(s, "york")                                  # -> edward_iv, rutland, gloucester (3)
+    assert "pembroke" not in [lid for lid in s.lords
+                              if s.lords[lid].status == LordStatus.CALENDAR]
+    _remove(s, "rutland")                               # now 2 heirs -> add Pembroke
+    assert s.lords["pembroke"].status == LordStatus.CALENDAR
+
+
+def test_iil_somerset_one_replaced_in_place_by_two():
+    from plantagenet.state import LordStatus
+    s = _stage_war("war_iil", "lancastrian", ["henry_vi", "margaret", "somerset_1"])
+    _remove(s, "somerset_1")
+    # On an in-play removal the replacement enters the Calendar (the dead Lord's
+    # board position is gone); position-copy "in place" applies only at setup.
+    assert s.lords["somerset_2"].status == LordStatus.CALENDAR
+    assert s.lords["somerset_1"].status == LordStatus.REMOVED
+
+
+def test_iil_while_king_cards_track_the_current_king():
+    s = _stage_war("war_iil", "lancastrian", ["henry_vi", "margaret", "somerset_1"])
+    assert {"L15", "L17"} <= _deck_side(s, "lancastrian")        # Henry VI is King
+    _remove(s, "henry_vi")                              # King becomes Margaret
+    deck = _deck_side(s, "lancastrian")
+    assert "L15" not in deck and "L17" not in deck       # Henry VI's while_king dropped
+    assert {"L27", "L31"} <= deck                        # Margaret's while_king added
+
+
+def test_setup_only_war_does_not_fire_in_play_removal():
+    s = _stage_war("war_iiiy", "yorkist", ["york", "march", "rutland", "gloucester_1"])
+    before = _deck_side(s, "yorkist")
+    r = _remove(s, "york")
+    assert "succession" not in r and "recompute" not in r        # setup_only: no in-play effect
+    assert _deck_side(s, "yorkist") == before
