@@ -561,3 +561,30 @@ a Port on an *adjacent* Sea, whereas FAQ #1 (quoted on the Great Ships card) say
 Sail may not go directly port-to-port across different Seas (transit via at-Sea).
 This predates Phase 5j and is governed by D-001; left unchanged here to avoid
 re-opening a recorded decision. Worth a follow-up review.
+
+## Round (2026-05-23): Advisory #2 -- co-location bug class audit (3 doors)
+
+Audited the illegal-co-location class against Plantagenet:
+- Door A (combat disposition / Retreat): N/A -- no Retreat; every battle loser
+  leaves via Die/Disband/Exile (confirmed Phase 5g).
+- Door B (Siege/Bypass marker lifecycle): N/A -- Plantagenet has no Siege/Storm
+  or Bypass and no inside-Stronghold flag; no marker can go stale.
+- Door C (on-board placement): audited every map-placement path. Levy Lord
+  (3.4.2) already redirects off an Enemy-occupied Seat; Disembark Land checks
+  Enemy-free; Muster Exiles places to an Exile box. FOUND + FIXED a bug: Sun in
+  Splendour (Y24) Mustered Edward IV onto any Yorkist-Favour Locale WITHOUT the
+  card-mandated "free of Enemy Lords" check (and missed the Yorkist Exile-box
+  option) -> could co-locate Edward IV with a Lancastrian Lord. Now enforces
+  Enemy-free + supports the Exile box, and validates before mutating.
+
+Wired the co-location invariant into the legal-moves round-trip sweep test (run
+after every enumerated/applied Muster move). Added tests/test_co_location_class.py.
+
+The sweep ALSO surfaced a pre-existing crash the advisory predicted I'd been
+hiding: my earlier empirical renew sweep wrapped the second transition in
+try/except and silently swallowed a DataError. War IIIL's setup is unimplemented
+(E7): its JSON carries prose Favour and a 'yorkist_lords_per_succession'
+placeholder, so IIL->IIIL renew_war raises DataError before any board exists.
+This is a setup-completeness gap (not a co-location bug); surfaced explicitly as
+a strict xfail (test_iil_to_iiil_transition_builds) rather than swallowed. IIIL
+needs a succession-driven setup like IIIY (E7). 368 pass, 1 xfailed; ruff clean.
