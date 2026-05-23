@@ -109,3 +109,79 @@ there. Encoded as `tides_of_war.basis` ("most_favour" vs "favour") in
 counts, 1.6); `static_data.load_strongholds`/`stronghold_yields`;
 `actions.py` `_h_levy_troops` (3.4.4); `data_integrity.py`. Levy Troops is
 now executable. Pillage/Tax/Forage yields will use the same table in Phase 3.
+
+---
+
+## D-005 — Reactive "interrupt" Capabilities implemented (resolves Q-004)
+
+**Date.** 2026-05-22.
+
+**Question.** Q-004 asked how to model Capabilities that trigger *during the
+opponent's action* (Naval Blockade Y15, King's Parley L15), since
+`apply_action` had no reaction window.
+
+**Resolution.** Option (a) of Q-004 was adopted and built (Phase 5a): a typed
+trigger registry plus a serializable pause/resolve loop on `state.pending`.
+`apply_action` gained a `react` action and a pending-guard; paused state
+round-trips through JSON. Triggers implemented: `uses_port_on_sea` (Naval
+Blockade Y15, gating Sail), `on_approach` (King's Parley L15 cancel+rewind;
+Parliament's Truce Y12/L20; Blocked Ford Y11/L11; priority 10/20/30),
+`after_successful_levy_action` (The King's Name Y32). In-battle plays are
+unified under a single `BATTLE_REACTIONS` catalog; battle resolution stays
+synchronous (all participants are known at battle entry — a deliberate design
+call). No rules ambiguity remained; this was a structural implementation.
+
+**Citation.** Card texts Y15, L15, Y12/L20, Y11/L11, Y32; Rules of Play
+§4.3.5 (Approach), §4.6.1 (Sail).
+
+**Encoded in.** `reactions.py` (trigger registry + reaction handlers),
+`commands.py` (Sail/Approach reaction checkpoints + resume),
+`actions.py` (`react` action + pending-guard), `tests/test_reactions.py`.
+Commit: see the Phase 5a reaction-protocol merge.
+
+---
+
+## D-006 — Q-005 closed: scripted Succession & play-timing Events are implemented or implementation-only (resolves Q-005)
+
+**Date.** 2026-05-22.
+
+**Question.** Q-005 bundled two clusters: per-War scripted Succession
+(6.2-6.3) and a list of reaction / play-timing Events not yet automated.
+
+**Determination.** Q-005 was an implementation backlog rather than a genuine
+rules question. The large majority is now implemented and tested:
+`play_event` / `play_held_event`, the Q-004 reaction hook (The King's Name
+Y32, Parliament's Truce Y12/L20, Exile Pact Y8, etc.), and the per-War
+Succession trigger engine (`succession.py`) plus the Renewed-War setup
+transition (`scenarios.renew_war`). Three residue items remain, and each is
+fully governed by explicit card/scenario text — there is nothing for an
+adjudicator to decide:
+
+- **(a) For Trust Not Him (L7).** The card text fully specifies the mechanic
+  (a participating Lord attempts an in-battle Levy per 3.4.3, ignoring Routes
+  and the Vassal Seat's Favour; on success the Vassal marker moves to that
+  Lord's mat and the Calendar marker shifts as if newly Levied). Coded as
+  `deferred: True` in `reactions.py` pending the in-battle Levy-attempt
+  automation. Implementation only.
+- **(b) Naval Blockade (Y15).** The card's own text/Tips enumerate every
+  gated action — Parley, Levy Ship, Supply, Sail, and Tax (3.4.1, 4.6.4,
+  3.4.5, 4.5, 4.6.1, 4.6.3). The engine currently gates Sail only; extending
+  to the rest needs route->sea introspection so the engine knows a given
+  action uses a Port on the blockaded Sea. No ambiguity.
+- **(c) Wars IIY / IIIY base-scenario setup.** The conditional Lord
+  placements and the Natural Causes post-victory rolls are fully specified by
+  the scenario prose (Scenario Reference E4 "War IIY" / E6 "War IIIY") plus
+  the Calendar rule: per §2.2 the 15 Calendar boxes ARE the Turn boxes, so
+  Natural Causes' "a roll less than the last Turn played" compares the dice to
+  the final Calendar Turn box reached. King resolution and the IIL/IIIL
+  structured paths already transition end-to-end. Pure implementation.
+
+**Citation.** Card texts L7, Y15; Scenario Reference E4 (War IIY), E6
+(War IIIY); Rules of Play §2.2 (Calendar), §3.4.3 (Levy Vassal), §4.3.5,
+§4.6.1.
+
+**Encoded in.** Implemented portions across `events.py`, `reactions.py`,
+`succession.py`, `scenarios.py`. Residue (a)/(b)/(c) is tracked as
+implementation backlog in `BRIEF.md` open items and the `SMOKE_TEST_FINDINGS.md`
+round log — NOT as open rules questions. Commit: see the Q-004/Q-005 close-out
+merge.
