@@ -155,6 +155,13 @@ Approach, Avoid Battle, Withdraw, Battle Array choices, Hit allocation,
 Reserve advance, etc. flow through a decision context and are documented
 when implemented.
 
+In-Battle Held-Event / Capability plays are passed via the `resolve_battle`
+`decisions` payload at the Event step (4.4.1): e.g. `leeward`, `caltrops`,
+`ravine`, `suspicion`, and `for_trust_not_him` (L7 -- a participating Lord
+attempts to Levy a regular Enemy Vassal in the Battle onto its own mat;
+`{"by": <lord>, "target": <vassal_id>}`; ignores Routes/Seat Favour, Salisbury's
+Vassals immune via Y17).
+
 ### System / flow actions
 
 `pass`, `advance_step`, and similar phase-flow actions are documented as

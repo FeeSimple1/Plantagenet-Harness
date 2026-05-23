@@ -160,9 +160,12 @@ adjudicator to decide:
 - **(a) For Trust Not Him (L7).** The card text fully specifies the mechanic
   (a participating Lord attempts an in-battle Levy per 3.4.3, ignoring Routes
   and the Vassal Seat's Favour; on success the Vassal marker moves to that
-  Lord's mat and the Calendar marker shifts as if newly Levied). Coded as
-  `deferred: True` in `reactions.py` pending the in-battle Levy-attempt
-  automation. Implementation only.
+  Lord's mat and the Calendar marker shifts as if newly Levied). IMPLEMENTED
+  (2026-05-22): `battle._resolve_for_trust` (Event step 4.4.1) moves the
+  captured regular Enemy Vassal to the Levying Lord's mat -- so it fights the
+  current Battle for its new Lord -- with its service marker reset as if newly
+  Levied; Salisbury's Vassals are immune (Y17 Alice Montagu). The `deferred`
+  flag is removed from `reactions.py`. Tests in `tests/test_card_for_trust.py`.
 - **(b) Naval Blockade (Y15).** The card's own text/Tips enumerate every
   gated action — Parley, Levy Ship, Supply, Sail, and Tax (3.4.1, 4.6.4,
   3.4.5, 4.5, 4.6.1, 4.6.3). The engine currently gates Sail only; extending

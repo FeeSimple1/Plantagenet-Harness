@@ -440,3 +440,16 @@ a live rules question:
 
 No code behaviour change (docs + one stale comment in `reactions.py`).
 300 tests pass; ruff clean.
+
+## Round (2026-05-22): implement L7 For Trust Not Him (D-006 residue (a))
+
+Replaced the deferred `for_trust_not_him` stub with `battle._resolve_for_trust`,
+resolved at the Battle Event step (4.4.1) right after Suspicion (priority order
+preserved). A participating Lord attempts an Influence-check Levy (3.4.3) of a
+regular Enemy Vassal in the Battle, ignoring Routes and the Vassal Seat's
+Favour; the only Influence cost is the check + loyalty modifier (1.4.2). On
+success the Vassal counter moves to the Levying Lord's mat -- and so fights the
+current Battle for its new Lord (`_Force` vassal-count swing) -- with its
+Calendar service marker reset as if newly Levied. Salisbury's Vassals are immune
+(Y17 Alice Montagu). The `deferred` flag is removed from the L7 BATTLE_REACTIONS
+entry. 6 new tests; 306 pass; ruff clean.
