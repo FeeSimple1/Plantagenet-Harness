@@ -700,7 +700,7 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
     new.grand_scenario = {
         "current_war": nxt, "war_title": war["title"],
         "base_scenario": war.get("base_scenario"),
-        "allied_networks": war.get("allied_networks", {}),
+        "allied_networks": war.get("allied_networks") or gs.get("allied_networks", {}),
         "victory_threshold": war.get("victory_threshold"),
         "deck_sources": {}, "succession_fired": [], "current_king": {},
         "set_aside_on_disband": set_aside_keep,
