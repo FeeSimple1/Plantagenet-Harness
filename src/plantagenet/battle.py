@@ -808,6 +808,11 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
     result["deaths"] = deaths
     result["disbands"] = disbands
     result["exiles"] = exiles
+    # Foreign Haven (IIY): Warwick dying as a defender shifts the Calendars.
+    if ("warwick_lancastrian" in deaths and "warwick_lancastrian" in defenders
+            and _foreign_haven_active(state)):
+        campaign._foreign_haven_shift(state)
+        result["foreign_haven"] = True
     return result
 
 
@@ -866,6 +871,10 @@ def _kill_lord(state: GameState, lord_id: str) -> None:
 
 
 # --------------------------------------------------------------- 4.3.5 Approach
+def _foreign_haven_active(state) -> bool:
+    return "Foreign Haven" in campaign._active_special_rules(state)
+
+
 def approach(state: GameState, locale: str, attacker_ids: list[str],
              decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     decisions = decisions or {}
@@ -894,6 +903,9 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
         if not blocked_ford and responses.get(d, "battle") == "exile":
             _exile(state, locale, d, attackers[0])
             result["exiles"].append(d)
+            if d == "warwick_lancastrian" and _foreign_haven_active(state):
+                campaign._foreign_haven_shift(state)     # Foreign Haven (Warwick exiles)
+                result["foreign_haven"] = True
         else:
             battling.append(d)
     if battling:

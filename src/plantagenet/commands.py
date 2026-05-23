@@ -25,6 +25,26 @@ from plantagenet.actions import (
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus
 
+_SHAKY_PAIR = {"margaret": "warwick_lancastrian", "warwick_lancastrian": "margaret"}
+
+
+def _shaky_allies_block(state: GameState, mover_ids, dest: str) -> bool:
+    """Shaky Allies (IIY / Warwick's Rebellion): Margaret and Warwick may never
+    enter the same Stronghold. True if this move would co-locate them at dest."""
+    if "Shaky Allies" not in campaign._active_special_rules(state):
+        return False
+    movers = set(mover_ids)
+    if {"margaret", "warwick_lancastrian"} <= movers:      # both moving to the same dest
+        return True
+    for m in movers:
+        other = _SHAKY_PAIR.get(m)
+        o = state.lords.get(other) if other else None
+        if o is not None and o.status == LordStatus.MUSTERED and o.location == dest \
+                and other not in movers:
+            return True
+    return False
+
+
 _NAVAL_BLOCKADE = "NAVAL BLOCKADE"        # Y15 (Warwick): gates Lancastrian Sea actions
 
 
@@ -172,6 +192,8 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                          "a Lieutenant may not lead a Marshal (4.3.1)")
             movers.append(g)
 
+    _require(not _shaky_allies_block(state, [m.lord_id for m in movers], dest),
+             "shaky_allies", "Margaret and Warwick may never enter the same Stronghold (IIY)")
     for m in movers:
         # Haul (4.3.2): discard Provender exceeding Carts before moving.
         carts = m.assets.get("cart", 0)
@@ -375,6 +397,8 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             _require(ratings.has_capability(state, lord.lord_id, "HIGH ADMIRAL"),
                      "dest_has_enemy",
                      f"{dest} is not free of Enemy Lords (4.6.1)")   # High Admiral (L29)
+        _require(not _shaky_allies_block(state, [lord.lord_id], dest), "shaky_allies",
+                 "Margaret and Warwick may never enter the same Stronghold (IIY)")
 
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
     # Ships may be Shared from co-located Friendly Lords ("have or Share", 1.5.3).

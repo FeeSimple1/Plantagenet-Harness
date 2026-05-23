@@ -645,3 +645,19 @@ tests/test_special_rules.py: 7 tests. 386 pass; ruff clean.
 STILL TO BUILD: Foreign Haven + Shaky Allies (IIY movement/battle), and the
 standalone-scenario batch (Capture of the King, King Richard, Montagu, Norfolk
 is Late, Test of Arms, Bosworth).
+
+## Round (2026-05-23): IIY special rules Foreign Haven + Shaky Allies (batch 2)
+
+Completes the grand-scenario special rules.
+- Shaky Allies (IIY / Warwick's Rebellion): Margaret and Warwick may never enter
+  the same Stronghold -- `commands._shaky_allies_block` guards March and Sail
+  (and the legal_moves enumerator), blocking a move that would co-locate them
+  (incl. both moving together).
+- Foreign Haven (IIY): Warwick choosing Exile on Approach (battle.approach hook)
+  or dying as a defender (battle._ending hook) shifts all Lancastrians on the
+  Calendar left to the current Turn box and all Yorkists left to the next Turn
+  box (`campaign._foreign_haven_shift`).
+tests/test_special_rules.py: 10 tests total. 389 pass; ruff clean.
+All grand-scenario special rules now implemented; remaining: standalone-scenario
+batch (Capture of the King, King Richard, Montagu, Norfolk is Late, Test of
+Arms, Bosworth).
