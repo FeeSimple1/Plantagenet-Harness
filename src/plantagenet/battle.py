@@ -23,7 +23,7 @@ from typing import Any
 
 from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus
+from plantagenet.state import GameState, LordStatus, VassalState, VassalStatus
 
 _ABSORB_DEFAULT = ["militia", "mercenaries", "longbow", "handgunners",
                    "men_at_arms", "vassal", "retinue"]
@@ -68,6 +68,8 @@ VANGUARD = "VANGUARD"
 SWIFT_MANEUVER = "SWIFT MANEUVER"
 WARDEN = "WARDEN OF THE MARCHES"
 TALBOT = "TALBOT TO THE RESCUE"
+FOR_TRUST = "FOR TRUST NOT HIM"        # L7 (Held Event)
+ALICE_MONTAGU = "ALICE MONTAGU"        # Y17: Salisbury's Vassals immune to L7
 PATRICK = "PATRICK DE LA MOTE"
 
 
@@ -429,6 +431,65 @@ def _resolve_suspicion(state, locale, attackers, defenders, forces, decisions):
     return {"by": by, "target": target, **chk}
 
 
+def _vassal_loyalty_mod(vid: str, side: str) -> int:
+    """Loyalty modifier (1.5.4) for ``side`` Levying regular Vassal ``vid``."""
+    loy = static_data.load_vassals()["regular"][vid].get("loyalty")
+    if not loy:
+        return 0
+    colour_side = {"red": "lancastrian", "white": "yorkist"}[loy["color"]]
+    return loy["value"] if colour_side == side else -loy["value"]
+
+
+def _resolve_for_trust(state, attackers, defenders, forces, decisions):
+    """For Trust Not Him (L7): at the Event step a participating Lord attempts
+    to Levy (3.4.3) a regular Enemy Vassal in the Battle onto its own mat,
+    ignoring Routes and the Vassal Seat's Favour; Influence cost is only the
+    check + modifiers (1.4.2). On success the Vassal switches mats -- and so
+    fights this Battle for its new Lord -- with its Calendar service marker
+    reset as if newly Levied. Salisbury's Vassals are immune (Y17 Alice
+    Montagu)."""
+    ft = decisions.get("for_trust_not_him")
+    if not ft:
+        return None
+    by, vid = ft.get("by"), ft.get("target")
+    _require(by in forces, "bad_for_trust",
+             "For Trust Not Him must name a participating Friendly Lord (4.4.1)")
+    bside = state.lords[by].side
+    cid = _side_held_event(state, bside, FOR_TRUST)
+    _require(cid is not None, "no_for_trust",
+             f"{bside} has no For Trust Not Him Held Event to play (L7)")
+    regular = static_data.load_vassals()["regular"]
+    _require(vid in regular, "bad_for_trust",
+             f"{vid!r} is not a regular Vassal (L7 cannot take Special Vassals)")
+    vstate = state.vassals.get(vid)
+    old = vstate.on_lord if vstate is not None else None
+    _require(vstate is not None and vstate.status == VassalStatus.MUSTERED
+             and old in forces, "for_trust_not_in_battle",
+             f"{vid} must be a Vassal on a participating Lord's mat in the Battle (L7)")
+    _require(state.lords[old].side != bside, "for_trust_own_vassal",
+             "For Trust Not Him targets an Enemy Vassal (L7)")
+    _require(not ratings.has_capability(state, old, ALICE_MONTAGU), "for_trust_immune",
+             f"{old}'s Vassals are immune to For Trust Not Him (Y17 Alice Montagu)")
+    _use_held_event(state, bside, cid)
+    chk = influence.check_influence(state, by, bside,
+                                    loyalty_mod=_vassal_loyalty_mod(vid, bside),
+                                    action="levy")
+    if chk["success"]:
+        if vid in state.lords[old].vassals:
+            state.lords[old].vassals.remove(vid)
+        if vid not in state.lords[by].vassals:
+            state.lords[by].vassals.append(vid)
+        box = state.turn_box + regular[vid]["service"]   # Calendar shift "as if newly Levied"
+        if ratings.has_capability(state, by, ALICE_MONTAGU):
+            box = min(15, box + 1)                       # Y17: +1 Service (capped at box 15)
+        state.vassals[vid] = VassalState(vassal_id=vid, status=VassalStatus.MUSTERED,
+                                         on_lord=by, service_box=box)
+        forces[old].count["vassal"] = max(0, forces[old].count.get("vassal", 0) - 1)
+        forces[by].count["vassal"] = forces[by].count.get("vassal", 0) + 1
+        forces[by].routed.setdefault("vassal", 0)
+    return {"by": by, "target": vid, "from_lord": old, **chk}
+
+
 def resolve_battle(state: GameState, locale: str, attacker, defender,
                    decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     decisions = decisions or {}
@@ -533,6 +594,7 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     _apply_phase_caps(state, forces, decisions)
 
     susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
+    ftrust = _resolve_for_trust(state, attackers, defenders, forces, decisions)
     positions, reserves = _initial_array(attackers, defenders, decisions)
     rounds: list[dict[str, Any]] = []
 
@@ -646,6 +708,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                   decisions.get("escape_ship", []), warden=warden, talbot=talbot)
     if susp is not None:
         res["suspicion"] = susp
+    if ftrust is not None:
+        res["for_trust_not_him"] = ftrust
     return res
 
 

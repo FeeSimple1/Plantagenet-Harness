@@ -274,7 +274,7 @@ BATTLE_REACTIONS = {
     "L16": {"effect": "warden", "window": "death", "kind": "held", "priority": 40},
     "L36": {"effect": "talbot", "window": "death", "kind": "held", "priority": 40},
     "L7": {"effect": "for_trust_not_him", "window": "event", "kind": "held",
-           "priority": 25, "deferred": True},     # deferred impl; Q-005 closed -> D-006
+           "priority": 25},     # in-battle Vassal Levy (D-006 (a) implemented)
 }
 
 # Capability-based battle window (Culverins) keyed by its title (any holder).
