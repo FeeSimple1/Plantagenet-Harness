@@ -742,3 +742,20 @@ would stall. Fixed: legal_moves now emits the awaiting offer's react options
 fixed a latent crash in reactions.resolve (a `pass` on a held-event offer with no
 `lord` key) via offer.get('lord'). Round-trip test added (test_reactions). 430
 pass; ruff clean.
+
+## Round (2026-05-23): full-game smoke driver (readiness gap 2) -- 3 over-enumerations found
+
+Added tests/test_full_game_smoke.py: drives complete games through the agent
+interface (legal_moves -> apply_action), resolving reaction windows (via the
+gap-1 react enumeration) and grand-scenario War transitions (renew_war), asserting
+no enumerated move is rejected and no board invariant breaks at any step.
+Standalone scenarios are driven to scenario-end; the grand scenario through its
+Renewed-War transitions. As the advisory predicted, full-game play surfaced
+enumerator/handler asymmetries the Levy fuzz never reached -- three over-
+enumerations, all fixed by mirroring the handler gate in legal_moves:
+  1. Lancastrian levy_vassal offered while Yorkists Block Parliament (Y7) active.
+  2. levy_troops offered with no Coin while Rising Wages (L9) active.
+  3. Lancastrian march into Wales offered while Owain Glyndwr (Y25) active.
+Also: the validated palette now keeps build_plan as a templated/unvalidated
+candidate (4.1 Plan is a free construction) rather than probing+rejecting it.
+A 20-seed x 6-scenario sweep is clean post-fix. 448 pass; ruff clean.

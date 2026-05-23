@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plantagenet import actions, static_data
+from plantagenet import actions, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus, VassalStatus
 
@@ -103,9 +103,12 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str) -> list[dic
         pass
 
     # --- Levy Vassal (3.4.3): at-seat Vassals whose Seat is Friendly + Enemy-free ---
+    # Yorkists Block Parliament (Y7): Lancastrians may not Levy Vassals (by Event).
     try:
+        blocked = side == "lancastrian" and ratings.event_against(
+            state, "YORKISTS BLOCK PARLIAMENT", "lancastrian")
         regular = static_data.load_vassals()["regular"]
-        for vid, vs in state.vassals.items():
+        for vid, vs in (() if blocked else state.vassals.items()):
             if vs.status != VassalStatus.AT_SEAT:
                 continue
             seat = regular[vid]["seat"]
@@ -117,9 +120,12 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str) -> list[dic
         pass
 
     # --- Levy Troops (3.4.4): at a Friendly Stronghold (not Exile box), not Exhausted ---
+    # Rising Wages (L9): this side pays 1 Coin per Levy Troops -- need the Coin.
     try:
         loc = actions.lord_location(lord)
-        if loc[0] == "stronghold" and state.locales[loc[1]].depletion != "exhausted":
+        rising_wages = ratings.event_against(state, "RISING WAGES", side)
+        if (loc[0] == "stronghold" and state.locales[loc[1]].depletion != "exhausted"
+                and not (rising_wages and lord.assets.get("coin", 0) < 1)):
             moves.append({"type": "levy_troops", "side": side, "by_lord": lord_id})
     except (KeyError, AttributeError, IndexError):
         pass
@@ -256,6 +262,8 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
 
     # March (4.3): destinations reachable in one action with no enemy contact.
     try:
+        locs = static_data.load_locales()
+        owain = side == "lancastrian" and commands._active_event(state, "OWAIN GLYNDWR")
         for dest in state.locales:
             if dest == here:
                 continue
@@ -266,6 +274,8 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
             if commands._enemy_adjacent_by_land(state, dest, side):
                 continue
             if commands._shaky_allies_block(state, [lord_id], dest):   # IIY Shaky Allies
+                continue
+            if owain and locs.get(dest, {}).get("region") == "wales":  # Owain Glyndwr (Y25)
                 continue
             out.append({"type": "march", "side": side, "by_lord": lord_id, "to": dest})
     except (KeyError, AttributeError, IndexError):
@@ -374,7 +384,12 @@ def validated_legal_moves(state: GameState) -> dict[str, Any]:
     reaction) counts as legal -- the move is kept."""
     kept: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    unvalidated: list[dict[str, Any]] = []
     for mv in legal_moves(state):
+        if _is_templated(mv):              # parameterized (e.g. build_plan): keep, don't probe
+            kept.append(mv)
+            unvalidated.append(mv)
+            continue
         probe = state.model_copy(deep=True)
         try:
             actions.apply_action(probe, mv)
@@ -383,4 +398,11 @@ def validated_legal_moves(state: GameState) -> dict[str, Any]:
             continue
         kept.append(mv)
     return {"active_side": state.active_side, "phase": state.phase,
-            "levy_step": state.levy_step, "moves": kept, "rejected": rejected}
+            "levy_step": state.levy_step, "moves": kept, "rejected": rejected,
+            "unvalidated": unvalidated}
+
+
+def _is_templated(mv: dict[str, Any]) -> bool:
+    """A move the consumer must parameterize before it can apply (4.1 Plan is a
+    free construction): not directly probeable, so kept and flagged."""
+    return mv.get("type") == "build_plan" and "plan" not in mv
