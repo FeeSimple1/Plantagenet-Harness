@@ -702,3 +702,22 @@ Schema regenerated (CAPTURED/captured_by, flags). tests/test_special_rules.py:
   features as "deferred to Phase N / not yet". Schema regenerated (state.py
   docstring feeds the model schema). tests/test_cli.py updated. 397 pass; ruff
   clean.
+
+## Round (2026-05-23): validated action palette + always-on invariants (Nevsky advisory §2/§3)
+
+Adopted the two highest-leverage structural recommendations.
+- Validated palette (§2): `legal_moves.validated_legal_moves` probes every
+  enumerated move on a deep copy and drops/logs any the handler rejects
+  (over-enumeration diagnostics). Safe because the RNG lives in the state
+  (seed + rng_state) -- verified probing leaves the real dice untouched. Exposed
+  via `legal-moves --validated`. 3 tests (incl. a deliberate over-enumeration).
+- Always-on invariants (§3): added influence-marker-in-bounds, lord-status/
+  position consistency (battle-only scenarios exempt -- Lords sit in an Array
+  with no Locale), and card-zone (no card in two deck piles or both in a deck
+  and on a mat). `invariants.board_invariant_violations` aggregates these with
+  the co-location check and now runs after EVERY move in the round-trip sweep.
+- BUG FOUND by the new card-zone invariant: `_h_levy_capability` (3.4.6) put the
+  Levied card on the Lord's mat but left it in the deck -- so it could be drawn
+  again and duplicated. Fixed (the Levied card now leaves the unused pool).
+Doors A/B/C, clause-by-clause audit, decision log, and negative enumerator tests
+were already in place from earlier rounds. 411 pass; ruff clean; schema in sync.

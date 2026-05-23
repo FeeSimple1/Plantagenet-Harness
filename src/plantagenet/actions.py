@@ -635,6 +635,12 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
     _require(all(cards[c]["capability"]["title"] != new_title for c in lord.capabilities),
              "duplicate_capability", f"{lord.lord_id} already has a {new_title} Capability (3.4.6)")
     lord.capabilities.append(card_id)
+    # The Levied card leaves the unused pool for the Lord's mat (3.4.6): remove
+    # it from any live deck pile so it cannot be drawn again.
+    for pile in ("draw", "discard", "held", "set_aside"):
+        p = state.decks.get(lord.side, {}).get(pile)
+        if p and card_id in p:
+            p.remove(card_id)
     lord.lordship_spent += 1
     sv = _muster_special_vassal(state, lord, card_id)
     return {"type": "levy_capability", "by_lord": lord.lord_id, "card": card_id,

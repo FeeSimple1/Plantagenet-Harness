@@ -57,3 +57,64 @@ def assert_board_invariants(state: GameState) -> None:
             "co_located_enemies",
             f"opposing Lords {first['lords']} share Locale {first['locale']!r} with "
             f"no pending Approach (illegal: Plantagenet has no Siege/Retreat, 4.4.3)")
+
+
+def influence_violations(state: GameState) -> list[dict[str, Any]]:
+    """The net Influence marker must sit within its track bounds (1.4.1)."""
+    from plantagenet.influence import INFLUENCE_CAP
+    out = []
+    track = state.influence.get("track")
+    if track is not None and not (0 <= track.marker_at <= INFLUENCE_CAP):
+        out.append({"kind": "influence_marker_oob", "at": track.marker_at,
+                    "cap": INFLUENCE_CAP})
+    return out
+
+
+def lord_status_violations(state: GameState) -> list[dict[str, Any]]:
+    """A Lord's status and its position fields must agree. (Battle-only scenarios
+    keep Lords Mustered with no map position -- they sit in a Battle Array.)"""
+    from plantagenet import static_data
+    battle_only = bool(static_data.load_scenario(state.scenario).get("battle_only"))
+    out = []
+    for lid, ls in state.lords.items():
+        st = ls.status
+        if (st == LordStatus.MUSTERED and not battle_only
+                and not (ls.location or ls.exile_box or ls.at_sea)):
+            out.append({"kind": "mustered_nowhere", "lord": lid})
+        elif st == LordStatus.CALENDAR and ls.calendar_box is None:
+            out.append({"kind": "calendar_no_box", "lord": lid})
+        elif st == LordStatus.EXILE and ls.exile_box is None:
+            out.append({"kind": "exile_no_box", "lord": lid})
+        elif st == LordStatus.CAPTURED and ls.captured_by is None:
+            out.append({"kind": "captured_no_holder", "lord": lid})
+    return out
+
+
+def card_zone_violations(state: GameState) -> list[dict[str, Any]]:
+    """An Arts of War card must occupy exactly one zone: no card in two of a
+    side's deck piles, and no card both in a deck pile and on a Lord's mat."""
+    out = []
+    for side, deck in state.decks.items():
+        piles_of: dict[str, list[str]] = {}
+        for pile in ("draw", "discard", "held", "set_aside"):
+            for c in deck.get(pile, []):
+                piles_of.setdefault(c, []).append(pile)
+        mat_caps = {c for ls in state.lords.values() if ls.side == side
+                    for c in ls.capabilities}
+        for c, piles in piles_of.items():
+            if len(piles) > 1:
+                out.append({"kind": "card_in_two_piles", "side": side, "card": c,
+                            "piles": piles})
+            if c in mat_caps:
+                out.append({"kind": "card_in_deck_and_on_mat", "side": side, "card": c})
+    return out
+
+
+def board_invariant_violations(state: GameState) -> list[dict[str, Any]]:
+    """All always-on invariants as one flat list of ``{kind, ...}`` (advisory
+    §3). Empty == the board is in a legal configuration."""
+    out = [{"kind": "co_location", **v} for v in co_location_violations(state)]
+    out += influence_violations(state)
+    out += lord_status_violations(state)
+    out += card_zone_violations(state)
+    return out
