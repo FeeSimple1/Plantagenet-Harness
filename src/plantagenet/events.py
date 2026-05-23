@@ -425,6 +425,12 @@ def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(cid in _IMMEDIATE, "not_immediate_event",
              f"{cid} is not a coded immediate Event")
     _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
+    # Henry Released (L26): cannot occur while L26 is on a mat / set aside (Succession).
+    if cid == "L26":
+        d = state.decks.get(side, {})
+        in_deck = any("L26" in d.get(pile, []) for pile in ("draw", "discard", "held"))
+        _require(in_deck, "event_suppressed",
+                 "Henry Released cannot occur: L26 EDWARD is assigned/set aside (6.2)")
     res = _IMMEDIATE[cid](state, side, action.get("decisions", {}))
     state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
     return {"type": "play_event", "card": cid, "side": side, **res}

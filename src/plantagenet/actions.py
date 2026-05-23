@@ -400,6 +400,9 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         target.mustered_this_segment = True
         if seat_free and state.locales[seat].favour != lord.side:
             state.locales[seat].favour = lord.side
+    if chk["success"] and state.grand_scenario:
+        from plantagenet import succession
+        succession.on_muster_lord(state, target_id)        # e.g. L26 EDWARD -> Margaret
     result = {"type": "levy_lord", "by_lord": lord.lord_id, "target": target_id, **chk}
     if chk["success"]:
         return _gate_levy_cancel(state, lord.side, undo, result)

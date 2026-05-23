@@ -794,7 +794,11 @@ def _kill_lord(state: GameState, lord_id: str) -> None:
     state.lords[lord_id].calendar_box = None
     if state.grand_scenario:                    # Succession (6.2.2): next Heir enters
         from plantagenet import succession
-        succession.on_heir_removed(state, lord_id)
+        succ = succession.on_heir_removed(state, lord_id)
+        if succ and succ.get("automatic_victory"):
+            state.victory = {"result": succ["automatic_victory"]["winner"],
+                             "rule": "Automatic War Victory (6.x)"}
+            state.phase = "over"
 
 
 # --------------------------------------------------------------- 4.3.5 Approach
