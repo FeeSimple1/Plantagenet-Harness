@@ -467,3 +467,16 @@ the Port's Sea on a non-adjacent same-Sea reach and Ship Supply uses the Source
 Port's Sea. Per the Y15 tips the Command-action cost is committed before the
 reaction window and a block makes no Influence payment / applies no effect. 6 new
 tests; 312 pass; ruff clean.
+
+## Round (2026-05-22): Natural Causes post-victory rolls (D-006 residue (c), part 1)
+
+Implemented `scenarios.apply_natural_causes`, run at the top of `renew_war` when a
+won second War (IIY/IIL) transitions to the third. Henry VI and York roll 2d6
+(removed if the sum < the last Turn box reached); Edward IV rolls 1d6 in IIY only
+(removed on a 6); IIL has no Edward IV roll. Structured `natural_causes` spec added
+to wars_of_the_roses.json. Removed Heirs carry over REMOVED and incur the -8
+Influence penalty; fixed `_apply_lost_heir_influence` to use the global 6.2.1 Heir
+list (`succession.is_global_heir`) plus a static-side fallback, so a Heir absent
+from the next War's roster (Henry VI in IIIY) is still penalised. 6 new tests; 318
+pass; ruff clean. STILL PENDING for (c): the IIY/IIIY conditional Lord/Seat/Favour
+placements (large; no rules ambiguity -- implementation only).

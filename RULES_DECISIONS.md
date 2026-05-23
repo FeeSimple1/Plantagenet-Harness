@@ -186,6 +186,21 @@ adjudicator to decide:
   Natural Causes' "a roll less than the last Turn played" compares the dice to
   the final Calendar Turn box reached. King resolution and the IIL/IIIL
   structured paths already transition end-to-end. Pure implementation.
+  - **Natural Causes IMPLEMENTED (2026-05-22):** `scenarios.apply_natural_causes`
+    runs at the start of `renew_war` when leaving a won second War. Henry VI and
+    York roll 2d6 (removed if the sum < the last Turn box reached, `state.turn_box`);
+    Edward IV rolls 1d6 in IIY only (removed on a 6); IIL omits the Edward IV
+    roll. Structured spec lives in `wars_of_the_roses.json` (`natural_causes`).
+    Removed Heirs are permanently out and carried into the next War, and incur
+    the -8 Influence penalty -- which now keys off the global 6.2.1 Heir list
+    (`succession.is_global_heir`) with a static-side fallback, so a Heir absent
+    from the next War's roster (e.g. Henry VI in IIIY) is still penalised.
+    Tests in `tests/test_natural_causes.py`.
+  - **STILL PENDING (implementation only, no rules ambiguity):** the IIY/IIIY
+    conditional Lord/Seat/Favour placements (suppressing the base scenario's
+    Yorkist/all-Lord setup and placing the roster via Succession -- e.g. York's
+    line, Devon/Gloucester/Northumberland boxes, Pembroke/Norfolk/Northumberland(2)
+    adds, Warwick-as-King, and the IIIY Margaret/Henry Tudor/Warwick selection).
 
 **Citation.** Card texts L7, Y15; Scenario Reference E4 (War IIY), E6
 (War IIIY); Rules of Play §2.2 (Calendar), §3.4.3 (Levy Vassal), §4.3.5,

@@ -63,6 +63,14 @@ def heir_rank(state: GameState, side: str, lord_id: str) -> int | None:
     return None
 
 
+def is_global_heir(side: str, lord_id: str) -> bool:
+    """Whether ``lord_id`` is a Heir under the grand scenario's 6.2.1 ranking
+    (used for the cross-War -8 Influence penalty, which keys off the global
+    Heir list -- e.g. Henry VI -- not any single War's per-War Heir list)."""
+    table = static_data.load_scenario("wars_of_the_roses").get("heirs", {}).get(side, [])
+    return any(lord_id in e.get("lord_ids", []) for e in table)
+
+
 # --------------------------------------------------------------- deck sources
 def _sources(state: GameState) -> dict[str, dict[str, list[str]]]:
     gs = state.grand_scenario

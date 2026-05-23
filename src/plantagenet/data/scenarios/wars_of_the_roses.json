@@ -271,6 +271,11 @@
     }
    ],
    "victory_threshold": 40,
+   "natural_causes": [
+    {"lord": "henry_vi", "dice": 2, "remove_if": "sum_lt_last_turn"},
+    {"lord": "york", "dice": 2, "remove_if": "sum_lt_last_turn"},
+    {"lord": "edward_iv", "dice": 1, "remove_if": "eq_6"}
+   ],
    "successions": {
     "_source": "Scenario Reference E2; War IIY prose.",
     "setup_only": false,
@@ -649,6 +654,10 @@
     }
    ],
    "victory_threshold": 40,
+   "natural_causes": [
+    {"lord": "henry_vi", "dice": 2, "remove_if": "sum_lt_last_turn"},
+    {"lord": "york", "dice": 2, "remove_if": "sum_lt_last_turn"}
+   ],
    "successions": {
     "_source": "Scenario Reference E2; War IIL prose.",
     "setup_only": false,

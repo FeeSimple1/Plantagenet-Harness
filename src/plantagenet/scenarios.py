@@ -339,14 +339,54 @@ def _apply_lost_heir_influence(state: GameState, removed: set) -> int:
     Influence (E2 / 6.x). Returns total points spent."""
     from plantagenet import influence, succession
     total = 0
+    statics = static_data.load_lords()
     for lid in removed:
         if "warwick" in lid:
             continue
-        side = state.lords[lid].side if lid in state.lords else None
-        if side and (succession.heir_rank(state, side, lid) is not None):
+        # A Heir removed in an earlier War may be absent from this War's roster
+        # (e.g. Henry VI in IIIY), so fall back to the static Lord's side.
+        side = (state.lords[lid].side if lid in state.lords
+                else statics.get(lid, {}).get("side"))
+        if side and succession.is_global_heir(side, lid):   # 6.2.1 global Heir list
             influence.spend_influence(state, side, 8)
             total += 8
     return total
+
+
+def apply_natural_causes(state: GameState) -> dict:
+    """Natural Causes (E4/E5 special rule): after victory in a second War (IIY
+    or IIL), roll for aging Heirs still present. Henry VI and York: roll two
+    dice -- a roll (sum) less than the last Turn box played removes that Heir.
+    Edward IV (IIY only, not March): roll one die -- removed on a '6'. Removed
+    Heirs are permanently out (6.2.2) and incur the -8 Influence penalty in the
+    next War's setup. Operates on the *won* state before the next War is built.
+    "Last Turn played" = the final Calendar Turn box reached (Rules 2.2)."""
+    gs = state.grand_scenario or {}
+    war = {w["war_id"]: w for w in static_data.load_scenario("wars_of_the_roses")["wars"]}.get(
+        gs.get("current_war"))
+    spec = (war or {}).get("natural_causes")
+    if not spec:
+        return {"applied": False}
+    last_turn = state.turn_box
+    roller = state.dice()
+    removed, rolls = [], []
+    alive = (LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE)
+    for entry in spec:
+        lid = entry["lord"]
+        ls = state.lords.get(lid)
+        if ls is None or ls.status not in alive:
+            continue
+        dice = entry.get("dice", 1)
+        roll = sum(roller.d6() for _ in range(dice))
+        cond = entry["remove_if"]
+        gone = (roll < last_turn) if cond == "sum_lt_last_turn" else (roll == 6)
+        rolls.append({"lord": lid, "roll": roll, "removed": gone})
+        if gone:
+            ls.status = LordStatus.REMOVED
+            ls.location = ls.exile_box = ls.calendar_box = None
+            removed.append(lid)
+    state.store_dice(roller)
+    return {"applied": True, "last_turn": last_turn, "rolls": rolls, "removed": removed}
 
 
 def next_war_id(scn_grand: dict, current_war: str, winner: str) -> str | None:
@@ -373,6 +413,7 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
         raise IllegalAction("game_over", "the final War is concluded; no Renewed War (6.1)")
     war = {w["war_id"]: w for w in scn_grand["wars"]}[nxt]
 
+    apply_natural_causes(state)          # E4/E5: aging-Heir removals before carry-over
     removed_prior = {lid for lid, ls in state.lords.items()
                      if ls.status == LordStatus.REMOVED}
     set_aside_keep = dict(gs.get("set_aside_on_disband", {}))
