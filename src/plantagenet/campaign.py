@@ -393,6 +393,18 @@ def _cap_dominates(state: GameState, side: str, area: str, in_area: list[str]) -
     return False
 
 
+def _active_special_rules(state: GameState) -> set:
+    """Names of the special rules in force for the current scenario or, in the
+    grand scenario, the current War (read from the scenario data)."""
+    if state.grand_scenario:
+        wars = {w["war_id"]: w for w in static_data.load_scenario("wars_of_the_roses")["wars"]}
+        rules = (wars.get(state.grand_scenario.get("current_war")) or {}).get("special_rules", [])
+    else:
+        scn = static_data.load_scenario(state.scenario)
+        rules = scn.get("setup", {}).get("special_rules") or scn.get("special_rules") or []
+    return {r["name"] for r in rules if isinstance(r, dict) and "name" in r}
+
+
 def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     locales = static_data.load_locales()
     lords_static = static_data.load_lords()
@@ -443,8 +455,18 @@ def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> d
             pts[side] += tot
             detail.append(f"{side} +{tot} Lords' Influence")
 
+    # Queen Regent (Warwick's Rebellion special rule): Margaret at London -> +3.
+    if "Queen Regent" in _active_special_rules(state):
+        mg = state.lords.get("margaret")
+        if mg is not None and mg.status == LordStatus.MUSTERED and mg.location == "london":
+            pts["lancastrian"] += 3
+            detail.append("lancastrian +3 Queen Regent")
+
     # Capability flat Influence bonuses (1.9.1).
-    for lid in _cap_holders(state, "FIRST SON"):           # Y28 (Edward IV)
+    glos_set_aside = bool((state.grand_scenario or {}).get("gloucester_as_heir_played"))
+    for lid in (() if glos_set_aside else _cap_holders(state, "FIRST SON")):   # Y28 (Edward IV)
+        # Gloucester special rule: once Y28 GLOUCESTER AS HEIR is played/set aside,
+        # the FIRST SON Capability becomes unavailable (IIY/IIL).
         if state.lords[lid].status == LordStatus.MUSTERED:
             sd = state.lords[lid].side
             pts[sd] += 1
@@ -604,10 +626,13 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     info = season_info(state.turn_box)
     grown = wasted = False
     if victory is None:
-        if info["grow"]:                      # 4.8.4 Grow
+        rules = _active_special_rules(state)
+        ravaged = "Ravaged Land" in rules                 # IIIY/IIIL/My Kingdom: skip Grow+Waste
+        skip_waste = ravaged or "Brief Rebellion" in rules  # Somerset's Return: skip Waste
+        if info["grow"] and not ravaged:      # 4.8.4 Grow
             _grow(state)
             grown = True
-        if info["waste"]:                     # 4.8.5 Waste
+        if info["waste"] and not skip_waste:  # 4.8.5 Waste
             _waste(state)
             wasted = True
         _reset_to_next_levy(state)            # 4.8.6
