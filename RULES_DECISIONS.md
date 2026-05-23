@@ -206,9 +206,22 @@ adjudicator to decide:
     Canterbury. Lancastrian: a surviving Henry VI / Somerset (1) lead from box 9
     (Exile), displacing Margaret / Somerset (2). Tests in
     `tests/test_war_iiy_setup.py`.
-  - **STILL PENDING (implementation only, no rules ambiguity):** the IIIY
-    conditional setup (Warwick-as-King, Northumberland(2)/Norfolk adds, ring
-    variants, and the Margaret/Henry Tudor/Warwick Lancastrian selection).
+  - **IIIY conditional setup IMPLEMENTED (2026-05-23):** `scenarios.apply_iiiy_setup`
+    clears the entire base Scenario III roster ("hold off setting up any Lords")
+    and places the whole roster from Succession per E6: surviving Yorkist Heirs
+    -> King = highest at London with the next Heir kept and all others removed;
+    per-Heir placements with ring variants (Gloucester(1) silver@Gloucester /
+    (2) gold@London / Richard III gold@London by who is King; March@Ludlow vs
+    Edward IV@London; Rutland@Canterbury Heir-to-York/Edward IV or King@London);
+    the Y28 "Gloucester As Heir" set-aside displaces Rutland (both remain); the
+    Warwick-as-King branch (Yorkist Warwick + Salisbury + Y16/17/22 when Rutland
+    is the sole Heir); Northumberland(2)@Carlisle + Y37 when exactly one senior
+    Heir remains; Norfolk@Arundel always; the one Lancastrian leader
+    (Margaret / Henry Tudor / Warwick by condition) with Oxford + Jasper Tudor(2)
+    following the leader; and Favour = London Yorkist + each in-play Lord's marked
+    Seat. The Y28 set-aside is tracked from `arts_of_war` (event activation) and
+    carried into IIIY by `renew_war`. Tests in `tests/test_war_iiiy_setup.py`.
+  - **(c) is now fully implemented; all of D-006 residue (a)/(b)/(c) is closed.**
 
 **Citation.** Card texts L7, Y15; Scenario Reference E4 (War IIY), E6
 (War IIIY); Rules of Play §2.2 (Calendar), §3.4.3 (Levy Vassal), §4.3.5,
