@@ -711,6 +711,23 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     return {"type": "muster_exiles", "side": side, "mustered": mustered}
 
 
+# ----------------------------------------------------- King Richard (My Kingdom)
+def _h_crown_richard(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """King Richard (My Kingdom for a Horse): the Yorkist player may, with
+    Gloucester Mustered at London, replace the Gloucester Lord in place with
+    Richard III (6.2 in-place replacement)."""
+    from plantagenet import campaign, succession
+    _require("King Richard" in campaign._active_special_rules(state), "no_king_richard",
+             "King Richard applies only in My Kingdom for a Horse")
+    gid = next((g for g in ("gloucester_1", "gloucester_2")
+                if g in state.lords and state.lords[g].status == LordStatus.MUSTERED
+                and state.lords[g].location == "london"), None)
+    _require(gid is not None, "no_gloucester_at_london",
+             "King Richard requires Gloucester Mustered at London")
+    succession._apply_replace_in_place(state, "yorkist", gid, "richard_iii")
+    return {"type": "crown_richard", "replaced": gid, "with": "richard_iii"}
+
+
 # --------------------------------------------------------- 6.1.1 Surrender
 def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Surrender / Concede a War (6.1.1-.2): in the grand scenario's first or
@@ -798,6 +815,7 @@ _HANDLERS = {
     "levy_capability": _h_levy_capability,
     "muster_exiles": _h_muster_exiles,
     "concede": _h_concede,
+    "crown_richard": _h_crown_richard,
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),

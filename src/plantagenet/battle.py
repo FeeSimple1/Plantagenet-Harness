@@ -741,11 +741,14 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
     dice = state.dice()
     if win_ids:
         wside = state.lords[win_ids[0]].side
-        gain = sum(static_data.load_lords()[lid]["ratings"]["influence"]
-                   + len(state.lords[lid].vassals) for lid in lose_ids)
-        influence.gain_influence(state, wside, gain)
-        result["influence_award"] = {wside: gain}
-        _spoils(state, locale, winners, lose_ids, result)
+        # Battle-only scenarios (e.g. Bosworth) have no Influence track / map
+        # Locale: the battle's winner simply wins the scenario (no award/Spoils).
+        if state.influence.get("track") is not None and locale in state.locales:
+            gain = sum(static_data.load_lords()[lid]["ratings"]["influence"]
+                       + len(state.lords[lid].vassals) for lid in lose_ids)
+            influence.gain_influence(state, wside, gain)
+            result["influence_award"] = {wside: gain}
+            _spoils(state, locale, winners, lose_ids, result)
     for w in winners:                                    # LOSSES (4.4.3)
         _losses(state, w, dice, result)
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port

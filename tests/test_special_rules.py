@@ -189,3 +189,36 @@ def test_plain_5_3_victory_when_no_test_of_arms():
     s.turn_box = s.calendar.last_box
     res = campaign._victory_check(s)
     assert res is not None and res["rule"] in ("5.3", "5.1")
+
+
+def test_king_richard_replaces_gloucester_at_london():
+    s = build_initial_state("my_kingdom_for_a_horse")
+    g = "gloucester_1" if "gloucester_1" in s.lords else "gloucester_2"
+    s.lords[g].status = LordStatus.MUSTERED
+    s.lords[g].location = "london"
+    r = actions.apply_action(s, {"type": "crown_richard", "side": "yorkist"})
+    assert r["with"] == "richard_iii"
+    assert s.lords["richard_iii"].location == "london"
+    assert s.lords[g].status == LordStatus.REMOVED
+
+
+def test_king_richard_requires_gloucester_at_london():
+    s = build_initial_state("my_kingdom_for_a_horse")
+    for g in ("gloucester_1", "gloucester_2"):
+        if g in s.lords:
+            s.lords[g].location = "york"     # not London
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "crown_richard", "side": "yorkist"})
+    assert e.value.code == "no_gloucester_at_london"
+
+
+def test_bosworth_battle_resolves_and_picks_a_winner():
+    from plantagenet import battle
+    s = build_initial_state("bosworth")               # battle-only: no Influence track
+    yk = ["richard_iii", "northumberland_2", "norfolk"]
+    lc = ["henry_tudor", "jasper_tudor_2", "oxford"]
+    for lid in yk + lc:
+        s.lords[lid].location = "leicester"
+    r = battle.resolve_battle(s, "leicester", yk, lc)
+    assert r["winner_side"] in ("yorkist", "lancastrian", None)   # None == all-Rout draw
+    assert "influence_award" not in r                  # no Influence on a battle-only scenario
