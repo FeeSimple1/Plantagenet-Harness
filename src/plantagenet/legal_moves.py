@@ -21,9 +21,25 @@ from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus, VassalStatus
 
 
+def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
+    """The only legal moves while a reaction is pending (Q-004): the awaiting
+    reactor may play its card or decline. ``apply_action`` rejects all else."""
+    inter = state.pending[0]
+    offers = inter.get("offers", [])
+    idx = inter.get("idx", 0)
+    if idx >= len(offers):
+        return []
+    offer = offers[idx]
+    side = offer.get("side")
+    return [{"type": "react", "side": side, "play": offer.get("card")},
+            {"type": "react", "side": side, "pass": True}]
+
+
 def legal_moves(state: GameState) -> list[dict[str, Any]]:
     if state.phase == "over":
         return []
+    if state.pending:                 # a reaction window is open: only react/pass
+        return _reaction_moves(state)
     if state.phase == "campaign":
         return _campaign_moves(state)
     if state.phase == "levy" and state.levy_step == "done":

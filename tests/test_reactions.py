@@ -233,3 +233,23 @@ def test_battle_catalog_covers_implemented_battle_cards():
     }
     missing = set(implemented.values()) - declared
     assert not missing, f"battle effects missing from the reaction catalog: {missing}"
+
+
+def test_legal_moves_offers_react_while_a_reaction_is_pending():
+    # Gap-1 fix: the agent-facing menu must surface react/pass while paused,
+    # else a menu-driven agent stalls at every reaction window.
+    from plantagenet import legal_moves
+    s, lanc, _wk = _setup()
+    actions.apply_action(s, {"type": "sail", "side": "lancastrian",
+                             "by_lord": lanc, "to": "pembroke"})
+    assert s.pending                                       # Naval Blockade window open
+    moves = legal_moves.legal_moves(s)
+    assert {"type": "react", "side": "yorkist", "play": "Y15"} in moves
+    assert {"type": "react", "side": "yorkist", "pass": True} in moves
+    assert all(m["type"] == "react" for m in moves)        # nothing else is legal
+    # The validated palette keeps both (round-trip: no rejections).
+    palette = legal_moves.validated_legal_moves(s)
+    assert palette["rejected"] == [] and len(palette["moves"]) == 2
+    # And the enumerated react actually resolves the pause.
+    actions.apply_action(s, {"type": "react", "side": "yorkist", "pass": True})
+    assert not s.pending

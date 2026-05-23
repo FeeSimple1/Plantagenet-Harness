@@ -730,3 +730,15 @@ Muster step it asserts the validated palette offers no handler-rejected move
 (enumerator clean) and board_invariant_violations stays empty, then applies a
 RANDOM legal move -- walking trajectories the first-legal round-trip sweep never
 reaches. 18 cases; clean. 429 pass; ruff clean.
+
+## Round (2026-05-23): enumerate react during a pending reaction (readiness gap 1)
+
+Readiness gap for agent-driven full-game play: while a reaction window was open
+(Naval Blockade / King's Parley / Parliament's Truce / Blocked Ford / The King's
+Name), legal_moves offered no react option, so the validated palette came back
+EMPTY (apply_action allows only `react` while pending) -- a menu-driven agent
+would stall. Fixed: legal_moves now emits the awaiting offer's react options
+({play: card}, {pass: true}) when state.pending is set, and nothing else. Also
+fixed a latent crash in reactions.resolve (a `pass` on a held-event offer with no
+`lord` key) via offer.get('lord'). Round-trip test added (test_reactions). 430
+pass; ruff clean.

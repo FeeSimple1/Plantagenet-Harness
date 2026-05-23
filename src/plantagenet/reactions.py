@@ -223,7 +223,8 @@ def resolve(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     inter = state.pending[0]
     offer = inter["offers"][inter["idx"]]
     if action.get("pass"):
-        inter["log"].append({"card": offer["card"], "lord": offer["lord"], "passed": True})
+        inter["log"].append({"card": offer["card"], "lord": offer.get("lord"),
+                             "passed": True})
     else:
         card = action.get("play")
         _require(card == offer["card"], "wrong_reaction",
