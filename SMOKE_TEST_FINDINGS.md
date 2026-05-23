@@ -721,3 +721,12 @@ Adopted the two highest-leverage structural recommendations.
   again and duplicated. Fixed (the Levied card now leaves the unused pool).
 Doors A/B/C, clause-by-clause audit, decision log, and negative enumerator tests
 were already in place from earlier rounds. 411 pass; ruff clean; schema in sync.
+
+## Round (2026-05-23): random-policy Levy fuzz (advisory §5)
+
+Added tests/test_fuzz_random_policy.py: a seeded random-policy fuzz over the Levy
+(draw -> pay -> muster) across all non-battle-only scenarios x 3 seeds. At each
+Muster step it asserts the validated palette offers no handler-rejected move
+(enumerator clean) and board_invariant_violations stays empty, then applies a
+RANDOM legal move -- walking trajectories the first-legal round-trip sweep never
+reaches. 18 cases; clean. 429 pass; ruff clean.
