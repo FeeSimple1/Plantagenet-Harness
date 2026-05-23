@@ -163,13 +163,24 @@ findings — `bosworth` aside, which stalls as described above.
 `nv.findings_report()` prints `N total, M notable`. Each notable entry is a real
 engine defect to triage:
 
-- `over_enum_filtered` / `illegal_action` — the menu offered a move the executor
-  rejects (enumerator/handler asymmetry — the dominant bug class).
+- `over_enum_filtered` — the validated menu offered a move the executor rejects
+  (enumerator/handler asymmetry — the dominant bug class).
+- `illegal_action` — a move the menu *vouched* (an index pick, or a raw dict that
+  exactly matched a menu entry) was rejected on apply: a genuine validator/handler
+  divergence.
+- `under_enum_accepted` — the handler *accepted* a move the menu never offered:
+  under-enumeration (the enumerator missed a legal move).
 - `exception` / `exception_in_probe` — applying an offered move crashed (worse
   than an illegal: a real engine bug).
 - `no_legal_moves` — a stall/deadlock (the active side had no legal action).
 - `invariant` / `invariant_crash` — an illegal board state slipped through
   (e.g. co-located enemies).
+
+`player_illegal` (logged but **not** notable) is an ordinary player mistake: a
+raw-dict action — or a malformed custom `build_plan` — that wasn't on the current
+menu and the engine correctly rejected. It is excluded from the notable count so
+it doesn't masquerade as an engine defect; apply the move by its menu number (or
+re-`nv.show()`) to avoid it.
 
 For each, fix the **root** (don't just rely on the validator hiding it) and add
 a negative test: assert the enumerator does not *offer* the bad move, not only
