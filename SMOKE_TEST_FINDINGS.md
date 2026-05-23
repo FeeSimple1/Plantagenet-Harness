@@ -395,3 +395,25 @@ No SMOKEs. 289 tests pass; ruff clean. REMAINING (5b-ii): encode Wars IIY/IIL/
 IIIY/IIIL succession triggers (need on_becomes_highest_heir,
 on_heir_count_at_or_below, replace_lord_in_place vocabulary) AND the Renewed-War
 setup transition (E1 6.1) -- the latter is a new setup subsystem, scoped to Eric.
+
+## Round 31 (Phase 5b-ii: Wars II/III triggers + Renewed-War transition)
+
+5b-ii-a: succession.py engine vocabulary -- while_king (current-King deck cards,
+swapped on King change), becomes_highest_heir (+ replace_lord_in_place),
+heir_count_at_or_below(n) one-shot adds, replace_lord_in_place. Per-War heir
+lists may group replaceable slots. setup_only Wars (III) no-op in play.
+Structured successions encoded for war_iiy/iil/iiiy/iiil.
+
+5b-ii-b: Renewed-War transition (E1 6.1). scenarios.renew_war: next War by
+winner (next_war_id via respite_and_war), rebuild board from the new War's
+structured setup, base decks from a new arts_of_war_spec ({add,except} over
+no-rose), carry forward removed Heirs (and -8 Influence each, not Warwick),
+resolve the King token to the highest surviving Heir (firing its Muster
+trigger, e.g. Margaret->L26), persist set_aside, then run setup-time
+Succession. Fixed apply_setup so while_king cards register only via the King
+source (Somerset's while_king cards no longer leak in when he is not King).
+
+No SMOKEs. 300 tests pass; ruff clean. RESIDUAL: IIY/IIIY base-scenario placement
+is succession-conditional prose (the King resolves; finer conditional Lord
+placements/Natural-Causes rolls are a refinement). IIL/IIIL structured paths
+transition end-to-end.
