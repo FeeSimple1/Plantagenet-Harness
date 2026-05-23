@@ -196,11 +196,19 @@ adjudicator to decide:
     (`succession.is_global_heir`) with a static-side fallback, so a Heir absent
     from the next War's roster (e.g. Henry VI in IIIY) is still penalised.
     Tests in `tests/test_natural_causes.py`.
-  - **STILL PENDING (implementation only, no rules ambiguity):** the IIY/IIIY
-    conditional Lord/Seat/Favour placements (suppressing the base scenario's
-    Yorkist/all-Lord setup and placing the roster via Succession -- e.g. York's
-    line, Devon/Gloucester/Northumberland boxes, Pembroke/Norfolk/Northumberland(2)
-    adds, Warwick-as-King, and the IIIY Margaret/Henry Tudor/Warwick selection).
+  - **IIY conditional setup IMPLEMENTED (2026-05-23):** `scenarios.apply_iiy_setup`
+    suppresses the standalone Scenario II Yorkist roster and places the IIY
+    roster by War I survival: King = highest surviving Heir at London (with the
+    in-place March->Edward IV / Gloucester(1)->Richard III King transforms left
+    to `succession.apply_setup`); March at Ludlow when York is King; Rutland at
+    Canterbury; Gloucester (1) silver-ring box 9; Devon box 1 and Northumberland
+    (1) box 9 always; Pembroke at Pembroke only at <=2 Heirs; Yorkist Favour at
+    Canterbury. Lancastrian: a surviving Henry VI / Somerset (1) lead from box 9
+    (Exile), displacing Margaret / Somerset (2). Tests in
+    `tests/test_war_iiy_setup.py`.
+  - **STILL PENDING (implementation only, no rules ambiguity):** the IIIY
+    conditional setup (Warwick-as-King, Northumberland(2)/Norfolk adds, ring
+    variants, and the Margaret/Henry Tudor/Warwick Lancastrian selection).
 
 **Citation.** Card texts L7, Y15; Scenario Reference E4 (War IIY), E6
 (War IIIY); Rules of Play §2.2 (Calendar), §3.4.3 (Levy Vassal), §4.3.5,
