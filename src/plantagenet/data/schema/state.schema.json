@@ -126,7 +126,7 @@
     },
     "InfluenceState": {
       "additionalProperties": false,
-      "description": "Mirrors the scenario's Influence-track setup verbatim.\n\nThe Influence/scoring *mechanics* are not interpreted in Phase 1; the\nvalues are stored as given so the display is faithful and later phases\ncan build the scoring logic on top.",
+      "description": "Mirrors the scenario's Influence-track setup verbatim.\n\nSetup values are loaded verbatim; the scoring mechanics (Tides of War,\nVictory) are implemented in `campaign.py` / `influence.py`.",
       "properties": {
         "marker_at": {
           "title": "Marker At",

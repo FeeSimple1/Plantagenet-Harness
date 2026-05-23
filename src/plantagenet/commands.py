@@ -3,10 +3,10 @@
 These plug into the Activation loop (4.2): each consumes Command actions of
 the Active Lord. March-via-Path and Sail consume the entire card (4.2.1).
 
-Phase 3a-ii scope. Movement that would cause enemy contact (Approach 4.3.5
-or an Intercept opportunity 4.3.4) is rejected with a code rather than
-resolved, because Battle is Phase 3b. Supply (4.5) and Pay (3.2) are
-Phase 3a-iii.
+Movement causing enemy contact resolves Approach (4.3.5) / Intercept (4.3.4)
+via `battle.py`. This module also implements Supply (4.5), the Capability
+command actions (Agitators/Merchants/Heralds/Exile Pact), and the Naval
+Blockade reaction checkpoints.
 """
 
 from __future__ import annotations

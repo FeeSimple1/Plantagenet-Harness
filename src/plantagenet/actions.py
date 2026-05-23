@@ -5,14 +5,12 @@ mutates the state, and returns a structured result (including any dice
 rolled). Invalid actions raise `IllegalAction` with a stable code and a
 rule citation.
 
-Phase 2 scope — the Muster segment (3.4) for the active side:
-  parley (3.4.1), levy_lord (3.4.2), levy_vassal (3.4.3),
-  levy_transport (3.4.5), and end_muster to pass the segment to the other
-  side. Two Muster actions are intentionally NOT executable yet:
-    - levy_capability (3.4.6): card effects are deferred to Phase 4.
-levy_troops (3.4.4) is implemented using the Strongholds table (D-004).
-The full Pay (3.2) detail (Pillage yields) likewise needs the Strongholds
-table and is not reachable on the first Turn (3.2 skips Pay on Turn 1).
+The Levy segment for the active side is fully handled: parley (3.4.1),
+levy_lord (3.4.2), levy_vassal (3.4.3), levy_troops (3.4.4 via the
+Strongholds table, D-004), levy_transport (3.4.5), levy_capability (3.4.6),
+muster_exiles (3.3.1), concede (6.1.1), and end_muster. Campaign Command
+actions live in `commands.py`; this module also hosts `apply_action`, the
+`react` reaction dispatch, and Event plays (`play_event`/`play_held_event`).
 """
 
 from __future__ import annotations
@@ -505,7 +503,7 @@ def _h_levy_transport(state: GameState, action: dict[str, Any]) -> dict[str, Any
     return {"type": "levy_transport", "by_lord": lord.lord_id, "added": "1 ship"}
 
 
-# ------------------------------------------------ deferred Muster actions
+# ------------------------------------------------ Levy Troops / Transport (3.4.4-.5)
 def _troops_in_play(state: GameState, force_id: str) -> int:
     """Count wooden Troop pieces of ``force_id`` currently on all Lord mats."""
     return sum(v.forces.get(force_id, 0) for v in state.lords.values())
