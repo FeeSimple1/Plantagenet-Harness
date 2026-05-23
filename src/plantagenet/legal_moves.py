@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from plantagenet import actions, static_data
+from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordStatus, VassalStatus
 
 
@@ -342,3 +343,28 @@ def _same_sea_ports(here: str) -> set[str]:
         return set()
     z = port_sea[here]
     return {p for p, zz in port_sea.items() if zz == z and p != here}
+
+
+def validated_legal_moves(state: GameState) -> dict[str, Any]:
+    """Agent-facing action palette (cross-harness advisory §2). Probe every move
+    the enumerator emits on a deep copy of the state and drop any the handler
+    rejects, returning the kept moves plus structured over-enumeration
+    diagnostics. This is a safety net over the round-trip discipline, NOT a
+    substitute for fixing the enumerator -- every drop is a logged bug.
+
+    Safe because the RNG lives in the state (seed + rng_state): probing advances
+    only the copy's dice, never the real game's. Use on the agent-facing path,
+    not in hot loops. ``apply_action`` returning ``pending_reactions`` (a paused
+    reaction) counts as legal -- the move is kept."""
+    kept: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+    for mv in legal_moves(state):
+        probe = state.model_copy(deep=True)
+        try:
+            actions.apply_action(probe, mv)
+        except IllegalAction as e:
+            rejected.append({"move": mv, "code": e.code, "reason": e.message})
+            continue
+        kept.append(mv)
+    return {"active_side": state.active_side, "phase": state.phase,
+            "levy_step": state.levy_step, "moves": kept, "rejected": rejected}

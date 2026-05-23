@@ -47,12 +47,12 @@ def test_round_trip_every_emitted_move_applies(sid):
                     actions.apply_action(snap, mv)
                 except IllegalAction as e:
                     pytest.fail(f"{sid}: enumerator emitted illegal {mv} -> {e.code}")
-                # Advisory #2: no enumerated move may produce illegal co-location.
-                assert invariants.co_location_violations(snap) == [], \
-                    f"{sid}: {mv} produced co-location {invariants.co_location_violations(snap)}"
+                # Advisory #2/§3: no enumerated move may break a board invariant.
+                bad = invariants.board_invariant_violations(snap)
+                assert bad == [], f"{sid}: {mv} broke an invariant {bad}"
             nxt = next((m for m in moves if m["type"] != "end_muster"), moves[-1])
             actions.apply_action(state, nxt)
-            assert invariants.co_location_violations(state) == []
+            assert invariants.board_invariant_violations(state) == []
             steps += 1
 
 

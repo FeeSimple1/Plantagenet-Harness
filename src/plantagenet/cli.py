@@ -102,12 +102,16 @@ def state(file: str, mode: str = "summary", focus: str | None = None) -> None:
 
 
 @app.command("legal-moves")
-def legal_moves(file: str) -> None:
-    """Enumerate legal actions for the active player (Levy Muster, 3.4)."""
+def legal_moves(file: str, validated: bool = False) -> None:
+    """Enumerate legal actions for the active player. With ``--validated``, probe
+    each move and drop any the handler rejects (logging the over-enumeration)."""
     from plantagenet import legal_moves as lm
     from plantagenet.state import GameState
 
     gs = GameState.load(file)
+    if validated:
+        typer.echo(json.dumps(lm.validated_legal_moves(gs), indent=2))
+        return
     moves = lm.legal_moves(gs)
     typer.echo(json.dumps({"active_side": gs.active_side, "levy_step": gs.levy_step,
                            "count": len(moves), "moves": moves}, indent=2))
