@@ -87,6 +87,26 @@ def _vassal_service_boxes(setup: dict[str, Any]) -> dict[str, int]:
     return boxes
 
 
+def _setup_special_rule_names(scn: dict) -> set:
+    rules = scn.get("setup", {}).get("special_rules") or scn.get("special_rules") or []
+    return {r["name"] for r in rules if isinstance(r, dict) and "name" in r}
+
+
+def _apply_setup_special_rules(state: GameState, scn: dict) -> None:
+    """Apply setup-time scenario special rules that the generic builder does not
+    express in data (e.g. a Capability + Special Vassal assigned at setup)."""
+    names = _setup_special_rule_names(scn)
+    # Montagu (Somerset's Return): the Yorkist Warwick sets up with the
+    # Lancastrian MONTAGU Capability (L23) and its Special Vassal.
+    if "Montagu" in names:
+        wk = state.lords.get("warwick_yorkist")
+        if wk is not None and "L23" in static_data.load_cards():
+            if "L23" not in wk.capabilities:
+                wk.capabilities.append("L23")
+            if "montagu" not in wk.special_vassals:
+                wk.special_vassals.append("montagu")
+
+
 def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> GameState:
     lords_static = static_data.load_lords()
     vassals_static = static_data.load_vassals()
@@ -171,6 +191,7 @@ def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> Gam
                     if cid not in in_play]
             roller.shuffle(draw)
             state.decks[s_side] = {"draw": draw, "discard": [], "held": []}
+    _apply_setup_special_rules(state, scn)
     state.store_dice(roller)
     return state
 

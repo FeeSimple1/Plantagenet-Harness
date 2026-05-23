@@ -563,6 +563,11 @@ def _victory_check(state: GameState) -> dict[str, Any] | None:
         for side in SIDES:
             if _side_influence(state, side) >= thr:
                 return {"result": side, "rule": "5.2", "threshold": thr}
+    # Test of Arms (Towton): at Campaign end, the side with Favour at York wins.
+    if "Test of Arms" in _active_special_rules(state) \
+            and state.turn_box >= (state.calendar.last_box or state.turn_box):
+        fav = state.locales["york"].favour
+        return {"result": fav if fav in SIDES else "draw", "rule": "Test of Arms"}
     # 5.3 Scenario End (final Turn).
     if state.turn_box >= (state.calendar.last_box or state.turn_box):
         li, yi = _side_influence(state, "lancastrian"), _side_influence(state, "yorkist")

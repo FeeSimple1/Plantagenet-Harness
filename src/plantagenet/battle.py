@@ -813,6 +813,11 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
             and _foreign_haven_active(state)):
         campaign._foreign_haven_shift(state)
         result["foreign_haven"] = True
+    # Test of Arms (Towton): a Battle at York sets York's Favour to the winner.
+    if (locale == "york" and win_ids
+            and "Test of Arms" in campaign._active_special_rules(state)):
+        state.locales["york"].favour = result["winner_side"]
+        result["test_of_arms"] = result["winner_side"]
     return result
 
 

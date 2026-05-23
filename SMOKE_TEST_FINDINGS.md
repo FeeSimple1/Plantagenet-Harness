@@ -661,3 +661,13 @@ tests/test_special_rules.py: 10 tests total. 389 pass; ruff clean.
 All grand-scenario special rules now implemented; remaining: standalone-scenario
 batch (Capture of the King, King Richard, Montagu, Norfolk is Late, Test of
 Arms, Bosworth).
+
+## Round (2026-05-23): standalone special rules -- Montagu + Test of Arms (batch 3a)
+
+- Montagu (Somerset's Return): `_apply_setup_special_rules` gives the Yorkist
+  Warwick the L23 MONTAGU Capability + Montagu Special Vassal at setup.
+- Test of Arms (Towton): a Battle at York sets York's Favour to the winner
+  (battle._ending); at Campaign end the Favour-at-York holder wins (else draw).
+  Corrected a test that wrongly expected a 5.3 victory for Towton.
+391 pass; ruff clean. Remaining standalone: King Richard, Norfolk is Late,
+Capture of the King, Bosworth (Victory / On Bosworth Field).

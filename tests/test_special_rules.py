@@ -166,3 +166,26 @@ def test_foreign_haven_fires_when_warwick_exiles_on_approach():
     assert r.get("foreign_haven") is True
     assert all(ls.calendar_box == 3 for ls in n.lords.values()
                if ls.status == LordStatus.CALENDAR and ls.side == "lancastrian")
+
+
+def test_test_of_arms_battle_at_york_sets_favour_and_wins():
+    from plantagenet import battle
+    s = build_initial_state("towton")
+    # York attacker vs a Lancastrian defender at York; the winner takes York Favour.
+    for lid in ("york", "henry_vi"):
+        if lid in s.lords:
+            s.lords[lid].location = "york"
+            s.lords[lid].status = LordStatus.MUSTERED
+            s.lords[lid].capabilities = []
+    if "york" in s.lords and "henry_vi" in s.lords:
+        r = battle.resolve_battle(s, "york", "york", "henry_vi", {})
+        assert s.locales["york"].favour == r["winner_side"]
+        assert r.get("test_of_arms") == r["winner_side"]
+
+
+def test_plain_5_3_victory_when_no_test_of_arms():
+    # A non-Test-of-Arms scenario at its final Turn falls back to 5.3 (Influence).
+    s = build_initial_state("wars_of_the_roses")           # War I: no special rules
+    s.turn_box = s.calendar.last_box
+    res = campaign._victory_check(s)
+    assert res is not None and res["rule"] in ("5.3", "5.1")
