@@ -502,3 +502,21 @@ Mustered Lords share a `location`, exempting a Locale with an open Approach
 reaction (4.3.5 / Q-004), where the Marching Lord legally co-locates while the
 defender's cancel/Battle resolves. All 7 scenario setups and post-battle states
 are clean. 10 new tests; 328 pass; ruff clean.
+
+## Round (2026-05-23): War IIY succession-driven setup (D-006 residue (c), part 2)
+
+The grand IIY had been using the standalone Scenario II roster verbatim, which
+mis-seated Edward IV as King even when York survived War I (Scenario II is set
+after York's historical death, so its lord list omits York/March/Rutland).
+Added `scenarios.apply_iiy_setup` (+ `_place_lord` / `_unplace_lord` helpers),
+run in `renew_war` for war_iiy before `succession.apply_setup`. It suppresses the
+base Yorkist heir-line and re-places by War I survival per E4: King = highest
+surviving Heir at London (the March->Edward IV and Gloucester(1)->Richard III
+King transforms are still applied in place by apply_setup's becomes_highest_heir
+triggers); March@Ludlow when York is King; Rutland@Canterbury; Gloucester(1)
+silver box 9; Devon box1, Northumberland(1) box9 always; Pembroke@Pembroke only
+at <=2 Heirs; Yorkist Favour at Canterbury. Lancastrian: surviving Henry VI /
+Somerset(1) lead from box 9 (Exile), displacing Margaret / Somerset(2). Verified
+Succession cards track the roster (York Y14/18/19/20 present; Edward IV
+Y23/24/28/31 when promoted). 5 new tests; 333 pass; ruff clean. STILL PENDING:
+IIIY conditional setup.

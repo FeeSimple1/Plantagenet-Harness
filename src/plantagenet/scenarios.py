@@ -353,6 +353,99 @@ def _apply_lost_heir_influence(state: GameState, removed: set) -> int:
     return total
 
 
+def _place_lord(state: GameState, lord_id: str, side: str, *, location: str | None = None,
+                calendar_box: int | None = None, calendar_exile: bool = False,
+                ring: str | None = None) -> LordState:
+    """Place (or relocate) a Lord with its static Forces/Assets. ``location`` ->
+    Mustered on the map; ``calendar_box`` -> on the Calendar (Exile-marked if
+    ``calendar_exile``). Used by the Succession-driven War setups (6.2.2)."""
+    statics = static_data.load_lords()[lord_id]
+    ls = state.lords.get(lord_id)
+    if ls is None:
+        ls = LordState(lord_id=lord_id, side=Side(side), status=LordStatus.AVAILABLE)
+        state.lords[lord_id] = ls
+    if location is not None:
+        ls.status = LordStatus.MUSTERED
+        ls.location = location
+        ls.calendar_box = None
+    else:
+        ls.status = LordStatus.CALENDAR
+        ls.location = None
+        ls.calendar_box = calendar_box
+    ls.exile_box = None
+    ls.calendar_exile = calendar_exile
+    ls.ring = ring
+    ls.forces = dict(statics.get("forces", {}))
+    ls.assets = dict(statics.get("assets", {}))
+    return ls
+
+
+def _unplace_lord(state: GameState, lord_id: str) -> None:
+    """Remove a Lord from the board back to AVAILABLE (not REMOVED): used when a
+    Succession setup supersedes a base-scenario placement (e.g. Margaret yields
+    box 9 to a surviving Henry VI)."""
+    ls = state.lords.get(lord_id)
+    if ls is not None and ls.status != LordStatus.REMOVED:
+        ls.status = LordStatus.AVAILABLE
+        ls.location = ls.exile_box = ls.calendar_box = None
+        ls.calendar_exile = False
+        ls.ring = None
+        ls.forces = {}
+        ls.assets = {}
+
+
+# Yorkist Heir slots for IIY (highest -> lowest), by the present "form" Lord.
+# Slot 2's march becomes Edward IV, slot 4's gloucester_1 becomes Richard III,
+# when that slot is King -- handled in place by succession.apply_setup.
+_IIY_YORKIST_SLOTS = ["york", "march", "rutland", "gloucester_1"]
+
+
+def apply_iiy_setup(state: GameState, removed: set) -> dict:
+    """War IIY succession-driven roster (Scenario Reference E4 / Rules 6.2.2).
+
+    The base build is standalone Scenario II ("Warwick's Rebellion"), whose
+    Yorkist roster assumes Edward IV is King. The grand IIY instead suppresses
+    the base Yorkist setup and places the roster by who survived War I:
+    King = highest surviving Heir at London; March at Ludlow when York is King;
+    Rutland at Canterbury (when not King); Gloucester (1) in box 9; Devon box 1
+    and Northumberland (1) box 9 always; Pembroke at Pembroke only once two or
+    fewer Heirs remain. Lancastrian: a surviving Henry VI / Somerset (1) lead
+    from box 9 (Exile), displacing Margaret / Somerset (2). Card and King-form
+    triggers are applied afterwards by ``succession.apply_setup``."""
+    present = [slot for slot in _IIY_YORKIST_SLOTS if slot not in removed]
+    log: dict[str, Any] = {"present_heirs": list(present)}
+    # Clear the base Scenario II Yorkist heir-line + Pembroke; re-place below.
+    for lid in ("york", "march", "edward_iv", "rutland", "gloucester_1",
+                "richard_iii", "pembroke"):
+        _unplace_lord(state, lid)
+    if present:                                  # King at London (highest Heir)
+        king = present[0]
+        _place_lord(state, king, "yorkist", location="london")
+        log["king"] = king
+        for slot in present[1:]:                 # supporting present Heirs
+            if slot == "march":                  # York is King -> March at Ludlow
+                _place_lord(state, "march", "yorkist", location="ludlow")
+            elif slot == "rutland":              # Rutland (not King) at Canterbury
+                _place_lord(state, "rutland", "yorkist", location="canterbury")
+            elif slot == "gloucester_1":         # Gloucester (1) silver ring, box 9
+                _place_lord(state, "gloucester_1", "yorkist", calendar_box=9, ring="silver")
+    _place_lord(state, "devon", "yorkist", calendar_box=1)
+    _place_lord(state, "northumberland_1", "yorkist", calendar_box=9)
+    if len(present) <= 2:                         # Pembroke joins (heir_count<=2)
+        _place_lord(state, "pembroke", "yorkist", location="pembroke")
+        log["pembroke"] = True
+    state.locales["canterbury"].favour = Favour.YORKIST.value   # Yorkist Favour at Canterbury
+
+    if "henry_vi" not in removed:                 # Henry VI leads from box 9 Exile
+        _place_lord(state, "henry_vi", "lancastrian", calendar_box=9, calendar_exile=True)
+        _unplace_lord(state, "margaret")
+        log["lancastrian_lead"] = "henry_vi"
+    if "somerset_1" not in removed:               # Somerset (1) replaces Somerset (2)
+        _place_lord(state, "somerset_1", "lancastrian", calendar_box=9, calendar_exile=True)
+        _unplace_lord(state, "somerset_2")
+    return log
+
+
 def apply_natural_causes(state: GameState) -> dict:
     """Natural Causes (E4/E5 special rule): after victory in a second War (IIY
     or IIL), roll for aging Heirs still present. Henry VI and York: roll two
@@ -454,6 +547,8 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
 
     _resolve_kings(new, war, removed_prior)
     _apply_lost_heir_influence(new, removed_prior)
+    if nxt == "war_iiy":                                # E4: succession-driven roster
+        apply_iiy_setup(new, removed_prior)
     succession.apply_setup(new)                         # setup-time Succession (6.2)
     new.levy_step = "arts_of_war"
     return new
