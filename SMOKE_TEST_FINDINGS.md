@@ -417,3 +417,26 @@ No SMOKEs. 300 tests pass; ruff clean. RESIDUAL: IIY/IIIY base-scenario placemen
 is succession-conditional prose (the King resolves; finer conditional Lord
 placements/Natural-Causes rolls are a refinement). IIL/IIIL structured paths
 transition end-to-end.
+
+## Round (2026-05-22): close out Q-004 and Q-005
+
+Reviewed the two long-standing open questions against current code and the
+source/reference docs. Both are resolved or implementation-only, so neither is
+a live rules question:
+
+- Q-004 (reactive interrupt Capabilities) was fully implemented in Phase 5a
+  (`reactions.py`: Naval Blockade Y15, King's Parley L15, Parliament's Truce
+  Y12/L20, Blocked Ford Y11/L11, The King's Name Y32). Moved to D-005.
+- Q-005 (scripted Succession swaps + play-timing Events) is mostly implemented
+  (`play_event`/`play_held_event`, the reaction hook, the per-War Succession
+  engine, Renewed-War setup). Its residue is implementation backlog governed by
+  clear card/scenario text, NOT a rules ambiguity: (a) For Trust Not Him L7
+  in-battle Vassal Levy; (b) Naval Blockade also gating Tax/Parley/Supply
+  (needs route->sea introspection; the card text already lists the gated
+  actions); (c) Wars IIY/IIIY conditional Lord placements + Natural Causes
+  rolls (Scenario Reference E4/E6; "last Turn played" = final Calendar Turn box
+  per Rules §2.2). Moved to D-006. `RULES_QUESTIONS.md` now lists no open
+  questions.
+
+No code behaviour change (docs + one stale comment in `reactions.py`).
+300 tests pass; ruff clean.
