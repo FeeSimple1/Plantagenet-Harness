@@ -354,17 +354,24 @@ def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, 
 
 
 def _hp_sun_in_splendour(state, side, d):       # Y24: Muster Edward IV in Levy, free
+    from plantagenet.actions import enemy_lord_at
     _require(state.phase == "levy", "not_levy", "Sun in Splendour is played in the Levy (Y24)")
     ed = state.lords.get("edward_iv")
     _require(ed is not None and ed.status in (LordStatus.CALENDAR, LordStatus.EXILE),
              "edward_unavailable", "Edward IV must be on the Calendar/Exile (Y24)")
     target = d.get("target")
-    _require(target in state.locales and state.locales[target].favour == "yorkist",
-             "bad_target", "Muster Edward IV at a Friendly Locale (Y24)")
+    in_box = target in static_data.load_exile_boxes()
+    if in_box:                                          # a Yorkist-aligned Exile box
+        _require(state.exile_alignment.get(target) == "yorkist", "bad_target",
+                 "Muster Edward IV at a Yorkist Exile box (Y24)")
+    else:                                               # a Friendly Stronghold, Enemy-free
+        _require(target in state.locales and state.locales[target].favour == "yorkist"
+                 and not enemy_lord_at(state, target, "yorkist"), "bad_target",
+                 "Muster Edward IV at a Friendly Locale free of Enemy Lords (Y24)")
     statics = static_data.load_lords()["edward_iv"]
-    ed.status = LordStatus.MUSTERED
-    ed.location = target
-    ed.exile_box = None
+    ed.status = LordStatus.MUSTERED                     # validated; now place
+    ed.exile_box = target if in_box else None
+    ed.location = None if in_box else target
     ed.calendar_box = None
     ed.calendar_exile = False
     ed.forces = dict(statics.get("forces", {}))
