@@ -123,13 +123,14 @@ def _run_campaign(s):
 
 
 def test_scenario_end_victory_on_final_turn():
-    # Towton is a one-Turn scenario: End Campaign resolves a 5.3 victory.
+    # Towton is a one-Turn scenario whose victory is by Test of Arms (Favour at
+    # York). With no Battle at York, York stays Neutral -> a draw at Campaign end.
     s = build_initial_state("towton")
     _finish_levy(s)
     actions.apply_action(s, {"type": "begin_campaign"})
     _run_campaign(s)
     r = actions.apply_action(s, {"type": "end_campaign"})
-    assert r["victory"] is not None and r["victory"]["rule"] == "5.3"
+    assert r["victory"] is not None and r["victory"]["rule"] == "Test of Arms"
     assert s.phase == "over"
 
 
