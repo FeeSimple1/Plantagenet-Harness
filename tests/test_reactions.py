@@ -197,3 +197,39 @@ def test_no_approach_window_without_reactors():
     r = actions.apply_action(s, {"type": "march", "side": "yorkist",
                                  "by_lord": atk, "to": "lincoln"})
     assert r["type"] == "march" and r["approach"] is not None   # resolves immediately
+
+
+def test_battle_reaction_catalog_lists_live_windows():
+    from plantagenet import reactions
+    s = build_initial_state("henry_vi")
+    for lid in ("york", "henry_vi"):
+        s.lords[lid].status = LordStatus.MUSTERED.value
+        s.lords[lid].location = "cambridge"
+    s.lords["york"].capabilities = ["Y1"]                 # Culverins (capability)
+    s.decks["lancastrian"]["held"] = ["L1", "L19"]        # Leeward + a non-battle Event
+    s.decks["yorkist"]["held"] = ["Y19"]                  # Caltrops
+    av = reactions.available_battle_reactions(s, ["york"], ["henry_vi"])
+    effects = {(o["side"], o["effect"]) for o in av}
+    assert ("lancastrian", "leeward") in effects
+    assert ("yorkist", "culverins") in effects
+    assert ("yorkist", "caltrops") in effects
+    assert all(o["effect"] != "henrys_proclamation" for o in av)   # non-battle excluded
+    # ordered by window then priority
+    assert av == sorted(av, key=lambda o: (o["window"], o["priority"]))
+
+
+def test_battle_catalog_covers_implemented_battle_cards():
+    """The registry catalog is the single source of truth: every battle-card
+    effect resolve_battle knows about is declared in BATTLE_REACTIONS / caps."""
+    from plantagenet import battle, reactions
+    declared = {m["effect"] for m in reactions.BATTLE_REACTIONS.values()}
+    declared |= {m["effect"] for m in reactions._BATTLE_CAPS.values()}
+    implemented = {
+        battle.LEEWARD: "leeward", battle.CALTROPS: "caltrops", battle.RAVINE: "ravine",
+        battle.SUSPICION: "suspicion", battle.REGROUP: "regroup",
+        battle.ESCAPE_SHIP: "escape_ship", battle.FLANK_ATTACK: "flank_attack",
+        battle.WARDEN: "warden", battle.TALBOT: "talbot", battle.PATRICK: "patrick",
+        battle.SWIFT_MANEUVER: "swift_maneuver", battle.CULVERINS: "culverins",
+    }
+    missing = set(implemented.values()) - declared
+    assert not missing, f"battle effects missing from the reaction catalog: {missing}"
