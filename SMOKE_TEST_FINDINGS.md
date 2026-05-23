@@ -537,3 +537,27 @@ Tudor(2); Favour = London Yorkist + each in-play Lord's marked Seat. Y28
 carried into IIIY by renew_war (only from a second War). Verified across all
 branches incl. the co-location invariant (clean). 9 new tests; 342 pass; ruff
 clean. (c) complete -- all of D-006 residue (a)/(b)/(c) is now closed.
+
+## Round (2026-05-23): edge-case completeness (Phase 5j)
+
+Four deferred edge-case items, all merged with tests:
+- IIY/IIIY favour markers: `_recompute_stronghold_markers` sets City/Town/Fortress
+  Influence-track markers from the post-setup Favour layout (E4 'slide Yorkist
+  Cities marker to 1'; E6 'adjust ... per Favour'). These markers are display
+  state only (Tides recomputes from live Favour).
+- Muster Exiles (3.3.1): new `muster_exiles` action moves Exile-marked Calendar
+  Lords to their designated Exile box (allied_networks, now carried across Wars)
+  for free; enumerated in legal_moves.
+- at-Sea Sailing + Disembark/Shipwreck (4.8.2): new `LordState.at_sea`; Sail can
+  go 'into a Sea' and from at-Sea to a Port; End-Campaign resolves Disembark
+  (Shipwreck 1-4 = removal + Unpaid penalty + Succession; Land 5-6 = chosen
+  Enemy-free Port + Feed, else Disband).
+- Asset Sharing (1.5.3): `sail`/`supply` accept a `share` list; co-located
+  Friendly Lords' Ships/Carts are pooled for capacity (used, never transferred).
+356 pass; ruff clean.
+
+NOTE (flagged, not changed): the existing port->port Sail allows a direct hop to
+a Port on an *adjacent* Sea, whereas FAQ #1 (quoted on the Great Ships card) says
+Sail may not go directly port-to-port across different Seas (transit via at-Sea).
+This predates Phase 5j and is governed by D-001; left unchanged here to avoid
+re-opening a recorded decision. Worth a follow-up review.

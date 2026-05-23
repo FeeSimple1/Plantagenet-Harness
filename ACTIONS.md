@@ -168,6 +168,22 @@ attempts to Levy a regular Enemy Vassal in the Battle onto its own mat;
 `{"by": <lord>, "target": <vassal_id>}`; ignores Routes/Seat Favour, Salisbury's
 Vassals immune via Y17).
 
+### Edge-case completeness (Phase 5j)
+
+`muster_exiles` (3.3.1): {`side`, `lords`} — during the Muster window, move the
+listed Exile-marked Calendar Lords (current/earlier box) to their designated
+Exile box, free; enumerated in `legal_moves`.
+
+`sail` into a Sea (4.6.1): `to` may name a Sea zone (same/adjacent), leaving the
+Lord at Sea (`LordState.at_sea`); a later `sail` from at Sea reaches a Port. At
+End-Campaign, Lords at Sea Disembark (4.8.2): Shipwreck (die 1-4, permanent
+removal + Unpaid penalty + Succession) or Land (5-6, to a chosen Enemy-free Port
+via `decisions.disembark_land`, then Feed; else Disband).
+
+Asset Sharing (1.5.3): `sail` and `supply` accept a `share` list of co-located
+Friendly Lords whose Ships / Carts are pooled for the capacity requirement
+(used, never transferred).
+
 ### System / flow actions
 
 `pass`, `advance_step`, and similar phase-flow actions are documented as

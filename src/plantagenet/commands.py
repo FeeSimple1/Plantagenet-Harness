@@ -100,6 +100,32 @@ def _effective_title(state: GameState, lord_id: str) -> str | None:
     return title
 
 
+def _shared_lords(state: GameState, lord, share_ids):
+    """Co-located, same-side, Mustered Lords whose Assets may be Shared (1.5.3).
+    Lords Share Assets (Carts, Ships, Provender, Coin) -- never Retinues,
+    Vassals, Troops, or Valour -- and only while at the same Locale."""
+    out = []
+    for sid in share_ids or []:
+        ally = state.lords.get(sid)
+        _require(ally is not None and ally.lord_id != lord.lord_id and ally.side == lord.side
+                 and ally.status == LordStatus.MUSTERED, "bad_share",
+                 f"{sid!r} is not a Friendly Mustered Lord to Share with (1.5.3)")
+        same = ((ally.location is not None and ally.location == lord.location)
+                or (ally.exile_box is not None and ally.exile_box == lord.exile_box)
+                or (ally.at_sea is not None and ally.at_sea == lord.at_sea))
+        _require(same, "share_not_co_located",
+                 f"{sid} is not at the same Locale as {lord.lord_id} (Sharing, 1.5.3)")
+        out.append(ally)
+    return out
+
+
+def _shared_asset(state: GameState, lord, asset: str, share_ids) -> int:
+    """The active Lord's ``asset`` plus the same total Shared by co-located
+    allies (1.5.3); used for capacity requirements (Ships, Carts)."""
+    return (lord.assets.get(asset, 0)
+            + sum(a.assets.get(asset, 0) for a in _shared_lords(state, lord, share_ids)))
+
+
 def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
     loc = lord_location(lord)
@@ -341,14 +367,15 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                      f"{dest} is not free of Enemy Lords (4.6.1)")   # High Admiral (L29)
 
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
-    ships = lord.assets.get("ship", 0)
+    # Ships may be Shared from co-located Friendly Lords ("have or Share", 1.5.3).
+    ships = _shared_asset(state, lord, "ship", action.get("share"))
     cap = 2 if ratings.has_capability(state, lord.lord_id, "GREAT SHIPS") else 1
     need = max(-(-_forces_units(lord) // (6 * cap)),
                -(-lord.assets.get("provender", 0) // (2 * cap)),
                -(-lord.assets.get("cart", 0) // (2 * cap)))
     _require(ships >= need, "insufficient_ships",
              f"Sail needs {need} Ship(s) (1 per 6 Forces / 2 Provender / 2 Carts); "
-             f"the Lord has {ships} (4.6.1)")
+             f"available (incl. Shared) {ships} (4.6.1)")
 
     # Owain Glyndwr (Y25): no Lancastrian Sail to a Stronghold in Wales.
     _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
@@ -750,7 +777,9 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(source not in static_data.load_exile_boxes(), "exile_not_source",
              "an Exile box is never a Supply Source (4.5.1)")
     use_ships = bool(action.get("use_ships", False))
-    carts = lord.assets.get("cart", 0)
+    # Carts may be Shared from co-located Friendly Lords (1.5.3; the rule's
+    # example: Share Carts to help another Lord's Supply/March).
+    carts = _shared_asset(state, lord, "cart", action.get("share"))
     if ratings.has_capability(state, lord.lord_id, "HAY WAINS"):
         carts *= 2                               # Hay Wains (L8): Carts double for Supply
     is_port = bool(static_data.load_locales()[source].get("port"))
