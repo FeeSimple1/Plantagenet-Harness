@@ -244,6 +244,18 @@
           "title": "Calendar Exile",
           "type": "boolean"
         },
+        "at_sea": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At Sea"
+        },
         "ring": {
           "anyOf": [
             {

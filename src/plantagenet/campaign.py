@@ -538,6 +538,57 @@ def _victory_check(state: GameState) -> dict[str, Any] | None:
 
 
 # ------------------------------------------------------------ end_campaign
+def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, Any]:
+    """4.8.2 Disembark: each Lord at Sea (first Rebel then King) rolls a die.
+    Shipwreck (1-4): permanent removal with the Unpaid penalty (3.2.1, printed
+    Influence + 1 per Vassal) and Succession (6.2.2). Land (5-6): to a chosen
+    Enemy-free Port on that Sea, then it must immediately Feed (4.7); a Lord that
+    cannot reach a free Port instead Disbands normally (3.2.4). No Events
+    influence the roll (1.9.1)."""
+    from plantagenet import battle
+    from plantagenet.actions import enemy_lord_at
+    decisions = decisions or {}
+    land = decisions.get("disembark_land", {})         # lord_id -> chosen Port
+    zones = static_data.load_seas()["zones"]
+    roller = state.dice()
+    rebel = next(s for s, r in state.roles.items() if r == "rebel")
+    king = next(s for s, r in state.roles.items() if r == "king")
+    rolls: list[dict[str, Any]] = []
+    landed_sides: set[str] = set()
+    for side in (rebel, king):
+        for lid in [x for x, ls in state.lords.items()
+                    if ls.side == side and ls.at_sea is not None]:
+            ls = state.lords[lid]
+            sea = ls.at_sea
+            roll = roller.d6()
+            if roll <= 4:                              # Shipwreck (permanent, like Death)
+                inf = static_data.load_lords()[lid]["ratings"]["influence"]
+                penalty = inf + len(ls.vassals)
+                influence.spend_influence(state, side, penalty)   # Unpaid penalty (3.2.1)
+                ls.at_sea = None
+                battle._kill_lord(state, lid)                     # remove + Succession (6.2.2)
+                rolls.append({"lord": lid, "roll": roll, "shipwreck": True,
+                              "influence_lost": penalty})
+            else:                                      # Land (5-6)
+                free_ports = [p for p in zones[sea].get("ports", [])
+                              if not enemy_lord_at(state, p, side)]
+                choice = land.get(lid)
+                if choice in free_ports:
+                    ls.at_sea = None
+                    ls.location = choice
+                    ls.status = LordStatus.MUSTERED
+                    ls.moved_fought = True             # must immediately Feed (4.7)
+                    landed_sides.add(side)
+                    rolls.append({"lord": lid, "roll": roll, "landed": choice})
+                else:                                  # no free Port reachable -> Disband
+                    ls.at_sea = None
+                    _disband_lord(state, ls)
+                    rolls.append({"lord": lid, "roll": roll, "disbanded": True})
+    state.store_dice(roller)
+    feed = {side: _feed(state, side) for side in sorted(landed_sides)}
+    return {"rolls": rolls, "feed": feed}
+
+
 def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     c = state.campaign
     _require(c is not None and c.step == "end", "wrong_step",
@@ -546,9 +597,10 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     tow = tides_of_war(state, action.get("decisions"))
     influence.gain_influence(state, "lancastrian", tow["points"]["lancastrian"])
     influence.gain_influence(state, "yorkist", tow["points"]["yorkist"])
-    # 4.8.2 Disembark: no Lords at Sea in 3a-i (no Sail) -> skip.
+    # 4.8.2 Disembark (Shipwreck may set an Automatic War Victory via Succession).
+    disembark = _disembark(state, action.get("decisions"))
     # 4.8.3 Victory check
-    victory = _victory_check(state)
+    victory = state.victory or _victory_check(state)
     info = season_info(state.turn_box)
     grown = wasted = False
     if victory is None:
@@ -562,9 +614,9 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     else:
         state.phase = "over"
         state.victory = victory
-    return {"type": "end_campaign", "tides_of_war": tow, "victory": victory,
-            "grow": grown, "waste": wasted, "turn_box": state.turn_box,
-            "phase": state.phase}
+    return {"type": "end_campaign", "tides_of_war": tow, "disembark": disembark,
+            "victory": victory, "grow": grown, "waste": wasted,
+            "turn_box": state.turn_box, "phase": state.phase}
 
 
 def _grow(state: GameState) -> None:

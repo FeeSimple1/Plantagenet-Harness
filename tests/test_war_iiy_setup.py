@@ -73,3 +73,9 @@ def test_iiy_dead_henry_vi_leaves_margaret_in_the_lead():
     assert "henry_vi" not in n.lords or n.lords["henry_vi"].status not in (
         LordStatus.MUSTERED, LordStatus.CALENDAR)
     assert n.lords["margaret"].calendar_box == 9 and n.lords["margaret"].calendar_exile
+
+
+def test_iiy_slides_yorkist_cities_marker_to_one():
+    n = _to_iiy()
+    city = n.influence["track"].stronghold_markers["city"]
+    assert city.side == "yorkist" and city.at == 1     # E4: "slide Yorkist Cities marker to 1"

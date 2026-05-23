@@ -43,6 +43,17 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         if lord.lordship_spent >= actions._lordship(lord_id):
             continue
         out.extend(_moves_for_lord(state, lord_id, lord, side))
+    # Muster Exiles (3.3.1): each Exile-marked Lord ready in the current/earlier box
+    # with a designated Exile box.
+    try:
+        net = {lid for _box, lids in actions._allied_networks(state).items() for lid in lids}
+        for lid, ls in state.lords.items():
+            if (ls.side == side and ls.status == LordStatus.CALENDAR and ls.calendar_exile
+                    and ls.calendar_box is not None and ls.calendar_box <= state.turn_box
+                    and lid in net):
+                out.append({"type": "muster_exiles", "side": side, "lords": [lid]})
+    except (KeyError, AttributeError):
+        pass
     # The active side may always end its Muster segment.
     out.append({"type": "end_muster", "side": side})
     return out

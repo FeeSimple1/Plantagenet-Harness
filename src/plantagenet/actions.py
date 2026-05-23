@@ -664,6 +664,53 @@ def _muster_special_vassal(state: GameState, lord, card_id: str) -> str | None:
     return None
 
 
+# ----------------------------------------------------- 3.3.1 Muster Exiles
+def _allied_networks(state: GameState) -> dict:
+    """Exile-box assignments per Lord (6.0). A fixed game property: defined at
+    War I / Scenario Ia and carried across Wars."""
+    if state.grand_scenario:
+        return state.grand_scenario.get("allied_networks") or {}
+    return static_data.load_scenario(state.scenario).get("allied_networks", {})
+
+
+def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Muster Exiles (3.3.1): the active side may Muster any of its Lord
+    cylinders marked Exile on the Calendar (current or earlier box) into its
+    scenario-designated Exile box, with no Influence check or cost; mats are set
+    up. Such Lords may still act in the Muster (3.4) segment that follows."""
+    side = action.get("side")
+    _require(side in SIDES, "bad_side", "side must be 'lancastrian' or 'yorkist'")
+    _require(state.levy_step == "muster", "wrong_step",
+             f"Muster Exiles is part of the Muster window (3.3.1); step is {state.levy_step!r}")
+    _require(side == state.active_side, "not_active_side",
+             f"it is the {state.active_side} side's Muster (Rebel then King)")
+    lord_to_box = {lid: box for box, lids in _allied_networks(state).items() for lid in lids}
+    eligible = {lid for lid, ls in state.lords.items()
+                if ls.side == side and ls.status == LordStatus.CALENDAR and ls.calendar_exile
+                and ls.calendar_box is not None and ls.calendar_box <= state.turn_box
+                and lid in lord_to_box}
+    targets = action.get("lords")
+    _require(isinstance(targets, list) and targets, "no_lords",
+             "muster_exiles requires a non-empty 'lords' list (3.3.1)")
+    statics = static_data.load_lords()
+    mustered = []
+    for lid in targets:
+        _require(lid in eligible, "not_exile_musterable",
+                 f"{lid} is not an Exile-marked Lord of {side} ready to Muster to a "
+                 f"designated box (3.3.1)")
+        box = lord_to_box[lid]
+        ls = state.lords[lid]
+        ls.status = LordStatus.MUSTERED          # Mustered in its Exile box (has a mat)
+        ls.exile_box = box
+        ls.location = None
+        ls.calendar_box = None
+        ls.calendar_exile = False
+        ls.forces = dict(statics[lid].get("forces", {}))
+        ls.assets = dict(statics[lid].get("assets", {}))
+        mustered.append({"lord": lid, "box": box})
+    return {"type": "muster_exiles", "side": side, "mustered": mustered}
+
+
 # ------------------------------------------------------------- end_muster
 def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     side = action.get("side")
@@ -723,6 +770,7 @@ _HANDLERS = {
     "levy_transport": _h_levy_transport,
     "levy_troops": _h_levy_troops,
     "levy_capability": _h_levy_capability,
+    "muster_exiles": _h_muster_exiles,
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),

@@ -407,6 +407,22 @@ def _unplace_lord(state: GameState, lord_id: str) -> None:
 _IIY_YORKIST_SLOTS = ["york", "march", "rutland", "gloucester_1"]
 
 
+def _recompute_stronghold_markers(state: GameState) -> None:
+    """Set the City/Town/Fortress favour markers on the Influence track to match
+    the current Favour layout (E4 "slide Yorkist Cities marker", E6 "adjust City,
+    Town, Fortress markers per Favour"). Marker side = the side leading that
+    Stronghold type; ``at`` = the favour-count margin (0 on a tie)."""
+    locs = static_data.load_locales()
+    track = state.influence["track"]
+    for typ in ("city", "town", "fortress"):
+        counts = {side: sum(1 for lid, lc in locs.items()
+                            if lc.get("type") == typ and state.locales[lid].favour == side)
+                  for side in ("yorkist", "lancastrian")}
+        diff = counts["yorkist"] - counts["lancastrian"]
+        leader = "yorkist" if diff >= 0 else "lancastrian"      # tie -> at 0, default Yorkist
+        track.stronghold_markers[typ] = StrongholdMarker(side=Side(leader), at=abs(diff))
+
+
 def apply_iiy_setup(state: GameState, removed: set) -> dict:
     """War IIY succession-driven roster (Scenario Reference E4 / Rules 6.2.2).
 
@@ -450,6 +466,7 @@ def apply_iiy_setup(state: GameState, removed: set) -> dict:
     if "somerset_1" not in removed:               # Somerset (1) replaces Somerset (2)
         _place_lord(state, "somerset_1", "lancastrian", calendar_box=9, calendar_exile=True)
         _unplace_lord(state, "somerset_2")
+    _recompute_stronghold_markers(state)          # E4: slide Yorkist Cities marker
     return log
 
 
@@ -599,6 +616,7 @@ def apply_iiiy_setup(state: GameState, removed: set) -> dict:
             _place_lord(state, lid, "lancastrian", location="calais")
 
     _apply_iiiy_favour(state)
+    _recompute_stronghold_markers(state)          # E6: adjust markers per Favour
     return log
 
 
@@ -682,7 +700,7 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
     new.grand_scenario = {
         "current_war": nxt, "war_title": war["title"],
         "base_scenario": war.get("base_scenario"),
-        "allied_networks": war.get("allied_networks", {}),
+        "allied_networks": war.get("allied_networks") or gs.get("allied_networks", {}),
         "victory_threshold": war.get("victory_threshold"),
         "deck_sources": {}, "succession_fired": [], "current_king": {},
         "set_aside_on_disband": set_aside_keep,
