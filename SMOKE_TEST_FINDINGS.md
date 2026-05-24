@@ -782,3 +782,34 @@ when their card-text "No effect if ..." condition is unmet rather than raising,
 and the two selection Events size to availability ("select 3 ... or all if fewer").
 New tests in test_immediate_events_draw.py; full-game smoke + test helper fill
 play_event decisions. 453 pass; ruff clean.
+
+## Round (2026-05-24): ChatGPT Towton play -- reversed 5.1 winner + 3 under-enumerations
+
+A ChatGPT playthrough of `towton` (seed 1) completed without crashing but
+surfaced a substantive victory bug and several menu under-enumerations.
+
+1. REVERSED 5.1 WINNER (substantive). campaign._victory_check returned the
+   LOSING side as the winner: `"yorkist" if l_pres else "lancastrian"` awards
+   Yorkist when Lancastrians have presence. Rule 5.1: the side with no Lords on
+   the map (incl. Exile boxes) and no next-Turn Exile loses -- the OTHER side
+   wins. Fixed to `"lancastrian" if l_pres else "yorkist"`. Also: has_presence
+   now counts Exile-box Lords (status EXILE) per "including none in Exile boxes".
+   This affected every scenario's 5.1 check, not just Towton; the full-game
+   smoke missed it because it asserts no-crash + invariants, not winner
+   correctness. New tests in test_victory_5_1.py.
+
+2. UNDER-ENUMERATION (legal_moves._command_moves) -- moves the handler accepts
+   but the menu never offered (logged by the helper as under_enum_accepted):
+   a. March into enemy contact: the march loop skipped any enemy-occupied or
+      enemy-adjacent destination, so attacking Marches (Intercept 4.3.4 /
+      Approach + Battle 4.3.5) were never offered. Now enumerated; only
+      Parliament's Truce bars marching onto an Enemy Lord.
+   b. Group March (4.3.1): only solo Marches were emitted. Now offers the full
+      eligible group led by a Marshal/Lieutenant (a Lieutenant not over a
+      Marshal); partial groups remain available via a raw `group` list.
+   c. Own-location Parley (4.6.4): Parley sat behind the `friendly_here`
+      early-return, so a Lord on a non-Friendly Stronghold was never offered the
+      automatic own-location Parley that flips it. Moved ahead of the gate.
+   New tests in test_command_enumeration.py (assert the enumerator OFFERS each,
+   per the round-trip discipline). Over-enum sweep + Towton helper play: clean.
+456 pass; ruff clean.

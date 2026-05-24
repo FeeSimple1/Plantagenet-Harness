@@ -271,26 +271,47 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         out.append({"type": "forage", "side": side, "by_lord": lord_id})
     friendly_here = actions.lord_at_friendly_locale(state, lord)
 
-    # March (4.3): destinations reachable in one action with no enemy contact.
+    # March (4.3): destinations reachable in one action -- INCLUDING into enemy
+    # contact, which resolves an Intercept (4.3.4) / Approach + Battle (4.3.5).
+    # Only Parliament's Truce bars marching onto an Enemy Lord (Y12/L20).
     try:
         locs = static_data.load_locales()
         owain = side == "lancastrian" and commands._active_event(state, "OWAIN GLYNDWR")
+        truce = commands._active_event(state, "PARLIAMENT'S TRUCE")
+        # Group March (4.3.1): a Marshal (or Lieutenant, but not over a Marshal)
+        # may lead co-located Friendly Lords. Offer the full eligible group;
+        # partial groups remain available via a raw `group` list.
+        title = commands._effective_title(state, lord_id)
+        group: list[str] = []
+        if title in ("marshal", "lieutenant"):
+            for gid, gl in state.lords.items():
+                if (gid != lord_id and gl.side == side
+                        and gl.status == LordStatus.MUSTERED and gl.location == here):
+                    if (title == "lieutenant" and static_data.load_lords()[gid]
+                            .get("title") == "marshal"):
+                        continue
+                    group.append(gid)
         for dest in state.locales:
             if dest == here:
                 continue
             if commands._march_cost(state, here, dest, kind) is None:
                 continue
-            if actions.enemy_lord_at(state, dest, side):
-                continue
-            if commands._enemy_adjacent_by_land(state, dest, side):
-                continue
-            if commands._shaky_allies_block(state, [lord_id], dest):   # IIY Shaky Allies
-                continue
             if owain and locs.get(dest, {}).get("region") == "wales":  # Owain Glyndwr (Y25)
                 continue
-            out.append({"type": "march", "side": side, "by_lord": lord_id, "to": dest})
+            if truce and actions.enemy_lord_at(state, dest, side):     # Parliament's Truce
+                continue
+            if not commands._shaky_allies_block(state, [lord_id], dest):  # IIY Shaky Allies
+                out.append({"type": "march", "side": side, "by_lord": lord_id, "to": dest})
+            if group and not commands._shaky_allies_block(state, [lord_id, *group], dest):
+                out.append({"type": "march", "side": side, "by_lord": lord_id,
+                            "to": dest, "group": group})
     except (KeyError, AttributeError, IndexError):
         pass
+
+    # Parley at own location (4.6.4): automatic and free, allowed even when the
+    # Lord stands on a non-Friendly Stronghold (the usual reason to Parley here).
+    if kind == "stronghold" and state.locales[here].favour != side:
+        out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": here})
 
     # Sail (4.6.1): Port-to-Port within a Sea (cross-Sea moves transit at Sea).
     try:
@@ -358,8 +379,6 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
 
     # Parley (4.6.4): own location (if not Friendly) or adjacent / same-Sea Port.
     try:
-        if kind == "stronghold" and state.locales[here].favour != side:
-            out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": here})
         has_ship = lord.assets.get("ship", 0) > 0
         reach = {n for n, _t in actions._adjacency().get(here, [])}
         if has_ship:
