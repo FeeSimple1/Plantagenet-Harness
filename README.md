@@ -115,6 +115,10 @@ PYTHONPATH=src python scripts/build_grand_scenario.py
   (permanent).
 - [`RULES_QUESTIONS.md`](RULES_QUESTIONS.md) — open rules questions.
 - [`SMOKE_TEST_FINDINGS.md`](SMOKE_TEST_FINDINGS.md) — append-only bug log.
+- [`CHATGPT_PLAY_PORTING_GUIDE.md`](CHATGPT_PLAY_PORTING_GUIDE.md) — how to
+  let ChatGPT play the harness in its sandbox for a bug hunt.
+- [`STRATEGY.md`](STRATEGY.md) — gameplay strategy notes from AI
+  playthroughs (impressions, not doctrine; grounded in the victory rules).
 - [`CROSS_PROJECT_LESSONS.md`](CROSS_PROJECT_LESSONS.md) /
   [`FUTURE_PROJECTS_LESSONS.md`](FUTURE_PROJECTS_LESSONS.md) — audit-pattern
   catalogs ported from the Nevsky project (engineering patterns only; the
