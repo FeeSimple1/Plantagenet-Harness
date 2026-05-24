@@ -558,7 +558,11 @@ def _current_threshold(state: GameState) -> int | None:
 def _victory_check(state: GameState) -> dict[str, Any] | None:
     # 5.1 Campaign Victory: a side with no Lords on map and no next-Turn Exiles loses.
     def has_presence(side: str) -> bool:
-        on_map = any(v.side == side and v.status in (LordStatus.MUSTERED,)
+        # 5.1 counts a Lord as present if Mustered on the map OR sitting in an
+        # Exile box ("including none in Exile boxes"), OR a cylinder marked Exile
+        # arriving in the next Turn's Calendar box.
+        on_map = any(v.side == side
+                     and v.status in (LordStatus.MUSTERED, LordStatus.EXILE)
                      for v in state.lords.values())
         next_exile = any(v.side == side and v.status == LordStatus.CALENDAR
                          and v.calendar_exile and v.calendar_box == state.turn_box + 1
@@ -568,7 +572,8 @@ def _victory_check(state: GameState) -> dict[str, Any] | None:
     if not l_pres or not y_pres:
         if not l_pres and not y_pres:
             return {"result": "draw", "rule": "5.1"}
-        return {"result": "yorkist" if l_pres else "lancastrian", "rule": "5.1"}
+        # The side WITHOUT presence loses; the other side wins (5.1).
+        return {"result": "lancastrian" if l_pres else "yorkist", "rule": "5.1"}
     # 5.2 Threshold Victory.
     thr = _current_threshold(state)
     if thr is not None:
