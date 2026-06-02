@@ -182,9 +182,14 @@ def _pay_lords(state: GameState, side: str, action: dict[str, Any]) -> dict[str,
         campaign._disband_lord(state, lord, from_exile=lord.exile_box is not None)
         disbanded.append(lid)
     # Pay 1 Influence per Lord at a Stronghold, 2 per Lord in an Exile box (3.2.2).
+    free_north = _percys_power_free_north(state, side)   # Percy's Power (L14): North Pay is free
+    locales = static_data.load_locales()
     cost = 0
     for lord in state.lords.values():
         if lord.side != side or lord.status not in (LordStatus.MUSTERED, LordStatus.EXILE):
+            continue
+        if (free_north and lord.location
+                and locales.get(lord.location, {}).get("region") == "north"):
             continue
         cost += 2 if lord.exile_box is not None else 1
     if cost:
@@ -197,6 +202,8 @@ def _pay_vassals(state: GameState, side: str, action: dict[str, Any]) -> dict[st
     unpay = set(action.get("unpay_vassals", []))
     paid, disbanded = [], []
     vassals_static = static_data.load_vassals()["regular"]
+    free_north = _percys_power_free_north(state, side)   # Percy's Power (L14)
+    locales = static_data.load_locales()
     for vid, vs in state.vassals.items():
         if vs.status != VassalStatus.MUSTERED or vs.service_box != state.turn_box:
             continue
@@ -209,7 +216,10 @@ def _pay_vassals(state: GameState, side: str, action: dict[str, Any]) -> dict[st
                 lord.vassals.remove(vid)
             disbanded.append(vid)
         else:
-            influence.spend_influence(state, side, 1)
+            north_free = (free_north and lord.location
+                          and locales.get(lord.location, {}).get("region") == "north")
+            if not north_free:
+                influence.spend_influence(state, side, 1)
             vs.service_box += 1     # shift the Vassal marker one box right (3.2.3)
             paid.append(vid)
     _ = vassals_static

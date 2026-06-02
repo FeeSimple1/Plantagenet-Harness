@@ -63,8 +63,15 @@ def _lord_removed(state, lord_id: str) -> bool:
 # Capability rating modifiers (Arts of War, 1.9.1).  Keyed by Capability title.
 # Each entry is a callable (state, lord_id, action) -> {rating_name: delta}.
 # ----------------------------------------------------------------------------
-def _cap_thomas_bourchier(state, lid, action):      # Y5
-    return {"command": 1}
+def _cap_thomas_bourchier(state, lid, action):      # Y5: +1 Command at a Friendly City
+    where = _loc(state, lid)
+    if where is None:
+        return {}
+    loc = state.locales.get(where)
+    typ = static_data.load_locales().get(where, {}).get("type")
+    if loc is not None and loc.favour == state.lords[lid].side and typ == "city":
+        return {"command": 1}
+    return {}
 
 
 def _cap_yorks_favoured_son(state, lid, action):    # Y20

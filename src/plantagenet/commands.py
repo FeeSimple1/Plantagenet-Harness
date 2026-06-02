@@ -439,6 +439,8 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             _require(ratings.has_capability(state, lord.lord_id, "HIGH ADMIRAL"),
                      "dest_has_enemy",
                      f"{dest} is not free of Enemy Lords (4.6.1)")   # High Admiral (L29)
+            _require(not _active_event(state, "PARLIAMENT'S TRUCE"), "parliaments_truce",
+                     "Parliament's Truce prohibits the High Admiral Approach (Y12/L20)")
         _require(not _shaky_allies_block(state, [m.lord_id for m in movers], dest),
                  "shaky_allies",
                  "Margaret and Warwick may never enter the same Stronghold (IIY)")
@@ -746,12 +748,17 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(fav != lord.side, "already_friendly", f"{target} already Favours {lord.side}")
 
     new_act = ratings.event_against(state, "NEW ACT OF PARLIAMENT", lord.side)
+    honest = (lord.side == "lancastrian"   # Y34 An Honest Tale: +1 each Lancastrian Parley
+              and _active_event(state, "AN HONEST TALE SPEEDS BEST BEING PLAINLY TOLD"))
     if target == here:
-        # Own location: automatic, no Influence check or spend (4.6.4).
+        # Own location: automatic (4.6.4); free EXCEPT An Honest Tale still charges +1 (Y34).
         state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
+        if honest:
+            influence.spend_influence(state, lord.side, 1)
         _shift_favour(state, target, lord.side)
         return {"type": "parley", "by_lord": lord.lord_id, "target": target,
-                "auto": True, "favour_change": _fav_desc(target, fav, lord.side)}
+                "auto": True, "honest_tale_cost": 1 if honest else 0,
+                "favour_change": _fav_desc(target, fav, lord.side)}
 
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Campaign Parley beyond the Lord's location requires a Friendly Locale (4.6.4)")
@@ -783,7 +790,7 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     from plantagenet import reactions
     ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}
     finish = {"lord": lord.lord_id, "target": target, "extra": extra,
-              "way": way, "dorset": dorset, "fav_before": fav}
+              "way": way, "dorset": dorset, "fav_before": fav, "honest": honest}
     return reactions.gate(state, "uses_port_on_sea", ctx, "commands:parley_finish", finish)
 
 
@@ -796,6 +803,7 @@ def parley_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) ->
                 "cancelled": True}
     chk = influence.check_influence(state, lord.lord_id, lord.side,
                                     extra_spend=data["extra"], way_cost=data["way"],
+                                    discount=-1 if data.get("honest") else 0,   # Y34 +1
                                     action="parley")
     if data["dorset"]:
         chk["success"] = True

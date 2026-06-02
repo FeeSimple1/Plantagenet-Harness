@@ -21,10 +21,18 @@ def _put(state, lord_id, location, favour=None):
 
 def test_thomas_bourchier_command_plus_one():
     from plantagenet import ratings
+    from plantagenet.state import LordStatus
     s = build_initial_state("henry_vi")
     base = ratings.rating(s, "somerset_1", "command")
-    s.lords["somerset_1"].capabilities = ["Y5"]   # THOMAS BOURCHIER
+    s.lords["somerset_1"].capabilities = ["Y5"]   # THOMAS BOURCHIER: +1 Command at a Friendly City
+    city = next(k for k, v in __import__("plantagenet.static_data", fromlist=["load_locales"])
+                .load_locales().items() if v.get("type") == "city")
+    s.lords["somerset_1"].status = LordStatus.MUSTERED
+    s.lords["somerset_1"].location = city
+    s.locales[city].favour = "lancastrian"        # Friendly City -> +1
     assert ratings.rating(s, "somerset_1", "command") == base + 1
+    s.locales[city].favour = "neutral"            # not Friendly -> no bonus
+    assert ratings.rating(s, "somerset_1", "command") == base
 
 
 def test_yorks_favoured_son_influence_and_command():

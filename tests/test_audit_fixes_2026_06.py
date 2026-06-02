@@ -843,3 +843,60 @@ def test_capability_eligibility_restricts_to_named_lord():
     assert actions._capability_eligible("L14", "northumberland_lancastrian") is True
     assert actions._capability_eligible("L14", "somerset_1") is False
     assert actions._capability_eligible("L21", "somerset_1") is True        # My Father: Any
+
+
+def test_l17_margaret_takes_reins_fires_in_exile_box():
+    # L17: +2 Lancastrian Influence while Henry VI is at a Stronghold outside London
+    # OR in an Exile box. The exile-box case (status MUSTERED, location None) was missed.
+    from plantagenet import campaign
+    s = build_initial_state("wars_of_the_roses")
+    s.turn_box = 1
+    hv = s.lords["henry_vi"]
+    hv.capabilities = ["L17"]
+    hv.status = LordStatus.MUSTERED
+    hv.exile_box = "france"
+    hv.location = None
+    with_cap = campaign.tides_of_war(s.model_copy(deep=True))["points"]
+    s2 = s.model_copy(deep=True)
+    s2.lords["henry_vi"].capabilities = []
+    without = campaign.tides_of_war(s2)["points"]
+    assert with_cap["lancastrian"] - without["lancastrian"] == 2
+
+
+def test_percys_power_frees_north_influence_pay():
+    from plantagenet import pay, static_data
+    s = build_initial_state("henry_vi")
+    north = next(k for k, v in static_data.load_locales().items()
+                 if isinstance(v, dict) and v.get("region") == "north")
+    for _lid, ld in list(s.lords.items()):          # clear the board
+        if ld.side == "lancastrian":
+            ld.status = LordStatus.CALENDAR
+    nh = "northumberland_lancastrian"
+    s.lords[nh].capabilities = ["L14"]              # Percy's Power
+    s.lords[nh].status = LordStatus.MUSTERED
+    s.lords[nh].location = north
+    track = s.influence["track"]
+    before = (track.marker_side, track.marker_at)
+    r = pay._pay_lords(s, "lancastrian", {})
+    assert r["influence_paid"] == 0                 # free Pay in the North (L14)
+    assert (track.marker_side, track.marker_at) == before
+
+
+def test_an_honest_tale_charges_campaign_own_location_parley():
+    from plantagenet import actions
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")
+    lc = [lid for lid, ld in s.lords.items()
+          if ld.side == "lancastrian" and ld.status == LordStatus.MUSTERED][0]
+    s.active_side = "lancastrian"
+    s.campaign.active_lord = lc
+    s.campaign.actions_remaining = 2
+    s.lords[lc].location = "york"
+    s.locales["york"].favour = "neutral"            # own-location Parley will flip it
+    s.active_events.append({"card": "Y34", "side": "yorkist"})   # An Honest Tale
+    track = s.influence["track"]
+    before = (track.marker_side, track.marker_at)
+    r = actions.apply_action(s, {"type": "parley", "side": "lancastrian",
+                                 "by_lord": lc, "target": "york"})
+    assert r.get("honest_tale_cost") == 1
+    assert (track.marker_side, track.marker_at) != before        # 1 Influence charged (Y34)

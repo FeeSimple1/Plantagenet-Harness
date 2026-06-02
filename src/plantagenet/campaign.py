@@ -516,16 +516,17 @@ def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> d
             sd = state.lords[lid].side
             pts[sd] += 1
             detail.append(f"{sd} +1 First Son")
-    for lid in _cap_holders(state, "COUNCIL MEMBER"):      # L18
-        if state.lords[lid].status == LordStatus.MUSTERED:
+    for lid in _cap_holders(state, "COUNCIL MEMBER"):      # L18 (anywhere on map incl. Exile)
+        if state.lords[lid].status in (LordStatus.MUSTERED, LordStatus.EXILE):
             sd = state.lords[lid].side
             pts[sd] += 1
             detail.append(f"{sd} +1 Council Member")
     for lid in _cap_holders(state, "MARGARET TAKES THE REINS"):  # L17 (Henry VI)
         ls = state.lords[lid]
-        outside_london = (ls.status == LordStatus.MUSTERED
-                          and ls.location is not None and ls.location != "london")
-        if ls.status == LordStatus.EXILE or outside_london:
+        # +2 while at a Stronghold outside London OR in an Exile box (1.3.1).
+        on_map_outside_london = (ls.status == LordStatus.MUSTERED
+                                 and ls.location not in (None, "london"))
+        if ls.exile_box is not None or on_map_outside_london:
             pts[ls.side] += 2
             detail.append(f"{ls.side} +2 Margaret Takes the Reins")
 

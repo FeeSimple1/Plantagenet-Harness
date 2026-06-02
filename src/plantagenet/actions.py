@@ -447,9 +447,13 @@ def _loyalty_mod(vid: str, side: str) -> int:
 
 def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = _active_lord(state, action)
-    # Yorkists Block Parliament (Y7): Lancastrians may not Levy Vassals (except by Event).
+    # Yorkists Block Parliament (Y7): Lancastrians may not Levy Vassals -- UNLESS a
+    # Lancastrian Event that enables Vassal Levy supersedes it (L7/L35/L37, Y7 Tips).
+    y7_superseded = any(ratings.event_active(state, t) for t in
+                        ("FOR TRUST NOT HIM", "MARGARET BEAUFORT", "THE EARL OF RICHMOND"))
     _require(not (lord.side == "lancastrian"
-                  and ratings.event_against(state, "YORKISTS BLOCK PARLIAMENT", "lancastrian")),
+                  and ratings.event_against(state, "YORKISTS BLOCK PARLIAMENT", "lancastrian")
+                  and not y7_superseded),
              "blocked_parliament", "Yorkists Block Parliament bars Lancastrian Vassal Levy (Y7)")
     # Margaret Beaufort (L35): Henry Tudor may Levy any Vassal on the map this Levy.
     margaret_beaufort = (lord.lord_id == "henry_tudor"
