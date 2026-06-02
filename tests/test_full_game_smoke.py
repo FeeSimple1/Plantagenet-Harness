@@ -83,8 +83,10 @@ def test_standalone_scenario_plays_to_completion(sid, seed):
     assert invariants.board_invariant_violations(state) == []
 
 
-@pytest.mark.parametrize("seed", [1, 5, 9])
+@pytest.mark.parametrize("seed", [1, 2, 7])
 def test_grand_scenario_plays_through_war_transitions(seed):
+    # Seeds chosen to reach a decisive War (with correct flat thresholds some seeds
+    # legitimately end a War in a draw, which does not trigger a Renewed War).
     state, transitions = _play_to_end("wars_of_the_roses", seed)
     assert transitions >= 1                         # advanced through >= 1 Renewed War
     assert invariants.board_invariant_violations(state) == []

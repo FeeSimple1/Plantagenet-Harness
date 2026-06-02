@@ -830,3 +830,16 @@ def test_losses_do_not_remove_more_than_mat_troops():
     battle._losses(s, f, _SeqDice([6]), res)             # 6 always fails Protection here
     assert res["losses"]["york"]["lost"] <= 1            # at most the 1 mat MaA, not 3
     assert s.lords["york"].forces.get("men_at_arms", 0) == 0
+
+
+def test_capability_eligibility_restricts_to_named_lord():
+    # Single-Lord Capabilities (cards.json capability.lords == null) are restricted
+    # via the "Lord:" line in the card text (3.4.6), not permitted for any Lord.
+    from plantagenet import actions
+    assert actions._capability_eligible("Y15", "warwick_yorkist") is True   # Naval Blockade
+    assert actions._capability_eligible("Y15", "york") is False
+    assert actions._capability_eligible("Y22", "salisbury") is True         # Fair Arbiter: Salisbury
+    assert actions._capability_eligible("Y22", "york") is False
+    assert actions._capability_eligible("L14", "northumberland_lancastrian") is True
+    assert actions._capability_eligible("L14", "somerset_1") is False
+    assert actions._capability_eligible("L21", "somerset_1") is True        # My Father: Any

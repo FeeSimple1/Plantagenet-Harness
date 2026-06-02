@@ -627,13 +627,17 @@ def _capability_eligible(card_id: str, lord_id: str) -> bool:
     Capability -> its eligible Lords; otherwise match the Lord's base name."""
     cap = static_data.load_cards()[card_id]["capability"]
     lords_txt = cap.get("lords") or ""
+    if not lords_txt:                    # fall back to the "Lord(s): ..." line in the card text
+        import re
+        m = re.search(r"Lords?:\s*([^\n]+)", cap.get("text", ""))
+        lords_txt = m.group(1) if m else ""
     if "Any" in lords_txt:
         return True
     for v in static_data.load_vassals()["special"].values():
         if v.get("capability_card") == card_id:
             return lord_id in v.get("eligible_lords", [])
     if not lords_txt:
-        return True   # eligibility not stated in the reference -> permit
+        return True   # genuinely unstated -> permit
     base = static_data.load_lords()[lord_id]["name"].split(" (")[0]
     return base in lords_txt
 
