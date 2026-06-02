@@ -151,7 +151,8 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(c is not None and c.step == "activation", "wrong_step", "not Activating")
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Activation")
-    _feed(state, side)                       # 4.7 Feed at end of each card
+    # 4.7 Feed at end of each card for BOTH sides, Rebel then King.
+    feed = {s: _feed(state, s) for s in (_rebel(state), _king(state))}
     c.plan_index[side] += 1
     c.active_lord = None
     c.actions_remaining = 0
@@ -163,7 +164,7 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         _reveal(state)                        # other exhausted; continue this side
     else:
         c.step = "end"                        # both Plan stacks exhausted (4.8)
-    return {"type": "end_activation", "side": side, "step": c.step,
+    return {"type": "end_activation", "side": side, "step": c.step, "feed": feed,
             "next_side": state.active_side if c.step == "activation" else None}
 
 
@@ -178,7 +179,9 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(loc is not None, "lord_not_on_locale", "the Lord must be at a Locale to Forage")
     kind, here = loc
     if kind == "exile":
-        ls = None  # Exile boxes can be Foraged (4.6.2) and Depleted
+        ls = None  # Exile-box Depletion is tracked in state.exile_depletion, not LocaleState
+        _require(state.exile_depletion.get(here) != "exhausted", "exhausted",
+                 f"{here} (Exile box) is Exhausted and may not be Foraged (4.6.2)")
     else:
         ls = state.locales[here]
         _require(ls.depletion != "exhausted", "exhausted",
@@ -204,8 +207,9 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         added = gain
         if ls is not None:
             ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
-        elif kind == "exile":
-            pass  # Exile boxes have no Depletion track (1.3.1)
+        elif kind == "exile":                       # Deplete, else Exhaust (4.6.2)
+            cur = state.exile_depletion.get(here)
+            state.exile_depletion[here] = "exhausted" if cur == "depleted" else "depleted"
     return {"type": "forage", "by_lord": lord.lord_id, "locale": here,
             "favour": fav, "enemy_adjacent": enemy_adjacent, "roll": roll,
             "success": success, "provender_added": added}
@@ -268,7 +272,8 @@ def _release_captive(state: GameState, holder_id: str) -> None:
         if ls.captured_by == holder_id and ls.status == LordStatus.CAPTURED:
             ls.captured_by = None
             ls.status = LordStatus.CALENDAR
-            ls.calendar_box = state.turn_box + 1
+            cap_inf = static_data.load_lords()[ls.lord_id]["ratings"]["influence"]
+            ls.calendar_box = state.turn_box + (6 - cap_inf)   # "as if just Disbanded" (3.2.4)
             ls.location = ls.exile_box = None
             ls.calendar_exile = False
             influence.gain_influence(state, "lancastrian", 10)
@@ -301,6 +306,20 @@ def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     lord.status = LordStatus.CALENDAR
     lord.calendar_box = state.turn_box + (6 - inf)
     lord.calendar_exile = from_exile
+
+
+def _disband_special_vassal(state: GameState, lord, vid: str) -> None:
+    """Disband a Special Vassal (3.2.4): remove it from the Lord's mat. Special
+    Vassals have no Seat/Service/Calendar, so they simply leave play; the
+    Capability that Mustered it (e.g. Y24 Hastings) is discarded (1.5.4). The
+    one-time Force addition (Hastings' 2 Men-at-Arms) is NOT removed here."""
+    if vid in lord.special_vassals:
+        lord.special_vassals.remove(vid)
+    sv = static_data.load_vassals()["special"].get(vid, {})
+    cap = sv.get("capability_card")
+    if cap and cap in lord.capabilities:
+        lord.capabilities.remove(cap)
+        state.decks.setdefault(lord.side, {}).setdefault("discard", []).append(cap)
 
 
 def _disband_vassal(state: GameState, vid: str) -> None:
@@ -362,7 +381,7 @@ def _feed(state: GameState, side: str) -> dict[str, Any]:
             inf = static_data.load_lords()[lid]["ratings"]["influence"]
             penalty = inf + len(lord.vassals)
             influence.spend_influence(state, side, penalty)
-            _disband_lord(state, lord)
+            _disband_lord(state, lord, from_exile=lord.exile_box is not None)
             disbanded.append(lid)
         else:
             fed.append({"lord": lid, "fed": spend, "needed": need})
@@ -476,7 +495,8 @@ def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> d
         for side in SIDES:
             tot = sum(lords_static[lid]["ratings"]["influence"]
                       for lid, v in state.lords.items()
-                      if v.side == side and v.status == LordStatus.MUSTERED)
+                      if v.side == side
+                      and v.status in (LordStatus.MUSTERED, LordStatus.EXILE))
             pts[side] += tot
             detail.append(f"{side} +{tot} Lords' Influence")
 
@@ -642,7 +662,7 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
                     _disband_lord(state, ls)
                     rolls.append({"lord": lid, "roll": roll, "disbanded": True})
     state.store_dice(roller)
-    feed = {side: _feed(state, side) for side in sorted(landed_sides)}
+    feed = {s: _feed(state, s) for s in (rebel, king) if s in landed_sides}
     return {"rolls": rolls, "feed": feed}
 
 
@@ -685,6 +705,11 @@ def _grow(state: GameState) -> None:
             ls.depletion = None
         elif ls.depletion == "exhausted":
             ls.depletion = "depleted"
+    for box, dep in list(state.exile_depletion.items()):   # Exile boxes recover too (4.8.4)
+        if dep == "depleted":
+            state.exile_depletion.pop(box, None)
+        elif dep == "exhausted":
+            state.exile_depletion[box] = "depleted"
 
 
 def _waste(state: GameState) -> None:

@@ -107,10 +107,13 @@ def _yorkist_north(state, side, d):                          # Y27
 
 
 def _henry_pressures_parliament(state, side, d):             # L15
-    from plantagenet.state import VassalStatus
+    from plantagenet.state import LordStatus, VassalStatus
     n = sum(1 for v in state.vassals.values() if v.status == VassalStatus.MUSTERED
             and state.lords.get(v.on_lord) is not None
             and state.lords[v.on_lord].side == "yorkist")
+    # Special Vassals (e.g. Hastings Y24) live on the Lord's mat, not state.vassals.
+    n += sum(len(ld.special_vassals) for ld in state.lords.values()
+             if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED)
     influence.spend_influence(state, "yorkist", n)
     return {"yorkist_influence_lost": n}
 
@@ -126,7 +129,7 @@ def _henry_released(state, side, d):                         # L26
 def _london_for_york(state, side, d):                        # Y15
     lon = state.locales["london"]
     added = False
-    if lon.favour == "yorkist":
+    if lon.favour == "yorkist" and lon.favour_extra == 0:   # "If already two, no effect"
         lon.favour_extra += 1
         added = True
     return {"second_favour": added}
@@ -153,7 +156,7 @@ def _she_wolf(state, side, d):                               # Y17: shift Yorkis
         if (v.status == VassalStatus.MUSTERED and v.service_box is not None
                 and state.lords.get(v.on_lord) is not None
                 and state.lords[v.on_lord].side == "yorkist"):
-            v.service_box = min(15, v.service_box + 1)
+            v.service_box = v.service_box + 1   # may go off-calendar past box 15 (2.2.3)
             shifted.append(vid)
     return {"shifted": shifted}
 
@@ -186,26 +189,34 @@ def _dubious_clarence(state, side, d):                       # Y26
 
 def _luniverselle_aragne(state, side, d):                    # L27
     from plantagenet import campaign
-    from plantagenet.state import VassalStatus
-    available = [vid for vid, v in state.vassals.items()
-                 if v.status == VassalStatus.MUSTERED and v.on_lord is not None
-                 and state.lords.get(v.on_lord) is not None
-                 and state.lords[v.on_lord].side == "yorkist"]
-    if not available:                                        # "No effect if no ... Vassals"
+    from plantagenet.state import LordStatus, VassalStatus
+    owner: dict[str, str] = {}                               # vid -> Yorkist Lord id
+    for vid, v in state.vassals.items():
+        if (v.status == VassalStatus.MUSTERED and v.on_lord is not None
+                and state.lords.get(v.on_lord) is not None
+                and state.lords[v.on_lord].side == "yorkist"):
+            owner[vid] = v.on_lord
+    for lid, ld in state.lords.items():                      # Special Vassals (Hastings)
+        if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED:
+            for vid in ld.special_vassals:
+                owner[vid] = lid
+    if not owner:                                            # "No effect if no ... Vassals"
         return {"no_effect": "no Yorkist Mustered Vassals (L27)"}
-    need = min(2, len(available))                            # "Select 2 ... or fewer if fewer"
+    need = min(2, len(owner))                                # "Select 2 ... or fewer if fewer"
     targets = d.get("vassals", [])
     _require(len(targets) == need, "bad_targets",
              f"L'Universelle Aragne targets {need} Yorkist Mustered Vassals (L27)")
     out = []
     for vid in targets:
-        v = state.vassals.get(vid)
-        _require(v is not None and v.on_lord is not None, "bad_vassal", f"{vid} not Mustered")
-        lord = state.lords[v.on_lord]
+        _require(vid in owner, "bad_vassal", f"{vid} not a Yorkist Mustered Vassal")
+        lord = state.lords[owner[vid]]
         chk = influence.check_influence(state, lord.lord_id, lord.side)
         if not chk["success"]:
-            campaign._disband_vassal(state, vid)
-            lord.vassals = [x for x in lord.vassals if x != vid]
+            if vid in state.vassals:                         # regular Vassal -> Calendar (3.2.4)
+                campaign._disband_vassal(state, vid)
+                lord.vassals = [x for x in lord.vassals if x != vid]
+            else:                                            # Special Vassal -> discard Y24
+                campaign._disband_special_vassal(state, lord, vid)
         out.append({"vassal": vid, "disbanded": not chk["success"], **chk})
     return {"checks": out}
 

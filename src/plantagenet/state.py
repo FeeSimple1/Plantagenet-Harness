@@ -152,6 +152,7 @@ class GameState(_Model):
     vassals: dict[str, VassalState] = Field(default_factory=dict)
     locales: dict[str, LocaleState] = Field(default_factory=dict)
     exile_alignment: dict[str, Side] = Field(default_factory=dict)
+    exile_depletion: dict[str, str] = Field(default_factory=dict)  # box -> "depleted"|"exhausted"
     influence: dict[str, InfluenceState] = Field(default_factory=dict)
     calendar: CalendarState = Field(default_factory=CalendarState)
     campaign: CampaignState | None = None

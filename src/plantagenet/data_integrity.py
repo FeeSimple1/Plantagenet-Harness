@@ -135,6 +135,53 @@ def check_all() -> dict[str, Any]:
                         f"scenario {sid}/{side} musters unknown lord {lord_id!r}"
                     )
 
+    # Grand scenario (multi-War): its Lord/Card references live under heirs,
+    # successions, and arts_of_war_spec rather than a top-level "sides" block,
+    # so validate them explicitly (the loop above skips them).
+    card_ids = set(cards)
+
+    def _flat_lords(seq: Any) -> list[str]:
+        out: list[str] = []
+        for x in seq or []:
+            out.extend(x if isinstance(x, list) else [x])
+        return out
+
+    for sid in static_data.list_scenario_ids():
+        scn = static_data.load_scenario(sid)
+        if not scn.get("is_grand_scenario"):
+            continue
+        for side in ("lancastrian", "yorkist"):
+            for h in scn.get("heirs", {}).get(side, []):
+                for lid in h.get("lord_ids", []):
+                    if lid not in lords:
+                        errors.append(f"grand {sid}/{side} heir lists unknown lord {lid!r}")
+        for war in scn.get("wars", []):
+            wid = war.get("war_id", "?")
+            for side in ("lancastrian", "yorkist"):
+                succ = war.get("successions", {}).get(side, {})
+                for lid in _flat_lords(succ.get("heirs")):
+                    if lid not in lords:
+                        errors.append(f"grand {sid}/{wid}/{side} heir {lid!r} not a lord")
+                for trig in succ.get("triggers", []):
+                    where = f"grand {sid}/{wid}/{side}"
+                    for lid in (trig.get("lord"), trig.get("to_calendar"),
+                                trig.get("add_lord")):
+                        if lid is not None and lid not in lords:
+                            errors.append(f"{where} trigger lord {lid!r} not a lord")
+                    rep = trig.get("replace_lord_in_place")
+                    if rep:
+                        for lid in (rep.get("old"), rep.get("new")):
+                            if lid not in lords:
+                                errors.append(f"{where} replace {lid!r} not a lord")
+                    for cid in (list(trig.get("add_cards", [])) + list(trig.get("cards", []))
+                                + list(trig.get("add_cards_to_deck", []))):
+                        if cid not in card_ids:
+                            errors.append(f"{where} trigger card {cid!r} not a card")
+                spec = war.get("arts_of_war_spec", {}).get(side, {})
+                for cid in (list(spec.get("add", [])) + list(spec.get("except", []))):
+                    if cid not in card_ids:
+                        errors.append(f"grand {sid}/{wid}/{side} aow_spec card {cid!r} not a card")
+
     # Arts of War cards: every card has both halves; rose in 0-3; valid side.
     for cid, c in cards.items():
         if "event" not in c or "capability" not in c:

@@ -236,7 +236,8 @@ def levy_cancel_finish(state, data, *, cancelled):
     return data["result"]
 
 
-def _parley_event_mods(state: GameState, lord_id: str, side: str) -> dict[str, Any]:
+def _parley_event_mods(state: GameState, lord_id: str, side: str,
+                       commit: bool = True) -> dict[str, Any]:
     """This-Levy/Campaign Event modifiers to a Parley by ``lord_id`` (1.9.1):
     Succession (Y18), Parliament Votes (L18), Jack Cade (Y4), My Crown (L17),
     Gloucester as Heir (Y28), Dorset (Y29), An Honest Tale (Y34). Returns
@@ -252,7 +253,8 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str) -> dict[str, A
         used = ev.setdefault("used", {})
         if used.get(lid, 0) >= limit:
             return False
-        used[lid] = used.get(lid, 0) + 1
+        if commit:                      # commit=False: peek (legal-move enumeration)
+            used[lid] = used.get(lid, 0) + 1
         return True
 
     lord = state.lords[lord_id]
@@ -270,7 +272,8 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str) -> dict[str, A
             if (ev.get("side") == "yorkist" and _jack_cade_eligible(state, lord)
                     and use(ev, lord_id, 2)):
                 mod["auto"] = True
-                mod["discount"] += 99            # free (clamped to 0 net spend below)
+                mod["discount"] += 99            # 0 Influence (clamped to >=0 spend)
+                mod["free_lordship"] = True      # ... and 0 Lordship (Y4: "without ... Lordship")
                 mod["used"].append(ev["card"])
     # My Crown Is in My Heart (L17, Henry VI x2) / Gloucester as Heir (Y28, x3):
     # 0-Lordship Parleys (still Influence-checked).
@@ -281,8 +284,7 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str) -> dict[str, A
     if lord_id in ("gloucester_1", "gloucester_2"):
         for ev in matches("GLOUCESTER AS HEIR"):
             if use(ev, lord_id, 3):
-                mod["free_lordship"] = True
-                mod["discount"] += 99            # +3 times for 0 Lordship (free action)
+                mod["free_lordship"] = True      # Y28: 0 Lordship; Influence/rolls still apply
     # An Honest Tale (Y34): each Lancastrian Parley costs +1 extra Influence.
     if side == "lancastrian" and matches("AN HONEST TALE SPEEDS BEST BEING PLAINLY TOLD"):
         mod["discount"] -= 1
@@ -332,9 +334,9 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(fav != lord.side, "already_friendly",
              f"{target} already Favours {lord.side} (3.4.1)")
 
-    way_cost = max(0, way_cost - mods["discount"])     # Event Influence discounts
     chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=extra, way_cost=way_cost, action="parley")
+                                    extra_spend=extra, way_cost=way_cost,
+                                    discount=mods["discount"], action="parley")
     if mods["auto"]:
         chk["success"] = True
     if not mods["free_lordship"]:

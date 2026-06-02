@@ -813,3 +813,77 @@ surfaced a substantive victory bug and several menu under-enumerations.
    New tests in test_command_enumeration.py (assert the enumerator OFFERS each,
    per the round-trip discipline). Over-enum sweep + Towton helper play: clean.
 456 pass; ruff clean.
+
+## Round (2026-06-01): full rules-fidelity audit -- 17 findings fixed
+
+A systematic module-by-module audit against the reference docs and Errata,
+cross-checked card-by-card. The 459-test suite was green throughout, so every
+item below is behaviour the prior tests did not exercise. New regression tests
+live in `tests/test_audit_fixes_2026_06.py` (suite now 477; ruff clean).
+
+CRITICAL
+1. SUCCESSION DECK LOSS (succession._recompute). A becomes_highest_heir
+   transformation (March->Edward IV: Y23/Y24/Y28/Y31; Gloucester->Richard III:
+   Y32-Y35) registered its PERMANENT ADD cards (Scenario Ref E2) under the
+   ref-counted source `king:<heir>` instead of `_PERMANENT`, and recorded
+   `current_king` as the pre-replacement (now-REMOVED) heir. The next recompute
+   saw the King "change" and dropped all those cards -- emptying the deck.
+   Fix: apply the replacement first, register ADDs as `_PERMANENT`, and record
+   the King actually in play. Reproduced and pinned.
+
+HIGH
+2. LOSSES (battle._losses) disbanded a *victorious Retinue-only* Lord. 4.4.3
+   disbands only a Lord who LOSES ALL his own Troops; a Lord who never had
+   Troops must survive. Now gated on `had_troops`.
+3. BLOODY THOU ART (battle._ending, Y33). The card BLOCKS every "upon Death
+   check" card (Escape Ship/Warden/Talbot) and Disbands Routed Yorkists, but the
+   code consumed Escape Ship and let Lancastrians escape/Warden/Talbot before
+   the bloody check. Now `bloody` is computed first, the escape block is skipped
+   entirely, Routed Lancastrians Die and Routed Yorkists Disband.
+4. JACK CADE (actions, Y4) still spent 1 Influence + 1 Lordship despite "without
+   spending Influence or Lordship." Now 0/0 (free_lordship + total-spend
+   discount).
+5. SPECIAL VASSAL HASTINGS ignored by L15 (under-counted Influence loss) and
+   L27 (could not be targeted; Y24 never discarded). `events.py` never read
+   `special_vassals`. Both now include it; added `_disband_special_vassal`.
+6. FEED (campaign.end_activation, 4.7) ran for the acting side only, so an
+   Interceptor (inactive side, Moved-Fought) was never Fed on its card. Now both
+   sides Feed, Rebel then King.
+
+MEDIUM
+7. PARLEY -1 discounts (Y18/L18 "min zero") evaporated at the home location --
+   the discount only cut the Way surcharge, never the base point. `check_influence`
+   gained a `discount` term so the spend can reach 0 (also fixes #4).
+8. GLOUCESTER AS HEIR (Y28) wrongly waived Influence; the card grants 0 Lordship
+   only. Removed the stray discount.
+9. SPOILS at a Neutral locale halved per-loser; 4.4.3 totals then halves. Fixed.
+10. LONDON FOR YORK (Y15) could place a third Favour marker; now capped at the
+    second.
+11. FORAGE from an Exile box never Depleted/Exhausted (4.6.2/1.3.1). Added
+    `GameState.exile_depletion` (schema regenerated), wired Forage + Grow + the
+    legal-move enumerator.
+12. TIDES "Gain Lords Influence" (4.8.1) omitted EXILE-status Lords ("including
+    those in Exile boxes"). Now counted.
+
+NOTE: a reported "by-Sea Parley surcharge" was investigated and found to be a
+FALSE POSITIVE -- at most one sea hop occurs in any shortest Parley route, so
+counting that hop as one Way already equals "land Ways + 1 by-Sea surcharge."
+No change made.
+
+LOW
+13. Unfed Lord disbanding from an Exile box now marks its cylinder as an Exile
+    (3.2.4): `_feed` passes `from_exile`.
+14. _release_captive placed Henry VI at `turn+1`; "as if just Disbanded" is
+    `turn + (6 - Influence)`. Generalised.
+15. legal_moves skipped a Lordship-exhausted Lord entirely, missing free actions
+    (Stanley free Levy Troops; 0-Lordship Parleys). Added a `free_only` path; a
+    `commit=False` peek lets `_parley_event_mods` be queried without consuming a
+    use.
+16. PAY TROOPS shortfall now honours a player `unpay_lords` choice (3.2.1) rather
+    than only the default ascending-need order.
+17. SHE-WOLF (Y17) clamped a service marker at box 15; a marker may shift
+    off-calendar (2.2.3). Clamp removed.
+
+DATA: data_integrity now validates the grand scenario (heirs / succession
+triggers / arts_of_war_spec), which the old `sides`-only loop skipped. All
+static JSON re-verified against the references: clean, no transcription errors.

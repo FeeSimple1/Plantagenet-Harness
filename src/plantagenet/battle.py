@@ -774,28 +774,39 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
         _losses(state, w, dice, result)
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
     # go into Exile (4.3.5) instead of rolling Death.
-    escaped: set[str] = set()
-    used_escape_side: set[str] = set()
-    for lid in set(escape_ship):
-        f = forces.get(lid)
-        if f is None or not f.lord_routed:
-            continue
-        side = state.lords[lid].side
-        cid = _side_held_event(state, side, ESCAPE_SHIP)
-        if cid is not None and _escape_route(state, locale, side):
-            if side not in used_escape_side:
-                _use_held_event(state, side, cid)
-                used_escape_side.add(side)
-            escaped.add(lid)
-
-    # Bloody Thou Art (Y33): if Richard III wins, skip Death checks -- all Routed
-    # losing (Lancastrian) Lords Die.
+    # Bloody Thou Art (Y33): if Richard III is among the winners, skip all Death
+    # checks (4.4.3) and BLOCK every "upon Death check" card from either side
+    # (Escape Ship, Warden, Talbot). Computed first so those cards are neither
+    # consumed nor applied below.
     bloody = ("richard_iii" in win_ids
               and _lord_has_capability(state, "richard_iii", BLOODY_THOU_ART))
+    escaped: set[str] = set()
+    used_escape_side: set[str] = set()
+    if not bloody:
+        for lid in set(escape_ship):
+            f = forces.get(lid)
+            if f is None or not f.lord_routed:
+                continue
+            side = state.lords[lid].side
+            cid = _side_held_event(state, side, ESCAPE_SHIP)
+            if cid is not None and _escape_route(state, locale, side):
+                if side not in used_escape_side:
+                    _use_held_event(state, side, cid)
+                    used_escape_side.add(side)
+                escaped.add(lid)
+
     deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
     for lid in defenders + attackers:                    # Defenders first
         f = forces[lid]
         if not f.lord_routed:
+            continue
+        if bloody:                                       # Y33: no Death roll/upon-Death cards
+            if state.lords[lid].side == "lancastrian":   # Routed Lancastrians Die
+                _kill_lord(state, lid)
+                deaths.append(lid)
+            else:                                        # Routed Yorkists Disband normally (3.2.4)
+                campaign._disband_lord(state, state.lords[lid])
+                disbands.append(lid)
             continue
         if lid in escaped:                               # Exile instead of Death (4.3.5)
             ld = state.lords[lid]
@@ -829,10 +840,6 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
         if talbot and ld0.side == "lancastrian":          # L36: Disband instead of Death roll
             campaign._disband_lord(state, ld0)
             disbands.append(lid)
-            continue
-        if bloody and lid in lose_ids:                   # Bloody Thou Art: certain Death
-            _kill_lord(state, lid)
-            deaths.append(lid)
             continue
         roll = dice.d6() - (2 if f.fled else 0)
         if roll >= 3:
@@ -869,14 +876,22 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
         return
     wmat = state.lords[winners[0].lord_id].assets   # piled on the first Unrouted winner
     taken = {"cart": 0, "provender": 0}
-    for lid in lose_ids:
-        lassets = state.lords[lid].assets
-        for a in ("cart", "provender"):
-            amt = lassets.get(a, 0)
-            move = amt if frac == 1.0 else ceil(amt * 0.5)
-            lassets[a] = amt - move
-            wmat[a] = wmat.get(a, 0) + move
-            taken[a] += move
+    # 4.4.3 SPOILS: at a Friendly locale take all losers' Carts/Provender; at a
+    # Neutral locale total each across ALL losers and halve (round up) before
+    # transfer -- not per-Lord, which would over-transfer with several losers.
+    for a in ("cart", "provender"):
+        total = sum(state.lords[lid].assets.get(a, 0) for lid in lose_ids)
+        move = total if frac == 1.0 else ceil(total * 0.5)
+        taken[a] = move
+        remaining = move
+        for lid in lose_ids:                             # draw the spoils down across losers
+            if remaining <= 0:
+                break
+            lassets = state.lords[lid].assets
+            take = min(remaining, lassets.get(a, 0))
+            lassets[a] = lassets.get(a, 0) - take
+            remaining -= take
+        wmat[a] = wmat.get(a, 0) + move
     result["spoils"] = taken
 
 
@@ -893,7 +908,11 @@ def _losses(state: GameState, winner: _Force, dice, result: dict) -> None:
             else:
                 lord.forces[t] = max(0, lord.forces.get(t, 0) - 1)
                 lost += 1
-    if not any(lord.forces.get(t, 0) for t in _TROOP_TYPES):
+    # 4.4.3 LOSSES: Disband an Unrouted Lord who *loses all* his own Troops -- i.e.
+    # one who had Troops at the start and now has none. A Retinue-only Lord who
+    # never had Troops is NOT disbanded.
+    had_troops = any(winner.count.get(t, 0) for t in _TROOP_TYPES)
+    if had_troops and not any(lord.forces.get(t, 0) for t in _TROOP_TYPES):
         campaign._disband_lord(state, lord)
         result.setdefault("loss_disbands", []).append(winner.lord_id)
     result.setdefault("losses", {})[winner.lord_id] = {"recovered": recovered, "lost": lost}
