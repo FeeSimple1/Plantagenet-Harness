@@ -838,7 +838,7 @@ def test_capability_eligibility_restricts_to_named_lord():
     from plantagenet import actions
     assert actions._capability_eligible("Y15", "warwick_yorkist") is True   # Naval Blockade
     assert actions._capability_eligible("Y15", "york") is False
-    assert actions._capability_eligible("Y22", "salisbury") is True         # Fair Arbiter: Salisbury
+    assert actions._capability_eligible("Y22", "salisbury") is True         # Fair Arbiter
     assert actions._capability_eligible("Y22", "york") is False
     assert actions._capability_eligible("L14", "northumberland_lancastrian") is True
     assert actions._capability_eligible("L14", "somerset_1") is False
