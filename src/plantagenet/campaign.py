@@ -562,7 +562,9 @@ def _side_influence(state: GameState, side: str) -> int:
 
 def _current_threshold(state: GameState) -> int | None:
     from plantagenet.static_data import load_scenario
-    scn = load_scenario(state.scenario if not state.grand_scenario else "henry_vi")
+    if state.grand_scenario:                       # per-War flat threshold (5.2)
+        return state.grand_scenario.get("victory_threshold")
+    scn = load_scenario(state.scenario)
     best = None
     for vt in scn.get("victory_thresholds", []):
         turns = vt["turns"]

@@ -116,7 +116,7 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
     choose_unpaid = set(action.get("unpay_lords", []))
     groups: dict[str, list] = {}
     for lord in state.lords.values():
-        if lord.side == side and lord.status == LordStatus.MUSTERED:
+        if lord.side == side and lord.status in (LordStatus.MUSTERED, LordStatus.EXILE):
             key = _locale_key(lord)
             if key:
                 groups.setdefault(key, []).append(lord)
@@ -184,7 +184,7 @@ def _pay_lords(state: GameState, side: str, action: dict[str, Any]) -> dict[str,
     # Pay 1 Influence per Lord at a Stronghold, 2 per Lord in an Exile box (3.2.2).
     cost = 0
     for lord in state.lords.values():
-        if lord.side != side or lord.status != LordStatus.MUSTERED:
+        if lord.side != side or lord.status not in (LordStatus.MUSTERED, LordStatus.EXILE):
             continue
         cost += 2 if lord.exile_box is not None else 1
     if cost:
