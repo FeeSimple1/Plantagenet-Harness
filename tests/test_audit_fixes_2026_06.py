@@ -539,3 +539,66 @@ def test_flank_center_tie_honours_choice():
 
     assert "henry_vi" in eng_with_march("left")["defender"]      # joined the left wing
     assert "somerset_1" in eng_with_march("right")["defender"]   # joined the right wing
+
+
+def test_absorb_lords_chooses_which_lord_absorbs_first():
+    s = build_initial_state("henry_vi")
+    for lid in ("york", "march"):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].forces = {"retinue": 1}
+    f1 = battle._Force(s, "york")
+    f2 = battle._Force(s, "march")
+    log: list = []
+    # One failing Hit; owner directs march to absorb first (not the default york).
+    battle._absorb_side([f1, f2], 1, _SeqDice([6]), battle._ABSORB_DEFAULT,
+                        set(), log, "melee", ["march"])
+    assert log[0]["lord"] == "march"
+    assert f2.routed.get("retinue", 0) == 1
+    assert f1.routed.get("retinue", 0) == 0
+
+
+def _levy_lord_fallback_state(seed):
+    from plantagenet import static_data
+    from tests._helpers import to_muster
+    s = build_initial_state("henry_vi", seed=seed)
+    to_muster(s)
+    s.active_side = "yorkist"
+    s.levy_step = "muster"
+    act = [lid for lid, ld in s.lords.items()
+           if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED][0]
+    s.lords[act].location = "ely"
+    s.locales["ely"].favour = "yorkist"
+    tgt = [lid for lid, ld in s.lords.items() if ld.side == "yorkist" and lid != act][0]
+    seat = static_data.load_lords()[tgt]["seat"]
+    s.lords[tgt].status = LordStatus.CALENDAR
+    s.lords[tgt].calendar_box = s.turn_box
+    enemy = [lid for lid, ld in s.lords.items() if ld.side == "lancastrian"][0]
+    s.lords[enemy].status = LordStatus.MUSTERED
+    s.lords[enemy].location = seat            # block the target's own Seat
+    return s, act, tgt
+
+
+def test_levy_lord_uses_chosen_fallback_seat():
+    from plantagenet import actions
+    for seed in range(1, 40):
+        s, act, tgt = _levy_lord_fallback_state(seed)
+        opts = actions._friendly_enemyfree_seats(s, "yorkist")
+        r = actions.apply_action(s, {"type": "levy_lord", "side": "yorkist",
+                                     "by_lord": act, "target": tgt,
+                                     "fallback_seat": opts[0]})
+        if r.get("success"):
+            assert s.lords[tgt].location == opts[0]        # placed at the chosen Seat (3.4.2)
+            return
+    raise AssertionError("no successful levy_lord seed found")
+
+
+def test_levy_lord_rejects_invalid_fallback_seat():
+    import pytest
+
+    from plantagenet import actions
+    from plantagenet.errors import IllegalAction
+    s, act, tgt = _levy_lord_fallback_state(1)
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "levy_lord", "side": "yorkist", "by_lord": act,
+                                 "target": tgt, "fallback_seat": "london"})
+    assert e.value.code == "bad_fallback_seat"

@@ -283,7 +283,8 @@ class _Force:
 
 
 def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
-                 valour_lords, log: list, phase: str = "melee") -> None:
+                 valour_lords, log: list, phase: str = "melee",
+                 lord_order: list | None = None) -> None:
     """Apply ``n_hits`` to a side's Forces in an Engagement: each Hit -> a
     unit (owner's priority order, across the side's Lords) -> Protection roll
     (Valour reroll) -> Rout on failure (4.4.2)."""
@@ -291,6 +292,10 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
         valour_lords = None
     elif valour_lords is False:
         valour_lords = set()
+    if lord_order:                  # 4.4.2: owner picks which of their Lords absorbs first
+        side_forces = sorted(side_forces, key=lambda f:
+                             lord_order.index(f.lord_id) if f.lord_id in lord_order
+                             else len(lord_order))
     types = order + [t for f in side_forces for t in f.count if t not in order]
     for _ in range(n_hits):
         hit_force = hit_type = None
@@ -532,6 +537,7 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     valour_lords = (None if _vraw else set()) if isinstance(_vraw, bool) else set(_vraw)
     engagement_order = decisions.get("engagement_order") or []   # 4.4.2: Attacker declares order
     flank_choice = decisions.get("flank_choice", {}) or {}       # 4.4.2: center may pick L/R
+    absorb_lords = decisions.get("absorb_lords") or []           # 4.4.2: which Lord absorbs first
     swift_end = decisions.get("swift_maneuver_end", True)         # Y36 "if desired"
     dice = state.dice()
 
@@ -754,8 +760,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                             d_hits = ceil(d_hits / 2)
                 dlog: list = []
                 alog: list = []
-                _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase)
-                _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase)
+                _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase, absorb_lords)
+                _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase, absorb_lords)
                 elog["strikes"].append({"phase": phase, "attacker_hits": a_hits,
                                         "defender_hits": d_hits,
                                         "defender_rolls": dlog, "attacker_rolls": alog})

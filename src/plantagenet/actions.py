@@ -361,15 +361,22 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 
 # --------------------------------------------------------- 3.4.2 Levy Lord
-def _friendly_enemyfree_seat_exists(state: GameState, side: str) -> str | None:
+def _friendly_enemyfree_seats(state: GameState, side: str) -> list[str]:
     lords = static_data.load_lords()
+    out: list[str] = []
     for lid, lord in state.lords.items():
         if lord.side != side:
             continue
         seat = lords[lid]["seat"]
-        if is_friendly_stronghold(state, seat, side) and not enemy_lord_at(state, seat, side):
-            return seat
-    return None
+        if (is_friendly_stronghold(state, seat, side) and not enemy_lord_at(state, seat, side)
+                and seat not in out):
+            out.append(seat)
+    return out
+
+
+def _friendly_enemyfree_seat_exists(state: GameState, side: str) -> str | None:
+    seats = _friendly_enemyfree_seats(state, side)
+    return seats[0] if seats else None
 
 
 def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -389,7 +396,16 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "lower Turn box) (3.4.2); Be Sent For (L4) Musters from anywhere")
     seat = static_data.load_lords()[target_id]["seat"]
     seat_free = not enemy_lord_at(state, seat, lord.side)
-    fallback = None if seat_free else _friendly_enemyfree_seat_exists(state, lord.side)
+    fallback = None
+    if not seat_free:
+        options = _friendly_enemyfree_seats(state, lord.side)   # 3.4.2: "a Friendly Seat"
+        chosen = action.get("fallback_seat")
+        if chosen is not None:
+            _require(chosen in options, "bad_fallback_seat",
+                     f"{chosen} is not a Friendly, Enemy-free Seat of this side (3.4.2)")
+            fallback = chosen
+        elif options:
+            fallback = options[0]
     _require(seat_free or fallback is not None, "no_seat",
              f"{target_id}'s Seat is not free of Enemy Lords and the side has no Friendly, "
              "Enemy-free Seat to Muster at (3.4.2)")
