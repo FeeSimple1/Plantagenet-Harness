@@ -277,6 +277,8 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
     decisions = dict(data.get("decisions") or {})
     if data.get("blocked_ford"):
         decisions["blocked_ford"] = data["blocked_ford"]
+    for mid in data["movers"]:
+        _apply_burgundians(state, state.lords[mid])      # Y14/Y23 Burgundians at a Port
     base["approach"] = battle.approach(state, data["dest"], data["movers"], decisions)
     state.campaign.actions_remaining = 0
     return base
@@ -337,6 +339,25 @@ def _try_intercept(state: GameState, dest: str, side: str,
             m.moved_fought = True
     return {"interceptor": iid, "roll": roll, "valour": valour, "success": success,
             "flank_attack": flank, "group": [m.lord_id for m in movers[1:]]}
+
+
+def _apply_burgundians(state: GameState, lord) -> int:
+    """Burgundians (Y14/Y23): the first time this Lord (with the Capability) is at
+    any Port, add 2 Handgunners -- the only way Handgunners enter play (pool-limited)."""
+    if not ratings.has_capability(state, lord.lord_id, "BURGUNDIANS"):
+        return 0
+    flag = f"burgundians_{lord.lord_id}"
+    if state.flags.get(flag):
+        return 0
+    if lord.location is None or not static_data.load_locales().get(lord.location, {}).get("port"):
+        return 0
+    pool = static_data.load_forces()["handgunners"].get("pool", 0)
+    in_play = sum(v.forces.get("handgunners", 0) for v in state.lords.values())
+    give = max(0, min(2, pool - in_play))
+    if give:
+        lord.forces["handgunners"] = lord.forces.get("handgunners", 0) + give
+        state.flags[flag] = True
+    return give
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str,
@@ -529,6 +550,8 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
     if data.get("into_sea"):
         return {"type": "sail", "by_lord": lord.lord_id, "to_sea": data["dest"],
                 "at_sea": data["dest"], "group": group}
+    for m in movers:
+        _apply_burgundians(state, m)                     # Y14/Y23 Burgundians at a Port
     out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
            "from_sea": data["from_sea"], "to_sea": data["to_sea"], "group": group}
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)

@@ -69,6 +69,9 @@ def begin_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     state.campaign = CampaignState(step="plan", cards_required=info["cards"],
                                    plan_index={s: 0 for s in SIDES},
                                    plan_built={s: False for s in SIDES})
+    from plantagenet import commands
+    for _l in state.lords.values():                # Y14/Y23 Burgundians: Lords already at a Port
+        commands._apply_burgundians(state, _l)
     for lid, lord in state.lords.items():        # L22 Stafford Estates (Buckingham)
         if lord.status == LordStatus.MUSTERED and \
                 ratings.has_capability(state, lid, "STAFFORD ESTATES"):

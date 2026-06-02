@@ -1029,3 +1029,20 @@ def test_l24_married_to_a_neville_fires_in_shared_exile_box():
     w.location = None
     w.exile_box = "france"
     assert ratings.rating(s, "clarence", "influence") == base + 2    # same Exile box
+
+
+def test_burgundians_adds_handgunners_at_a_port_once():
+    # Y14/Y23 Burgundians: the only way Handgunners enter play -- 2 at a Port, once.
+    from plantagenet import commands
+    s = build_initial_state("henry_vi", seed=1)
+    s.lords["york"].capabilities = ["Y14"]            # BURGUNDIANS
+    s.lords["york"].status = LordStatus.MUSTERED
+    s.lords["york"].location = "bristol"              # a Port
+    assert commands._apply_burgundians(s, s.lords["york"]) == 2
+    assert s.lords["york"].forces.get("handgunners") == 2
+    assert commands._apply_burgundians(s, s.lords["york"]) == 0   # once only
+    # Not at a Port: nothing added.
+    s2 = build_initial_state("henry_vi", seed=1)
+    s2.lords["york"].capabilities = ["Y14"]
+    s2.lords["york"].location = "york"
+    assert commands._apply_burgundians(s2, s2.lords["york"]) == 0
