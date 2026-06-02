@@ -226,8 +226,10 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                      else _try_intercept(state, dest, lord.side, decisions))
     approach = None
     if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
-        from plantagenet import battle  # interceptor Attacks the Marching Lords
-        approach = battle.approach(state, dest, [intercept_log["interceptor"]], decisions)
+        from plantagenet import battle  # interceptor (+Group) Attacks the Marching Lords
+        approach = battle.approach(
+            state, dest,
+            [intercept_log["interceptor"], *intercept_log.get("group", [])], decisions)
         state.campaign.actions_remaining = 0
     elif intercept_log and intercept_log["success"]:
         dest_has_enemy = True
@@ -296,6 +298,22 @@ def _try_intercept(state: GameState, dest: str, side: str,
     _require(eligible, "bad_intercept",
              f"{iid} cannot Intercept at {dest} (must be an Enemy adjacent by Road/Highway, 4.3.4)")
     from plantagenet import battle
+    # 4.3.4: an Intercepting Marshal/Lieutenant may bring co-located Lords (Group).
+    group = decisions.get("intercept_group", []) or []
+    movers = [itc]
+    if group:
+        title = _effective_title(state, iid)
+        _require(title in ("marshal", "lieutenant"), "not_group_leader",
+                 "only a Marshal or Lieutenant may bring a Group when Intercepting (4.3.4)")
+        for gid in group:
+            g = state.lords.get(gid)
+            _require(g is not None and g.status == LordStatus.MUSTERED
+                     and g.side == itc.side and g.location == itc.location,
+                     "bad_group_member", f"{gid} is not a Friendly Lord co-located with {iid}")
+            if title == "lieutenant":
+                _require(static_data.load_lords()[gid].get("title") != "marshal",
+                         "lieutenant_cannot_lead_marshal", "a Lieutenant may not lead a Marshal (4.3.1)")
+            movers.append(g)
     valour = ratings.rating(state, iid, "valour")
     flank = bool(decisions.get("flank_attack"))
     if flank:                            # Flank Attack (Y2/L2): auto-succeed, become Attacker
@@ -309,14 +327,15 @@ def _try_intercept(state: GameState, dest: str, side: str,
         roll = roller.d6()
         state.store_dice(roller)
         success = roll <= valour
-    if success:                          # the Interceptor Marches to dest (Carts limit Provender)
-        carts = itc.assets.get("cart", 0)
-        if itc.assets.get("provender", 0) > carts:
-            itc.assets["provender"] = carts
-        itc.location = dest
-        itc.moved_fought = True
+    if success:                          # the Interceptor (and Group) March to dest
+        for m in movers:
+            carts = m.assets.get("cart", 0)
+            if m.assets.get("provender", 0) > carts:
+                m.assets["provender"] = carts
+            m.location = dest
+            m.moved_fought = True
     return {"interceptor": iid, "roll": roll, "valour": valour, "success": success,
-            "flank_attack": flank}
+            "flank_attack": flank, "group": [m.lord_id for m in movers[1:]]}
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str,

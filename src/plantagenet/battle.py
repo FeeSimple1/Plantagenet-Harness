@@ -835,11 +835,11 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     return res
 
 
-def _friendly_north_stronghold(state: GameState) -> str | None:
+def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> str | None:
     locs = static_data.load_locales()
     for loc, meta in locs.items():
-        if isinstance(meta, dict) and meta.get("region") == "north" \
-                and state.locales[loc].favour == "lancastrian":
+        if (isinstance(meta, dict) and meta.get("region") == "north"
+                and loc != exclude and state.locales[loc].favour == "lancastrian"):
             return loc
     return None
 
@@ -919,11 +919,17 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
             continue
         if lid in escaped:                               # Exile instead of Death (4.3.5)
             ld = state.lords[lid]
-            influence.spend_influence(state, ld.side,
-                                      static_data.load_lords()[lid]["ratings"]["influence"]
-                                      + len(ld.vassals))
-            campaign._disband_lord(state, ld, from_exile=True)
-            exiles.append(lid)
+            if _lord_has_capability(state, lid, "ENGLAND IS MY HOME"):   # Y8: plain Disband
+                campaign._disband_lord(state, ld)
+                ld.calendar_box = state.turn_box + 1
+                ld.calendar_exile = False
+                disbands.append(lid)
+            else:
+                influence.spend_influence(state, ld.side,
+                                          static_data.load_lords()[lid]["ratings"]["influence"]
+                                          + len(ld.vassals))
+                campaign._disband_lord(state, ld, from_exile=True)
+                exiles.append(lid)
             continue
         ld0 = state.lords[lid]
         # Capture of the King (Scenario Ia): Yorkists beating Henry VI capture him
@@ -941,10 +947,13 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
                 continue
         if warden and ld0.side == "lancastrian" and \
                 static_data.load_locales().get(locale, {}).get("region") == "north":
-            dest = _friendly_north_stronghold(state)     # L16: move to Friendly North Stronghold
+            dest = _friendly_north_stronghold(state, exclude=locale)   # L16 (not the Battle Locale)
             if dest is not None:
                 ld0.location = dest
                 result.setdefault("warden_moved", []).append(lid)
+                if not any(forces[lid].avail(t) for t in _TROOP_TYPES):  # no Troops left -> Disband
+                    campaign._disband_lord(state, ld0)
+                    disbands.append(lid)
                 continue
         if talbot and ld0.side == "lancastrian":          # L36: Disband instead of Death roll
             campaign._disband_lord(state, ld0)

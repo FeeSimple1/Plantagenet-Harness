@@ -970,3 +970,43 @@ def test_ship_levy_allows_second_ship_at_nine_holders():
     r = actions.apply_action(s, {"type": "levy_transport", "side": s.lords[york].side,
                                  "by_lord": york, "transport": "ship"})
     assert "1 ship" in r["added"]                     # 2nd Ship allowed despite 9 holders
+
+
+def test_warden_moves_routed_lancastrian_to_a_different_north_stronghold():
+    # L16: move to a Friendly North Stronghold OTHER than the Battle Locale.
+    s = build_initial_state("henry_vi", seed=1)
+    locale, other = "scarborough", "newcastle"             # routed Lord at a North Locale
+    s.locales[other].favour = "lancastrian"
+    foe = "somerset_1"                                      # non-King (avoids Capture of the King)
+    s.lords[foe].status = LordStatus.MUSTERED
+    for lid in ("york", foe):
+        s.lords[lid].location = locale
+    s.lords[foe].forces = {"retinue": 1, "men_at_arms": 2}   # has surviving Troops -> moves
+    f_y = battle._Force(s, "york")
+    f_h = battle._Force(s, foe)
+    f_h.lord_routed = True
+    res = battle._ending(s, locale, {"york": f_y, foe: f_h},
+                         ["york"], [foe], [], [], warden=True)
+    assert res.get("warden_moved") == [foe]
+    dest = s.lords[foe].location
+    assert dest != locale                                 # not the Battle Locale (L16)
+    from plantagenet import static_data
+    assert static_data.load_locales()[dest].get("region") == "north"
+
+
+def test_intercept_brings_a_group():
+    # 4.3.4: an Intercepting Marshal/Lieutenant brings co-located Lords as a Group.
+    from plantagenet import commands
+    s = build_initial_state("henry_vi", seed=1)
+    dest = "ely"
+    interceptor, ally = "henry_vi", "somerset_1"          # henry_vi is a Marshal
+    for lid in (interceptor, ally):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].location = "cambridge"               # Highway-adjacent to Ely
+    s.decks.setdefault("lancastrian", {}).setdefault("held", []).append("L2")  # Flank Attack
+    log = commands._try_intercept(s, dest, "yorkist",
+                                  {"intercept": interceptor, "intercept_group": [ally],
+                                   "flank_attack": True})
+    assert log["success"] and log["group"] == [ally]
+    assert s.lords[interceptor].location == dest
+    assert s.lords[ally].location == dest
