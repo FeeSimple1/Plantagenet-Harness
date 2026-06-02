@@ -526,7 +526,7 @@ def _h_levy_transport(state: GameState, action: dict[str, Any]) -> dict[str, Any
     at_port_or_exile = loc[0] == "exile" or static_data.load_locales()[loc[1]].get("port")
     _require(at_port_or_exile, "not_port",
              "Ship Levy requires a Friendly Port or Exile box (3.4.5)")
-    _require(_ships_in_play(state) < 9, "ship_limit",
+    _require(lord.assets.get("ship", 0) > 0 or _ships_in_play(state) < 9, "ship_limit",
              "fewer than nine Lords on both sides may have Ships (3.4.5)")
     _require(lord.assets.get("ship", 0) < 2, "two_ships",
              "a Lord may not exceed two Ships (1.7.3, 3.4.5)")

@@ -182,8 +182,8 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
     try:
         loc = actions.lord_location(lord)
         at_port_or_exile = loc[0] == "exile" or static_data.load_locales()[loc[1]].get("port")
-        if (at_port_or_exile and actions._ships_in_play(state) < 9
-                and lord.assets.get("ship", 0) < 2):
+        if (at_port_or_exile and lord.assets.get("ship", 0) < 2
+                and (lord.assets.get("ship", 0) > 0 or actions._ships_in_play(state) < 9)):
             moves.append({"type": "levy_transport", "side": side,
                           "by_lord": lord_id, "transport": "ship"})
     except (KeyError, AttributeError, IndexError):

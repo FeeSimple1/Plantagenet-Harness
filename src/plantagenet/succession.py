@@ -373,14 +373,22 @@ def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, A
 
 def _automatic_victory(state: GameState) -> dict[str, Any] | None:
     war = _current_war(state) or {}
+    if war.get("successions", {}).get("setup_only"):     # War III: removal is setup-only
+        return None
     rules = war.get("successions", {}).get("automatic_victory", [])
 
     def gone(lid):
         ls = state.lords.get(lid)
         return ls is None or ls.status == LordStatus.REMOVED
-    for rule in rules:
+    for rule in rules:                                   # scripted War-I automatic victories
         if all(gone(lid) for lid in rule["all_removed"]):
             return {"winner": rule["winner"], "rule": "Automatic War Victory (6.x)"}
+    # General War Victory (Scenario Ref E2): a side with ALL its current-War Heirs
+    # removed immediately loses that War.
+    for side in ("lancastrian", "yorkist"):
+        if not _present_heirs(state, side):
+            winner = "yorkist" if side == "lancastrian" else "lancastrian"
+            return {"winner": winner, "rule": "War Victory -- all Heirs removed (E2)"}
     return None
 
 

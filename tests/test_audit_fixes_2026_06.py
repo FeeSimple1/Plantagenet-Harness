@@ -936,3 +936,37 @@ def test_commission_of_array_levies_from_adjacent_stronghold():
                                  "by_lord": "somerset_1", "levy_target": tgt})
     assert r["locale"] == tgt                          # drew from the adjacent Stronghold
     assert s.locales[tgt].depletion == "depleted"      # ... which Depleted (not the Lord's)
+
+
+def test_war_victory_when_all_current_war_heirs_removed():
+    # Scenario Ref E2: a side with all its current-War Heirs removed loses that War
+    # (general check, beyond War I's scripted automatic victories).
+    from plantagenet import succession
+    s = build_initial_state("wars_of_the_roses")
+    s.grand_scenario["current_war"] = "war_iiy"
+    heir_ids = [lid for e in succession._heir_table(s, "yorkist") for lid in e["lord_ids"]]
+    for lid in heir_ids:
+        if lid not in s.lords:
+            s.lords[lid] = LordState(lord_id=lid, side="yorkist", status=LordStatus.MUSTERED)
+        s.lords[lid].status = LordStatus.REMOVED
+    av = succession._automatic_victory(s)
+    assert av is not None and av["winner"] == "lancastrian"
+
+
+def test_ship_levy_allows_second_ship_at_nine_holders():
+    # 3.4.5: the "fewer than nine Lords with Ships" cap restricts only Lords who
+    # would BECOME a new ship-holder; a Lord adding a 2nd Ship is unaffected.
+    from plantagenet import actions
+    s = _muster_lord("henry_vi", "yorkist", "york")
+    # Make exactly nine Yorkist+Lancastrian Lords hold one Ship, including York.
+    holders = [lid for lid in s.lords][:9]
+    for lid in holders:
+        s.lords[lid].assets["ship"] = 1
+    york = "york" if "york" in holders else holders[0]
+    s.active_side = s.lords[york].side
+    s.lords[york].status = LordStatus.MUSTERED
+    s.lords[york].location = "bristol"               # a Port
+    s.locales["bristol"].favour = s.lords[york].side
+    r = actions.apply_action(s, {"type": "levy_transport", "side": s.lords[york].side,
+                                 "by_lord": york, "transport": "ship"})
+    assert "1 ship" in r["added"]                     # 2nd Ship allowed despite 9 holders
