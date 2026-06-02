@@ -194,13 +194,25 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     _require(not _shaky_allies_block(state, [m.lord_id for m in movers], dest),
              "shaky_allies", "Margaret and Warwick may never enter the same Stronghold (IIY)")
+    # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
+    # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
+    # its owner's mat for Feed; only the group's overall excess is discarded.
+    def _carts(m):
+        c = m.assets.get("cart", 0)
+        return c * 2 if ratings.has_capability(state, m.lord_id, "HAY WAINS") else c  # L8
+    if len(movers) > 1:
+        excess = max(0, sum(m.assets.get("provender", 0) for m in movers)
+                     - sum(_carts(m) for m in movers))
+        for m in movers:                        # trim the group's overall surplus
+            if excess <= 0:
+                break
+            drop = min(excess, m.assets.get("provender", 0))
+            m.assets["provender"] = m.assets.get("provender", 0) - drop
+            excess -= drop
+    else:
+        if lord.assets.get("provender", 0) > _carts(lord):
+            lord.assets["provender"] = _carts(lord)
     for m in movers:
-        # Haul (4.3.2): discard Provender exceeding Carts before moving.
-        carts = m.assets.get("cart", 0)
-        if ratings.has_capability(state, m.lord_id, "HAY WAINS"):
-            carts *= 2                          # Hay Wains (L8): Carts double for March
-        if m.assets.get("provender", 0) > carts:
-            m.assets["provender"] = carts
         m.location = dest
         m.exile_box = None
         m.moved_fought = True
@@ -356,6 +368,7 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     # Origin Sea: at a Port, an Exile box, or already at Sea (4.6.1).
     origin_at_sea = lord.at_sea is not None
+    kind = here = None
     if origin_at_sea:
         from_sea = lord.at_sea
     else:
@@ -374,6 +387,31 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # French Fleet (L21): Yorkist Lords may not Sail this Campaign.
     _require(not (lord.side == "yorkist" and _active_event(state, "FRENCH FLEET")),
              "french_fleet", "French Fleet prohibits Yorkist Sailing this Campaign (L21)")
+
+    # Group Sail (4.6.1): a Marshal/Lieutenant may Sail with co-located Lords,
+    # Sharing Ships among the Group (4.3.1). Members must share the leader's origin.
+    movers = [lord]
+    group = action.get("group", [])
+    if group:
+        title = _effective_title(state, lord.lord_id)
+        _require(title in ("marshal", "lieutenant"), "not_group_leader",
+                 "only a Marshal or Lieutenant may lead a Group Sail (4.6.1, 4.3.1)")
+        for gid in group:
+            g = state.lords.get(gid)
+            if origin_at_sea:
+                same = g is not None and g.at_sea == from_sea
+            elif kind == "exile":
+                same = g is not None and g.exile_box == here and g.at_sea is None
+            else:
+                same = g is not None and g.location == here and g.at_sea is None
+            _require(g is not None and g.status == LordStatus.MUSTERED
+                     and g.side == lord.side and same, "bad_group_member",
+                     f"{gid} is not a Friendly Lord co-located with the Sailing leader (4.6.1)")
+            if title == "lieutenant":
+                _require(static_data.load_lords()[gid].get("title") != "marshal",
+                         "lieutenant_cannot_lead_marshal",
+                         "a Lieutenant may not lead a Marshal (4.3.1)")
+            movers.append(g)
 
     dest = action.get("to")
     into_sea = dest in zones
@@ -401,16 +439,27 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             _require(ratings.has_capability(state, lord.lord_id, "HIGH ADMIRAL"),
                      "dest_has_enemy",
                      f"{dest} is not free of Enemy Lords (4.6.1)")   # High Admiral (L29)
-        _require(not _shaky_allies_block(state, [lord.lord_id], dest), "shaky_allies",
+        _require(not _shaky_allies_block(state, [m.lord_id for m in movers], dest),
+                 "shaky_allies",
                  "Margaret and Warwick may never enter the same Stronghold (IIY)")
 
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
-    # Ships may be Shared from co-located Friendly Lords ("have or Share", 1.5.3).
-    ships = _shared_asset(state, lord, "ship", action.get("share"))
+    # A single Ship carries up to each limit. Ships may be Shared (1.5.3): from
+    # co-located Friendly Lords for a lone Lord, or pooled across the Group.
     cap = 2 if ratings.has_capability(state, lord.lord_id, "GREAT SHIPS") else 1
-    need = max(-(-_forces_units(lord) // (6 * cap)),
-               -(-lord.assets.get("provender", 0) // (2 * cap)),
-               -(-lord.assets.get("cart", 0) // (2 * cap)))
+    if len(movers) > 1:
+        ships = sum(m.assets.get("ship", 0) for m in movers)   # Shared among the Group
+        tot_forces = sum(_forces_units(m) for m in movers)
+        tot_prov = sum(m.assets.get("provender", 0) for m in movers)
+        tot_carts = sum(m.assets.get("cart", 0) for m in movers)
+    else:
+        ships = _shared_asset(state, lord, "ship", action.get("share"))
+        tot_forces = _forces_units(lord)
+        tot_prov = lord.assets.get("provender", 0)
+        tot_carts = lord.assets.get("cart", 0)
+    need = max(-(-tot_forces // (6 * cap)),
+               -(-tot_prov // (2 * cap)),
+               -(-tot_carts // (2 * cap)))
     _require(ships >= need, "insufficient_ships",
              f"Sail needs {need} Ship(s) (1 per 6 Forces / 2 Provender / 2 Carts); "
              f"available (incl. Shared) {ships} (4.6.1)")
@@ -433,6 +482,7 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     ctx = {"actor": lord.lord_id, "side": lord.side, "seas": [from_sea, dest_sea]}
     finish_data = {"lord": lord.lord_id, "dest": dest, "into_sea": into_sea,
                    "from_sea": from_sea, "to_sea": dest_sea,
+                   "movers": [m.lord_id for m in movers],
                    "dest_has_enemy": dest_has_enemy, "decisions": action.get("decisions")}
     return reactions.gate(state, "uses_port_on_sea", ctx, "commands:sail_finish", finish_data)
 
@@ -443,21 +493,26 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
     if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
         return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
                 "cancelled": True}
-    lord.exile_box = None
-    lord.moved_fought = True
-    if data.get("into_sea"):            # ended the Sail at Sea (4.6.1); Disembark at 4.8.2
-        lord.location = None
-        lord.at_sea = data["dest"]
+    movers = [state.lords[mid] for mid in data.get("movers", [data["lord"]])]
+    for m in movers:
+        m.exile_box = None
+        m.moved_fought = True
+        if data.get("into_sea"):        # ended the Sail at Sea (4.6.1); Disembark at 4.8.2
+            m.location = None
+            m.at_sea = data["dest"]
+        else:
+            m.location = data["dest"]
+            m.at_sea = None
+    group = [mid for mid in data.get("movers", []) if mid != data["lord"]]
+    if data.get("into_sea"):
         return {"type": "sail", "by_lord": lord.lord_id, "to_sea": data["dest"],
-                "at_sea": data["dest"]}
-    lord.location = data["dest"]
-    lord.at_sea = None
+                "at_sea": data["dest"], "group": group}
     out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
-           "from_sea": data["from_sea"], "to_sea": data["to_sea"]}
+           "from_sea": data["from_sea"], "to_sea": data["to_sea"], "group": group}
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
         from plantagenet import battle
-        out["approach"] = battle.approach(state, data["dest"], [lord.lord_id],
-                                          data.get("decisions"))
+        out["approach"] = battle.approach(state, data["dest"],
+                                          [m.lord_id for m in movers], data.get("decisions"))
     return out
 
 

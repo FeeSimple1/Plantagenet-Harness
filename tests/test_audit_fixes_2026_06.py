@@ -602,3 +602,146 @@ def test_levy_lord_rejects_invalid_fallback_seat():
         actions.apply_action(s, {"type": "levy_lord", "side": "yorkist", "by_lord": act,
                                  "target": tgt, "fallback_seat": "london"})
     assert e.value.code == "bad_fallback_seat"
+
+
+# --------------------------------------------------------------------------- #
+# Group Sail (4.6.1): a Marshal/Lieutenant Sails with co-located Lords          #
+# --------------------------------------------------------------------------- #
+def test_group_sail_moves_shipless_passenger():
+    from plantagenet import actions
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")
+    lead, passenger = "york", "salisbury"            # york is a Marshal
+    s.active_side = "yorkist"
+    s.campaign.active_lord = lead
+    s.campaign.actions_remaining = 2
+    for lid in (lead, passenger):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].location = "bristol"            # Irish-Sea Port
+        s.lords[lid].at_sea = None
+        s.lords[lid].forces = {"retinue": 1}
+    s.lords[passenger].assets = {"ship": 0}          # shipless -- can only go as passenger
+    s.lords[lead].assets = {"ship": 2}               # leader carries the Group
+    r = actions.apply_action(s, {"type": "sail", "side": "yorkist", "by_lord": lead,
+                                 "to": "pembroke", "group": [passenger]})
+    assert r["type"] == "sail"
+    assert s.lords[passenger].location == "pembroke"     # passenger moved (was impossible)
+    assert s.lords[passenger].moved_fought is True
+
+
+def test_group_sail_requires_marshal_or_lieutenant():
+    import pytest
+
+    from plantagenet import actions, static_data
+    from plantagenet.errors import IllegalAction
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")
+    nonlead = next(lid for lid, d in static_data.load_lords().items()
+                   if d.get("title") not in ("marshal", "lieutenant")
+                   and s.lords.get(lid) and s.lords[lid].side == "yorkist")
+    s.active_side = "yorkist"
+    s.campaign.active_lord = nonlead
+    s.campaign.actions_remaining = 2
+    for lid in (nonlead, "salisbury"):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].location = "bristol"
+        s.lords[lid].at_sea = None
+    s.lords[nonlead].assets = {"ship": 2}
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "sail", "side": "yorkist", "by_lord": nonlead,
+                                 "to": "pembroke", "group": ["salisbury"]})
+    assert e.value.code == "not_group_leader"
+
+
+# --------------------------------------------------------------------------- #
+# Per-Round Reposition (4.4.2): owner chooses which wing fills the empty center  #
+# --------------------------------------------------------------------------- #
+def test_reposition_center_fill_choice():
+    s = build_initial_state("henry_vi")
+    for lid in ("york", "march", "salisbury"):
+        s.lords[lid].status = LordStatus.MUSTERED
+    forces = {lid: battle._Force(s, lid) for lid in ("york", "march", "salisbury")}
+    positions = {"attacker": {0: "york", 2: "march"}, "defender": {0: "salisbury"}}
+    reserves = {"attacker": [], "defender": []}
+    battle._reposition(positions, reserves, forces,
+                       repo={"attacker": {"center_from": 2}})   # pull right wing to center
+    assert positions["attacker"].get(1) == "march"              # chosen wing filled center
+
+
+def test_reposition_advance_choice():
+    s = build_initial_state("henry_vi")
+    for lid in ("york", "march", "salisbury"):
+        s.lords[lid].status = LordStatus.MUSTERED
+    forces = {lid: battle._Force(s, lid) for lid in ("york", "march", "salisbury")}
+    positions = {"attacker": {}, "defender": {0: "salisbury"}}
+    reserves = {"attacker": ["york", "march"], "defender": []}
+    battle._reposition(positions, reserves, forces,
+                       repo={"attacker": {"advance": {2: "march"}}})  # march to right slot
+    assert positions["attacker"][2] == "march"
+
+
+# --------------------------------------------------------------------------- #
+# Per-Hit absorption (4.4.2 "Hit by Hit"): owner directs an individual Hit       #
+# --------------------------------------------------------------------------- #
+def test_absorb_plan_directs_individual_hit():
+    s = build_initial_state("henry_vi")
+    for lid in ("york", "march"):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].forces = {"retinue": 1}
+    f1 = battle._Force(s, "york")
+    f2 = battle._Force(s, "march")
+    log: list = []
+    # Default would hit york first; the plan directs the Hit to march's Retinue.
+    battle._absorb_side([f1, f2], 1, _SeqDice([6]), battle._ABSORB_DEFAULT, set(),
+                        log, "melee", None, [{"lord": "march", "unit": "retinue"}])
+    assert log[0]["lord"] == "march"
+    assert f2.routed.get("retinue", 0) == 1
+    assert f1.routed.get("retinue", 0) == 0
+
+
+# --------------------------------------------------------------------------- #
+# Group-March Haul Sharing (4.3.2) and Caltrops split (Y19)                      #
+# --------------------------------------------------------------------------- #
+def test_group_march_haul_shares_carts():
+    from plantagenet import actions
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")
+    lead, passenger = "york", "salisbury"
+    s.active_side = "yorkist"
+    s.campaign.active_lord = lead
+    s.campaign.actions_remaining = 2
+    for lid in (lead, passenger):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].location = "ely"
+        s.lords[lid].forces = {"retinue": 1}
+    # Passenger has surplus Provender but no Carts; leader has spare Carts.
+    s.lords[passenger].assets = {"provender": 3, "cart": 0}
+    s.lords[lead].assets = {"provender": 0, "cart": 4}
+    # Ely -> Cambridge by Highway; group march.
+    actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": lead,
+                             "to": "cambridge", "group": [passenger]})
+    # Group Carts (4) cover the group's Provender (3): nothing discarded (was: passenger
+    # would lose all 3 for having 0 Carts).
+    assert s.lords[passenger].assets["provender"] == 3
+
+
+def test_caltrops_split_limits_hits_this_engagement():
+    s = build_initial_state("henry_vi")
+    for lid in ("york", "henry_vi"):
+        s.lords[lid].location = "cambridge"
+        s.lords[lid].forces = {"retinue": 1, "men_at_arms": 4}
+    s.decks["yorkist"]["held"] = ["Y19"]                 # Yorkist holds Caltrops
+    base = battle.resolve_battle(s, "cambridge", "york", "henry_vi", {"caltrops": ["yorkist"]})
+    base_m = next(st for st in base["rounds"][0]["engagements"][0]["strikes"]
+                  if st["phase"] == "melee")["attacker_hits"]
+    s2 = build_initial_state("henry_vi")
+    for lid in ("york", "henry_vi"):
+        s2.lords[lid].location = "cambridge"
+        s2.lords[lid].forces = {"retinue": 1, "men_at_arms": 4}
+    s2.decks["yorkist"]["held"] = ["Y19"]
+    # Direct only 1 of the +2 to this (only) Engagement.
+    r = battle.resolve_battle(s2, "cambridge", "york", "henry_vi",
+                              {"caltrops": ["yorkist"], "caltrops_split": {1: {"yorkist": [1]}}})
+    r_m = next(st for st in r["rounds"][0]["engagements"][0]["strikes"]
+               if st["phase"] == "melee")["attacker_hits"]
+    assert r_m == base_m - 1                              # +1 here instead of the full +2
