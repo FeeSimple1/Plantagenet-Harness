@@ -256,10 +256,11 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
                         if rep:
                             _apply_replace_in_place(state, side, rep["old"], rep["new"])
                             out.setdefault("replaced", []).append(rep)
-                        # These ADDs are PERMANENT Arts-of-War additions (Scenario
-                        # Reference E2), not while-King contributions. They must
-                        # use _PERMANENT, or the next King change would drop them.
-                        _add_cards(state, side, trig.get("add_cards", []), _PERMANENT)
+                        # "As long as <replacement> remains" (Scenario Ref E4): source the
+                        # ADDs to the replacement Lord so they drop when it is removed, but
+                        # survive King changes. Pure adds (no replacement) are permanent.
+                        _src = rep["new"] if rep else _PERMANENT
+                        _add_cards(state, side, trig.get("add_cards", []), _src)
                         _mark_fired(state, key)
         # Re-derive the King after any replacement: the highest present Heir is now
         # the replacement Lord (e.g. edward_iv), not the removed heir (march).

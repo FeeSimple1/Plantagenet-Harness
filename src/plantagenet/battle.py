@@ -874,6 +874,13 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
             _spoils(state, locale, winners, lose_ids, result, spoils_to)
     for w in winners:                                    # LOSSES (4.4.3)
         _losses(state, w, dice, result)
+    for w in winners:                                    # 4.4.3: Routed Vassals of Unrouted Lords
+        lord = state.lords[w.lord_id]
+        for vid in list(lord.vassals)[:w.routed.get("vassal", 0)]:
+            campaign._disband_vassal(state, vid)
+            if vid in lord.vassals:
+                lord.vassals.remove(vid)
+            result.setdefault("vassal_disbands", []).append(vid)
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
     # go into Exile (4.3.5) instead of rolling Death.
     # Bloody Thou Art (Y33): if Richard III is among the winners, skip all Death
@@ -1018,7 +1025,8 @@ def _losses(state: GameState, winner: _Force, dice, result: dict) -> None:
     base_prot = {fid: f["protection"] for fid, f in static_data.load_forces().items()
                  if not fid.startswith("_")}
     for t in [x for x in winner.count if x in _TROOP_TYPES]:
-        for _ in range(winner.routed.get(t, 0)):
+        persistent = lord.forces.get(t, 0)   # mat Troops; battle-local adds vanish (no Loss roll)
+        for _ in range(min(winner.routed.get(t, 0), persistent)):
             lo, hi = base_prot[t]            # unmodified Protection for Losses (4.4.3)
             if lo <= dice.d6() <= hi:
                 recovered += 1

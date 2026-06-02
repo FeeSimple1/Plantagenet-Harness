@@ -68,7 +68,7 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
             continue
         if actions.lord_location(lord) is None or lord.mustered_this_segment:
             continue
-        free_only = lord.lordship_spent >= actions._lordship(lord_id)
+        free_only = lord.lordship_spent >= ratings.rating(state, lord_id, "lordship")
         out.extend(_moves_for_lord(state, lord_id, lord, side, free_only=free_only))
     # Muster Exiles (3.3.1): each Exile-marked Lord ready in the current/earlier box
     # with a designated Exile box.

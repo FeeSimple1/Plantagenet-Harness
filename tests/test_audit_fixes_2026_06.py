@@ -57,17 +57,20 @@ def test_edward_iv_permanent_cards_survive_repeated_recompute():
     assert {"Y23", "Y24", "Y28", "Y31"} <= _ydeck(s)
 
 
-def test_richard_iii_permanent_cards_survive():
+def test_richard_iii_cards_added_and_edward_iv_cards_drop_on_his_removal():
+    # E4: Edward IV's adds last only "as long as Edward IV remains"; Richard III adds Y32-Y35.
     s = _stage_iiy()
     for lid in ("york", "rutland"):
         s.lords[lid].status = LordStatus.REMOVED.value
         succession.on_heir_removed(s, lid)
+    assert {"Y23", "Y24", "Y28", "Y31"} <= _ydeck(s)        # present while Edward IV remains
     s.lords["edward_iv"].status = LordStatus.REMOVED.value  # Gloucester(1) -> Richard III
     succession.on_heir_removed(s, "edward_iv")
     assert s.grand_scenario["current_king"]["yorkist"] == "richard_iii"
-    assert {"Y32", "Y33", "Y34", "Y35"} <= _ydeck(s)
+    assert {"Y32", "Y33", "Y34", "Y35"} <= _ydeck(s)        # Richard III's adds present
+    assert not ({"Y23", "Y24", "Y28", "Y31"} & _ydeck(s))   # Edward IV's adds dropped (E4)
     succession._recompute(s, "yorkist")
-    assert {"Y23", "Y24", "Y31", "Y32", "Y33", "Y34", "Y35"} <= _ydeck(s)
+    assert {"Y32", "Y33", "Y34", "Y35"} <= _ydeck(s)        # ... and stay (Richard III remains)
 
 
 # --------------------------------------------------------------------------- #
@@ -745,3 +748,85 @@ def test_caltrops_split_limits_hits_this_engagement():
     r_m = next(st for st in r["rounds"][0]["engagements"][0]["strikes"]
                if st["phase"] == "melee")["attacker_hits"]
     assert r_m == base_m - 1                              # +1 here instead of the full +2
+
+
+# --------------------------------------------------------------------------- #
+# Full rules audit (2026-06) — batch 1 regressions                              #
+# --------------------------------------------------------------------------- #
+def test_effective_lordship_raises_the_levy_action_cap():
+    # Y22 Loyalty and Trust gives a chosen Lord +3 Lordship; the action cap (3.4)
+    # must use effective, not printed, Lordship (1.5.2/1.9.1).
+    from plantagenet import actions, ratings, static_data
+    s = build_initial_state("henry_vi")
+    lid = "york"
+    printed = static_data.load_lords()[lid]["ratings"]["lordship"]
+    s.active_events.append({"card": "Y22", "side": "yorkist", "target": lid})
+    assert ratings.rating(s, lid, "lordship") == printed + 3
+    s.lords[lid].location = "ely"
+    s.locales["ely"].favour = "yorkist"
+    s.lords[lid].lordship_spent = printed            # would be "exhausted" under printed cap
+    # _active_lord must NOT raise -- the Lord still has 3 effective Lordship left.
+    s.active_side = "yorkist"
+    s.levy_step = "muster"
+    actions._active_lord(s, {"by_lord": lid, "side": "yorkist"}, require_lordship=True)
+
+
+def test_pay_charges_exile_pact_lord_two_influence():
+    # 3.2.2: Lords in Exile boxes cost 2 Influence; a Y8 (EXILE-status) Lord must be charged.
+    from plantagenet import pay
+    s = build_initial_state("henry_vi")
+    yk = [lid for lid, ld in s.lords.items()
+          if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED]
+    for lid in yk:                                   # clear the board to isolate the cost
+        s.lords[lid].status = LordStatus.CALENDAR
+    lid = yk[0]
+    s.lords[lid].status = LordStatus.EXILE
+    s.lords[lid].exile_box = "ireland"
+    s.lords[lid].location = None
+    track = s.influence["track"]
+    before = (track.marker_side, track.marker_at)
+    pay._pay_lords(s, "yorkist", {})
+    assert (track.marker_side, track.marker_at) != before   # the 2-Influence cost was charged
+
+
+def test_grand_scenario_threshold_is_flat_per_war():
+    from plantagenet import campaign
+    s = build_initial_state("wars_of_the_roses")
+    s.grand_scenario["current_war"] = "war_i"
+    thr = s.grand_scenario["victory_threshold"]
+    for box in (1, 7, 12):                            # flat across the War, not henry_vi 40/35/30
+        s.turn_box = box
+        assert campaign._current_threshold(s) == thr
+
+
+def test_routed_vassal_of_unrouted_winner_disbands():
+    from plantagenet.state import VassalStatus
+    s = build_initial_state("henry_vi", seed=1)
+    vid = next(v for v in s.vassals)
+    s.vassals[vid].status = VassalStatus.MUSTERED
+    s.vassals[vid].on_lord = "york"
+    s.lords["york"].vassals = [vid]
+    s.lords["york"].location = "london"
+    s.lords["henry_vi"].location = "london"
+    f_y = battle._Force(s, "york")
+    f_h = battle._Force(s, "henry_vi")
+    f_h.lord_routed = True                            # Henry VI loses
+    f_y.routed["vassal"] = 1                           # York wins but his Vassal Routed
+    res = battle._ending(s, "london", {"york": f_y, "henry_vi": f_h},
+                         ["york"], ["henry_vi"], [], [])
+    assert res.get("vassal_disbands") == [vid]
+    assert s.vassals[vid].status == VassalStatus.DISBANDED
+
+
+def test_losses_do_not_remove_more_than_mat_troops():
+    # Battle-local (Capability-added) Troops that Rout vanish; they must not drive
+    # mat Troop Losses beyond the Lord's persistent count (4.4.3).
+    s = build_initial_state("henry_vi")
+    s.lords["york"].forces = {"retinue": 1, "men_at_arms": 1}   # 1 mat MaA
+    f = battle._Force(s, "york")
+    f.count["men_at_arms"] = 3                          # +2 battle-local (e.g. Escape-Ship adds)
+    f.routed["men_at_arms"] = 3                          # all 3 routed
+    res: dict = {}
+    battle._losses(s, f, _SeqDice([6]), res)             # 6 always fails Protection here
+    assert res["losses"]["york"]["lost"] <= 1            # at most the 1 mat MaA, not 3
+    assert s.lords["york"].forces.get("men_at_arms", 0) == 0

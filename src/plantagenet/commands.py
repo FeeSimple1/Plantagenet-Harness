@@ -890,7 +890,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     if use_ships:
         _require(is_port, "ships_need_port", "Ship Supply requires a Port Source (4.5.1)")
-        ships = lord.assets.get("ship", 0)
+        ships = _shared_asset(state, lord, "ship", action.get("share"))   # Shared (4.5.2/1.5.3)
         _require(ships > 0, "no_ships", "Ship Supply requires at least one Ship (4.5.1)")
         per_ship = 2 if gs else 1
         sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \

@@ -116,7 +116,7 @@ def _active_lord(state: GameState, action: dict[str, Any],
     _require(not lord.mustered_this_segment, "mustered_this_segment",
              f"{lord_id} was brought on this Muster and may not Levy (3.4)")
     if require_lordship:
-        rating = _lordship(lord_id)
+        rating = ratings.rating(state, lord_id, "lordship")   # effective (1.9.1)
         _require(lord.lordship_spent < rating, "lordship_exhausted",
                  f"{lord_id} has spent all {rating} Lordship this Levy (3.4)")
     return lord
