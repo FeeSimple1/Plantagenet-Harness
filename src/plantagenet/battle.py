@@ -12,7 +12,9 @@ Defender (4.4.1). A Front Lord with no Lord directly opposite Engages the
 nearest enemy Front Lord (Flanking).
 
 Player choices use an optional ``decisions`` payload with deterministic
-defaults: ``flee`` (lord ids), ``attacker_positions``/``defender_positions``
+defaults: ``flee`` (lord ids, fleeing at the start of Round 1) and
+``flee_rounds`` ({lord_id: round} to Flee at the start of a later Round, 4.4.2);
+``attacker_positions``/``defender_positions``
 ({index: lord_id}), ``absorb_order`` (unit-type priority), ``valour`` (bool).
 """
 
@@ -498,7 +500,18 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     decisions = decisions or {}
     attackers = [attacker] if isinstance(attacker, str) else list(attacker)
     defenders = [defender] if isinstance(defender, str) else list(defender)
+    # FLEE schedule (4.4.2): a Lord may Flee at the start of any Round, not only
+    # Round 1. ``flee`` lists Round-1 flees; ``flee_rounds`` maps lord_id -> Round.
     flee = set(decisions.get("flee", []))
+    flee_rounds = decisions.get("flee_rounds", {}) or {}
+    _flee_parts = set(attackers) | set(defenders)
+    flee_at: dict[str, int] = {lid: 1 for lid in flee}
+    for _fid, _rnd in flee_rounds.items():
+        _require(_fid in _flee_parts, "bad_flee",
+                 f"{_fid} is not a Lord in this Battle (4.4.2)")
+        _require(isinstance(_rnd, int) and _rnd >= 1, "bad_flee_round",
+                 f"Flee round for {_fid} must be a Round number >= 1 (4.4.2)")
+        flee_at[_fid] = _rnd
     order = decisions.get("absorb_order", _ABSORB_DEFAULT)
     use_valour = decisions.get("valour", True)
     dice = state.dice()
@@ -625,10 +638,14 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     while side_alive(attackers) and side_alive(defenders) and n < 60:
         n += 1
         rlog: dict[str, Any] = {"round": n, "engagements": []}
-        for f in [forces[d] for d in defenders] + [forces[a] for a in attackers]:  # FLEE
-            if f.lord_id in flee and not f.lord_routed:
+        fled_now: list[str] = []
+        for f in [forces[d] for d in defenders] + [forces[a] for a in attackers]:  # FLEE (4.4.2)
+            if flee_at.get(f.lord_id) == n and not f.lord_routed:
                 f.fled = True
                 f.lord_routed = True
+                fled_now.append(f.lord_id)
+        if fled_now:
+            rlog["fled"] = fled_now
         if not side_alive(attackers) or not side_alive(defenders):
             rounds.append(rlog)
             break
