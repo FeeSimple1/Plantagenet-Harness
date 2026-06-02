@@ -555,20 +555,42 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                     and not pre.free_troops_used)
     lord = _active_lord(state, action, require_lordship=not stanley_free)
     loc = lord_location(lord)
-    _require(loc[0] == "stronghold", "in_exile_box",
-             "Levy Troops requires a Stronghold, not an Exile box (3.4.4)")
+    # Irishmen (Y18): Levy 5 Militia in the Ireland Exile box or at an Irish-Sea Port,
+    # with no Depletion/Exhaustion (FAQ: Great Ships does not relax the Irish-Sea need).
+    irish_here = ratings.has_capability(state, lord.lord_id, "IRISHMEN") and (
+        (loc[0] == "exile" and loc[1] == "ireland")
+        or (loc[0] == "stronghold" and _port_sea().get(loc[1]) == "irish_sea"))
+    if not irish_here:
+        _require(loc[0] == "stronghold", "in_exile_box",
+                 "Levy Troops requires a Stronghold, not an Exile box (3.4.4)")
     here = loc[1]
-    _require(is_friendly_stronghold(state, here, lord.side), "not_friendly_locale",
-             "Levy Troops requires a Friendly Stronghold (3.4.4)")
-    ls = state.locales[here]
-    _require(ls.depletion != "exhausted", "exhausted",
-             f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
+    # Commission of Array (L12): draw from an adjacent Friendly, Enemy-free Stronghold.
+    target = action.get("levy_target")
+    if (target and target != here
+            and ratings.has_capability(state, lord.lord_id, "COMMISSION OF ARRAY")):
+        _require(loc[0] == "stronghold", "in_exile_box",
+                 "Commission of Array Levies from a map Stronghold (L12)")
+        _require(target in {n for n, _t in _adjacency().get(here, [])}, "not_adjacent",
+                 "Commission of Array Levies from an adjacent Stronghold (L12)")
+        _require(is_friendly_stronghold(state, target, lord.side)
+                 and not enemy_lord_at(state, target, lord.side), "bad_commission_target",
+                 "Commission of Array requires an adjacent Friendly, Enemy-free Stronghold (L12)")
+        here = target
+        irish_here = False
+    ls = state.locales.get(here)
+    if not irish_here:
+        _require(is_friendly_stronghold(state, here, lord.side), "not_friendly_locale",
+                 "Levy Troops requires a Friendly Stronghold (3.4.4)")
+        _require(ls.depletion != "exhausted", "exhausted",
+                 f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
     rising_wages = ratings.event_against(state, "RISING WAGES", lord.side)
     if rising_wages:                          # L9: pay 1 Coin per Levy Troops action
         _require(lord.assets.get("coin", 0) >= 1, "rising_wages_no_coin",
                  "Rising Wages requires 1 Coin per Levy Troops action (L9)")
 
-    if ratings.has_capability(state, lord.lord_id, "BELOVED WARWICK"):
+    if irish_here:
+        yields = {"militia": 5}                 # Y18 Irishmen: 5 Militia (pool-limited)
+    elif ratings.has_capability(state, lord.lord_id, "BELOVED WARWICK"):
         yields = {"militia": 5}                 # Y16: 5 Militia instead of the table
     else:
         yields = dict(static_data.stronghold_yields(here)["levy_troops"])
@@ -599,11 +621,12 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Deplete, or Exhaust if already Depleted -- unless a no-Deplete Capability
     # applies: Quartermasters (L9), Woodvilles (Y31), Chamberlains (L10) at a
     # Vassal's Seat (3.4.4 / 1.9.1).
-    no_deplete = (ratings.has_capability(state, lord.lord_id, "QUARTERMASTERS")
+    no_deplete = (irish_here                                            # Y18 Irishmen
+                  or ratings.has_capability(state, lord.lord_id, "QUARTERMASTERS")
                   or ratings.has_capability(state, lord.lord_id, "WOODVILLES")
                   or (ratings.has_capability(state, lord.lord_id, "CHAMBERLAINS")
                       and _is_own_vassal_seat(state, lord, here)))
-    if not no_deplete:
+    if not no_deplete and ls is not None:
         ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
     if stanley_free:
         lord.free_troops_used = True       # Thomas Stanley: 0 Lordship, once/Levy (L35)
@@ -612,7 +635,8 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if rising_wages:
         lord.assets["coin"] = lord.assets.get("coin", 0) - 1
     result = {"type": "levy_troops", "by_lord": lord.lord_id, "locale": here,
-              "added": added, "depletion": ls.depletion, "stanley_free": stanley_free}
+              "added": added, "depletion": ls.depletion if ls is not None else None,
+              "stanley_free": stanley_free}
     return _gate_levy_cancel(state, lord.side, undo, result)
 
 

@@ -900,3 +900,39 @@ def test_an_honest_tale_charges_campaign_own_location_parley():
                                  "by_lord": lc, "target": "york"})
     assert r.get("honest_tale_cost") == 1
     assert (track.marker_side, track.marker_at) != before        # 1 Influence charged (Y34)
+
+
+def _muster_lord(sid, side, lid, seed=1):
+    from tests._helpers import to_muster
+    s = build_initial_state(sid, seed=seed)
+    to_muster(s)
+    s.active_side = side
+    s.levy_step = "muster"
+    s.lords[lid].status = LordStatus.MUSTERED
+    return s
+
+
+def test_irishmen_levy_five_militia_in_ireland_no_deplete():
+    from plantagenet import actions
+    s = _muster_lord("henry_vi", "yorkist", "york")
+    s.lords["york"].capabilities = ["Y18"]            # IRISHMEN
+    s.lords["york"].location = None
+    s.lords["york"].exile_box = "ireland"
+    r = actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
+    assert r["added"] == {"militia": 5}
+    assert r["depletion"] is None                     # no Depletion/Exhaustion (Y18)
+
+
+def test_commission_of_array_levies_from_adjacent_stronghold():
+    from plantagenet import actions
+    s = _muster_lord("henry_vi", "lancastrian", "somerset_1")
+    here = "york"
+    s.locales[here].favour = "lancastrian"
+    tgt = next(n for n, _t in actions._adjacency().get(here, []))
+    s.locales[tgt].favour = "lancastrian"
+    s.lords["somerset_1"].location = here
+    s.lords["somerset_1"].capabilities = ["L12"]      # COMMISSION OF ARRAY
+    r = actions.apply_action(s, {"type": "levy_troops", "side": "lancastrian",
+                                 "by_lord": "somerset_1", "levy_target": tgt})
+    assert r["locale"] == tgt                          # drew from the adjacent Stronghold
+    assert s.locales[tgt].depletion == "depleted"      # ... which Depleted (not the Lord's)
