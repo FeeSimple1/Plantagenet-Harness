@@ -102,12 +102,23 @@ def _cap_married_to_a_neville(state, lid, action):  # L24 (Clarence)
     where = _loc(state, lid)
     if where and _loc_friendly(state, lid) and _named_lord_at(state, "Warwick", where):
         return {"influence": 2, "command": 1}
+    ls = state.lords.get(lid)                       # ... or in the same Exile box as Warwick
+    if ls is not None and ls.exile_box is not None and any(
+            o.lord_id != lid and o.exile_box == ls.exile_box
+            and static_data.load_lords()[o.lord_id]["name"].startswith("Warwick")
+            for o in state.lords.values()):
+        return {"influence": 2, "command": 1}
     return {}
 
 
 def _cap_loyal_somerset(state, lid, action):        # L28 (Somerset)
     where = _loc(state, lid)
     if where and _other_lord_at(state, "margaret", where):
+        return {"influence": 1, "valour": 1}
+    ls = state.lords.get(lid)                       # ... or in the same Exile box as Margaret
+    mg = state.lords.get("margaret")
+    if (ls is not None and ls.exile_box is not None
+            and mg is not None and mg.exile_box == ls.exile_box):
         return {"influence": 1, "valour": 1}
     return {}
 

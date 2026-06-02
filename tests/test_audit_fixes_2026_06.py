@@ -1010,3 +1010,22 @@ def test_intercept_brings_a_group():
     assert log["success"] and log["group"] == [ally]
     assert s.lords[interceptor].location == dest
     assert s.lords[ally].location == dest
+
+
+def test_l24_married_to_a_neville_fires_in_shared_exile_box():
+    # L24: +2 Influence / +1 Command with Warwick at a Friendly Locale OR in the
+    # same Exile box (the exile-box alternative was not honoured).
+    from plantagenet import ratings
+    s = build_initial_state("warwicks_rebellion")
+    base = ratings.rating(build_initial_state("warwicks_rebellion"), "clarence", "influence")
+    clar = s.lords["clarence"]
+    clar.capabilities = ["L24"]
+    clar.status = LordStatus.MUSTERED
+    clar.location = None
+    clar.exile_box = "france"
+    assert ratings.rating(s, "clarence", "influence") == base       # Warwick not co-located
+    w = s.lords["warwick_lancastrian"]
+    w.status = LordStatus.MUSTERED
+    w.location = None
+    w.exile_box = "france"
+    assert ratings.rating(s, "clarence", "influence") == base + 2    # same Exile box
