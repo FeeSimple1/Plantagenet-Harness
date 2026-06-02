@@ -77,20 +77,24 @@ def check_influence(
     extra_spend: int = 0,
     loyalty_mod: int = 0,
     way_cost: int = 0,
+    discount: int = 0,
     action: str | None = None,
 ) -> dict[str, Any]:
     """Perform an Influence check for ``lord_id``; returns the outcome.
 
-    Spends 1 + ``extra_spend`` + ``way_cost`` Influence points (toward the
-    opponent), rolls a d6 from the seeded dice, and reports success.
-    ``extra_spend`` must be 0, 1, or 3 (1.4.2: "never two").
+    Spends ``1 + extra_spend + way_cost - discount`` Influence points (clamped
+    at a minimum of 0) toward the opponent, rolls a d6 from the seeded dice, and
+    reports success. ``discount`` carries Event reductions (e.g. Succession Y18,
+    Parliament Votes L18, Jack Cade Y4) and may drive the spend to 0; a negative
+    ``discount`` (An Honest Tale Y34) raises the cost. ``extra_spend`` must be
+    0, 1, or 3 (1.4.2: "never two").
     """
     if extra_spend not in _RATING_BONUS:
         raise IllegalAction("bad_extra_spend",
                             "added Influence spend must be 0, 1, or 3 (1.4.2)")
     rating = (ratings.rating(state, lord_id, "influence", action=action)
               + _RATING_BONUS[extra_spend] + loyalty_mod)
-    total_spend = 1 + extra_spend + way_cost
+    total_spend = max(0, 1 + extra_spend + way_cost - discount)
     spend_influence(state, side, total_spend)
 
     roller = state.dice()

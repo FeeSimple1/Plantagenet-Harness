@@ -111,6 +111,9 @@ def _percys_power_free_north(state: GameState, side: str) -> bool:
 
 def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str, Any]:
     pillage_by = action.get("pillage_by", {})
+    # 3.2.1: on a shortfall the player chooses which Lords go unpaid; honour an
+    # explicit ``unpay_lords`` list, else default to paying smallest-need first.
+    choose_unpaid = set(action.get("unpay_lords", []))
     groups: dict[str, list] = {}
     for lord in state.lords.values():
         if lord.side == side and lord.status == LordStatus.MUSTERED:
@@ -147,11 +150,14 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
             pillaged.append(locale_id)
             pool = sum(lord.assets.get("coin", 0) for lord in lords)
 
-        # Fully Pay as many Lords as possible (ascending need); the rest Disband.
+        # Fully Pay as many Lords as possible; the rest Disband (3.2.1). If the
+        # player named Lords to leave unpaid, Pay the others first (then ascending
+        # need); otherwise default to ascending need.
+        order = sorted(lords, key=lambda x: (x.lord_id in choose_unpaid, need[x.lord_id]))
         available = pool
         unpaid = []
-        for lord in sorted(lords, key=lambda x: need[x.lord_id]):
-            if available >= need[lord.lord_id]:
+        for lord in order:
+            if lord.lord_id not in choose_unpaid and available >= need[lord.lord_id]:
                 available -= need[lord.lord_id]
             else:
                 unpaid.append(lord)

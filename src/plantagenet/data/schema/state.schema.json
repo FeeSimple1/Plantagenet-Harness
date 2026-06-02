@@ -559,6 +559,13 @@
       "title": "Exile Alignment",
       "type": "object"
     },
+    "exile_depletion": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Exile Depletion",
+      "type": "object"
+    },
     "influence": {
       "additionalProperties": {
         "$ref": "#/$defs/InfluenceState"

@@ -68,9 +68,8 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
             continue
         if actions.lord_location(lord) is None or lord.mustered_this_segment:
             continue
-        if lord.lordship_spent >= actions._lordship(lord_id):
-            continue
-        out.extend(_moves_for_lord(state, lord_id, lord, side))
+        free_only = lord.lordship_spent >= actions._lordship(lord_id)
+        out.extend(_moves_for_lord(state, lord_id, lord, side, free_only=free_only))
     # Muster Exiles (3.3.1): each Exile-marked Lord ready in the current/earlier box
     # with a designated Exile box.
     try:
@@ -87,18 +86,39 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     return out
 
 
-def _moves_for_lord(state: GameState, lord_id: str, lord, side: str) -> list[dict[str, Any]]:
+def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
+                    free_only: bool = False) -> list[dict[str, Any]]:
+    """Enumerate a Lord's Muster moves. ``free_only`` (set when the Lord has spent
+    all Lordship) restricts output to actions that cost 0 Lordship: free-Lordship
+    Parleys (Jack Cade Y4 / My Crown L17 / Gloucester Y28) and Thomas Stanley's
+    free Levy Troops (L35)."""
     moves: list[dict[str, Any]] = []
     friendly_here = actions.lord_at_friendly_locale(state, lord)
 
     # --- Parley (3.4.1) ---
     try:
-        moves.extend(_parley_moves(state, lord_id, lord, side, friendly_here))
+        moves.extend(_parley_moves(state, lord_id, lord, side, friendly_here,
+                                   free_only=free_only))
     except (KeyError, AttributeError):
         pass
 
     if not friendly_here:
         return moves  # at an Enemy/Neutral Stronghold, only Parley is allowed (3.4)
+
+    if free_only:
+        # Lordship exhausted: only Thomas Stanley's free Levy Troops remains (L35).
+        try:
+            loc = actions.lord_location(lord)
+            stanley_free = ("thomas_stanley" in lord.special_vassals
+                            and not lord.free_troops_used)
+            rising_wages = ratings.event_against(state, "RISING WAGES", side)
+            if (stanley_free and loc[0] == "stronghold"
+                    and state.locales[loc[1]].depletion != "exhausted"
+                    and not (rising_wages and lord.assets.get("coin", 0) < 1)):
+                moves.append({"type": "levy_troops", "side": side, "by_lord": lord_id})
+        except (KeyError, AttributeError, IndexError):
+            pass
+        return moves
 
     # --- Levy Lord (3.4.2): Ready targets of this side ---
     try:
@@ -171,7 +191,11 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str) -> list[dic
     return moves
 
 
-def _parley_moves(state, lord_id, lord, side, friendly_here) -> list[dict[str, Any]]:
+def _parley_moves(state, lord_id, lord, side, friendly_here,
+                  free_only: bool = False) -> list[dict[str, Any]]:
+    if free_only:                       # only free-Lordship Parleys survive (peek, no consume)
+        if not actions._parley_event_mods(state, lord_id, side, commit=False)["free_lordship"]:
+            return []
     loc = actions.lord_location(lord)
     kind, here = loc
     moves: list[dict[str, Any]] = []
@@ -266,8 +290,11 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
                                    here=None, origin_at_sea=True))
         return out
     kind, here = loc
-    # Forage (4.6.2): any Locale not yet Exhausted (Exile boxes are foragable).
-    if kind == "exile" or state.locales[here].depletion != "exhausted":
+    # Forage (4.6.2): any Locale not yet Exhausted (Exile boxes are foragable and
+    # Deplete/Exhaust too, tracked in state.exile_depletion).
+    forage_ok = (state.exile_depletion.get(here) != "exhausted" if kind == "exile"
+                 else state.locales[here].depletion != "exhausted")
+    if forage_ok:
         out.append({"type": "forage", "side": side, "by_lord": lord_id})
     friendly_here = actions.lord_at_friendly_locale(state, lord)
 

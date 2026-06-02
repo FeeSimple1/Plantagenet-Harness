@@ -244,15 +244,10 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
     king = _highest_present_heir(state, side)
     prev_king = (state.grand_scenario.get("current_king", {}) or {}).get(side)
     if king != prev_king:
-        # Drop the previous King's while_king deck contribution.
-        if prev_king:
-            _drop_lord_sources(state, side, f"king:{prev_king}")
-        # Register the new King's while_king cards.
+        # on_becomes_highest_heir FIRST: replace_lord_in_place / permanent ADDs
+        # (once). Applied before we record the King so current_king names the
+        # Lord actually in play after any in-place replacement (6.2).
         if king:
-            for trig in triggers:
-                if trig.get("on") == "while_king" and trig.get("lord") == king:
-                    _add_cards(state, side, trig.get("cards", []), f"king:{king}")
-            # on_becomes_highest_heir: replace_lord_in_place / add cards (once).
             for trig in triggers:
                 if trig.get("on") == "becomes_highest_heir" and trig.get("lord") == king:
                     key = f"{side}:highest:{king}"
@@ -261,8 +256,22 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
                         if rep:
                             _apply_replace_in_place(state, side, rep["old"], rep["new"])
                             out.setdefault("replaced", []).append(rep)
-                        _add_cards(state, side, trig.get("add_cards", []), f"king:{king}")
+                        # These ADDs are PERMANENT Arts-of-War additions (Scenario
+                        # Reference E2), not while-King contributions. They must
+                        # use _PERMANENT, or the next King change would drop them.
+                        _add_cards(state, side, trig.get("add_cards", []), _PERMANENT)
                         _mark_fired(state, key)
+        # Re-derive the King after any replacement: the highest present Heir is now
+        # the replacement Lord (e.g. edward_iv), not the removed heir (march).
+        king = _highest_present_heir(state, side)
+        # Drop the previous King's while_king contribution, then register the
+        # current King's while_king cards (ref-counted to the King).
+        if prev_king:
+            _drop_lord_sources(state, side, f"king:{prev_king}")
+        if king:
+            for trig in triggers:
+                if trig.get("on") == "while_king" and trig.get("lord") == king:
+                    _add_cards(state, side, trig.get("cards", []), f"king:{king}")
         state.grand_scenario.setdefault("current_king", {})[side] = king
         out["king"] = king
     return out
