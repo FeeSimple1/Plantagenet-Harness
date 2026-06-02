@@ -284,10 +284,12 @@ class _Force:
 
 def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
                  valour_lords, log: list, phase: str = "melee",
-                 lord_order: list | None = None) -> None:
+                 lord_order: list | None = None, plan: list | None = None) -> None:
     """Apply ``n_hits`` to a side's Forces in an Engagement: each Hit -> a
-    unit (owner's priority order, across the side's Lords) -> Protection roll
-    (Valour reroll) -> Rout on failure (4.4.2)."""
+    unit (owner's choice, 4.4.2 "Hit by Hit") -> Protection roll (Valour reroll)
+    -> Rout on failure. ``plan`` is the owner's per-Hit queue of {lord, unit}
+    selections (consumed in order); ``lord_order``/``order`` give the default
+    priority for Hits the plan does not direct."""
     if valour_lords is True:        # tolerate a bool (legacy callers): True=all, False=none
         valour_lords = None
     elif valour_lords is False:
@@ -299,13 +301,28 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
     types = order + [t for f in side_forces for t in f.count if t not in order]
     for _ in range(n_hits):
         hit_force = hit_type = None
-        for t in types:
+        spec = plan.pop(0) if plan else None         # 4.4.2: owner directs this Hit
+        if spec is not None:
+            want_lord = spec.get("lord") if isinstance(spec, dict) else None
+            want_unit = (spec.get("unit") if isinstance(spec, dict)
+                         else spec if isinstance(spec, str) else None)
             for f in side_forces:
-                if f.avail(t) > 0:
-                    hit_force, hit_type = f, t
+                if want_lord and f.lord_id != want_lord:
+                    continue
+                for t in ([want_unit] if want_unit else types):
+                    if f.avail(t) > 0:
+                        hit_force, hit_type = f, t
+                        break
+                if hit_force:
                     break
-            if hit_force:
-                break
+        if hit_force is None:                        # default owner priority
+            for t in types:
+                for f in side_forces:
+                    if f.avail(t) > 0:
+                        hit_force, hit_type = f, t
+                        break
+                if hit_force:
+                    break
         if hit_force is None:
             break
         lo, hi = hit_force.prot_range(hit_type, phase)
@@ -351,21 +368,33 @@ def _initial_array(attackers: list[str], defenders: list[str],
             {"attacker": res_atk, "defender": res_def})
 
 
-def _reposition(positions: dict, reserves: dict, forces: dict, held=frozenset()) -> None:
+def _reposition(positions: dict, reserves: dict, forces: dict, held=frozenset(),
+                repo=None) -> None:
+    # 4.4.2 REPOSITION: Defender then Attacker. ``repo`` carries this Round's
+    # per-side choices: {"advance": {front_idx: reserve_lord}, "center_from": 0|2}.
+    repo = repo or {}
     for side in ("defender", "attacker"):
+        spec = repo.get(side, {})
         pos = positions[side]
         for idx in list(pos):                                  # Rout removal
             if pos[idx] is None or forces[pos[idx]].lord_routed:
                 pos.pop(idx, None)
         reserves[side] = [r for r in reserves[side] if not forces[r].lord_routed]
-        for idx in _FILL_ORDER:                                # Advance reserves
+        for idx, rid in (spec.get("advance") or {}).items():   # player-chosen advances first
+            idx = int(idx)
+            if idx not in pos and rid in reserves[side] and rid not in held:
+                reserves[side].remove(rid)
+                pos[idx] = rid
+        for idx in _FILL_ORDER:                                # Advance remaining reserves
             if idx not in pos:
                 nxt = next((r for r in reserves[side] if r not in held), None)
                 if nxt is not None:                            # held reserves wait (Norfolk)
                     reserves[side].remove(nxt)
                     pos[idx] = nxt
-        if 1 not in pos:                                       # Center fill
-            for i in (0, 2):
+        if 1 not in pos:                                       # Center fill (select L or R)
+            cf = spec.get("center_from")
+            wings = [cf] if (cf in (0, 2) and cf in pos) else [0, 2]
+            for i in wings:
                 if i in pos:
                     pos[1] = pos.pop(i)
                     break
@@ -538,6 +567,11 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     engagement_order = decisions.get("engagement_order") or []   # 4.4.2: Attacker declares order
     flank_choice = decisions.get("flank_choice", {}) or {}       # 4.4.2: center may pick L/R
     absorb_lords = decisions.get("absorb_lords") or []           # 4.4.2: which Lord absorbs first
+    reposition = decisions.get("reposition", {}) or {}           # 4.4.2: per-Round Advance/Center
+    _aplan = decisions.get("absorb_plan", {}) or {}              # 4.4.2: per-Hit absorb queues
+    caltrops_split = decisions.get("caltrops_split", {}) or {}   # Y19: split +2 across Engagements
+    plan_atk = list(_aplan.get("attacker", []))
+    plan_def = list(_aplan.get("defender", []))
     swift_end = decisions.get("swift_maneuver_end", True)         # Y36 "if desired"
     dice = state.dice()
 
@@ -677,7 +711,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
             rounds.append(rlog)
             break
         _reposition(positions, reserves, forces,               # REPOSITION
-                    held=frozenset({"norfolk"}) if (norfolk_late and n == 1) else frozenset())
+                    held=frozenset({"norfolk"}) if (norfolk_late and n == 1) else frozenset(),
+                    repo=reposition.get(n) or reposition.get(str(n)))
         if regroup_lord is not None and n == regroup_round:    # Regroup: recover Troops
             f = forces[regroup_lord]
             for t in [x for x in f.count if x in _TROOP_TYPES]:
@@ -703,7 +738,11 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         # Swift Maneuver (Y36): snapshot Lancastrian Retinue Routs to detect new ones.
         lanc_ret_before = {lid: forces[lid].routed.get("retinue", 0)
                            for lid in forces if state.lords[lid].side == "lancastrian"}
-        caltrops_done = set()
+        # Caltrops (Y19): a +2 Melee budget per side per Round, distributable
+        # between Engagements ("distributes between Engagements").
+        caltrops_left = {sd: (2 if sd in caltrops else 0) for sd in (aside, dside)}
+        cal_split = caltrops_split.get(n) or caltrops_split.get(str(n)) or {}
+        cal_idx = 0
         for eng in engs:                                       # ENGAGE + STRIKE
             elog = {"attacker": eng["attacker"], "defender": eng["defender"], "strikes": []}
             a_forces = [forces[lid] for lid in eng["attacker"]]
@@ -711,13 +750,18 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
             for phase in ("missile", "melee"):
                 a_hits = ceil(sum(f.raw_hits(phase) for f in a_forces))
                 d_hits = ceil(sum(f.raw_hits(phase) for f in d_forces))
-                if phase == "melee":                # Caltrops: +2 Melee/Round (one Engagement)
-                    if aside in caltrops and aside not in caltrops_done:
-                        a_hits += 2
-                        caltrops_done.add(aside)
-                    if dside in caltrops and dside not in caltrops_done:
-                        d_hits += 2
-                        caltrops_done.add(dside)
+                if phase == "melee":                # Caltrops: +2 Melee/Round (Y19)
+                    for sd in (aside, dside):
+                        if caltrops_left.get(sd, 0) <= 0:
+                            continue
+                        sp = cal_split.get(sd)
+                        give = sp[cal_idx] if (sp and cal_idx < len(sp)) else caltrops_left[sd]
+                        give = min(give, caltrops_left[sd])
+                        if sd == aside:
+                            a_hits += give
+                        else:
+                            d_hits += give
+                        caltrops_left[sd] -= give
                     for lid, fc_rounds in final_charge.items():   # Final Charge (Y32)
                         if fc_rounds is not None and n not in fc_rounds:
                             continue                   # not chosen this Round (4.4.2 "may")
@@ -760,12 +804,15 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                             d_hits = ceil(d_hits / 2)
                 dlog: list = []
                 alog: list = []
-                _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase, absorb_lords)
-                _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase, absorb_lords)
+                _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase,
+                             absorb_lords, plan_def)
+                _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase,
+                             absorb_lords, plan_atk)
                 elog["strikes"].append({"phase": phase, "attacker_hits": a_hits,
                                         "defender_hits": d_hits,
                                         "defender_rolls": dlog, "attacker_rolls": alog})
             rlog["engagements"].append(elog)
+            cal_idx += 1                                       # next Engagement's Caltrops slot
             _swift_now = swift_end is True or (
                 isinstance(swift_end, (list, tuple, set)) and n in swift_end)
             if swift == "yorkist" and _swift_now and any(
