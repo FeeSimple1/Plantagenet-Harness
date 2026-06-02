@@ -650,6 +650,8 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
                 free_ports = [p for p in zones[sea].get("ports", [])
                               if not enemy_lord_at(state, p, side)]
                 choice = land.get(lid)
+                if choice not in free_ports and free_ports:
+                    choice = free_ports[0]   # default landing Port (overridable via disembark_land)
                 if choice in free_ports:
                     ls.at_sea = None
                     ls.location = choice

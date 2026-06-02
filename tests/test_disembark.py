@@ -96,14 +96,37 @@ def test_disembark_land_places_at_chosen_free_port_and_feeds():
     assert seen
 
 
-def test_disembark_land_without_a_free_port_disbands():
+def test_disembark_lands_at_default_port_when_choice_omitted():
+    # 4.8.2: a Lord that rolls 5-6 and CAN reach a free Port lands -- it must not
+    # be Disbanded merely because the consumer omitted the landing-Port choice.
     for seed in range(1, 40):
         s = _at_sea(seed)
         res = campaign._disembark(s, {})            # no landing Port chosen
         roll = res["rolls"][0]
+        if roll["roll"] >= 5:
+            assert roll.get("landed")               # landed at a default free Port
+            assert s.lords["york"].status == LordStatus.MUSTERED
+            assert s.lords["york"].location in ("truro", "plymouth", "exeter", "dorchester",
+                                                "southampton", "hastings", "dover", "calais")
+            assert s.lords["york"].at_sea is None
+            return
+    raise AssertionError("no land roll found")
+
+
+def test_disembark_disbands_only_when_no_free_port():
+    # All Irish-Sea Ports occupied by Enemy (Lancastrian) Lords -> no free Port,
+    # so a Yorkist Lord that rolls 5-6 Disbands (4.8.2).
+    for seed in range(1, 40):
+        s = _at_sea(seed, sea="irish_sea")
+        for lid, port in zip(("somerset_1", "northumberland_lancastrian", "exeter_1"),
+                             ("bristol", "pembroke", "harlech"), strict=True):
+            s.lords[lid].status = LordStatus.MUSTERED
+            s.lords[lid].location = port
+        res = campaign._disembark(s, {})            # no free Port to land at
+        roll = res["rolls"][0]
         if roll.get("disbanded"):
             assert roll["roll"] >= 5
-            assert s.lords["york"].status == LordStatus.CALENDAR   # Disbanded to Calendar
+            assert s.lords["york"].status == LordStatus.CALENDAR
             assert s.lords["york"].at_sea is None
             return
     raise AssertionError("no land-roll-without-port seed found")

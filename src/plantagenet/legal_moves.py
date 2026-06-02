@@ -321,7 +321,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         for dest in state.locales:
             if dest == here:
                 continue
-            if commands._march_cost(state, here, dest, kind) is None:
+            if commands._march_cost(state, here, dest, kind, side=side) is None:
                 continue
             if owain and locs.get(dest, {}).get("region") == "wales":  # Owain Glyndwr (Y25)
                 continue

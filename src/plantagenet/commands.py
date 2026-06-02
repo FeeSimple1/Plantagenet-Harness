@@ -167,7 +167,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         or (lord.side == "lancastrian" and _active_event(state, "FORCED MARCHES")))
 
     # Determine speed/cost to the destination (4.3.3).
-    cost = _march_cost(state, here, dest, kind, roads_as_highway)
+    cost = _march_cost(state, here, dest, kind, roads_as_highway, side=lord.side)
     _require(cost is not None, "no_march_route",
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     way_kind, whole_card = cost
@@ -308,7 +308,7 @@ def _try_intercept(state: GameState, dest: str, side: str,
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str,
-                roads_as_highway: bool = False):
+                roads_as_highway: bool = False, side: str | None = None):
     """Return (way_kind, whole_card) for marching ``here``->``dest`` in one
     action, or None. Scotland marches by one-way Path to Carlisle/Bamburgh.
     ``roads_as_highway`` (Yorkists Never Wait Y11 / Forced Marches L8) lets a
@@ -326,9 +326,13 @@ def _march_cost(state: GameState, here: str, dest: str, kind: str,
         return ("highway", False)
     if "path" in ways:
         return ("path", True)
-    # Highway 2-for-1 (4.3.3): two fast Ways via an intermediate Stronghold.
+    # Highway 2-for-1 (4.3.3): two fast Ways via an intermediate Stronghold. The
+    # Lord enters the intermediate, so it cannot chain through one holding an
+    # Enemy Lord -- that would force an Approach (4.3.5) and stop there.
     for mid, t1 in _adjacency().get(here, []):
         if t1 in fast and _ways_between(mid, dest) & set(fast):
+            if side is not None and enemy_lord_at(state, mid, side):
+                continue
             return ("highway2", False)
     return None
 
@@ -608,24 +612,26 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(state.locales[target].depletion != "exhausted", "exhausted",
              f"{target} is Exhausted and may not be Taxed (4.6.3)")
 
-    auto = target == own_seat and here == own_seat
+    # 4.6.3 EXCEPTION: Taxing the Lord's own Seat succeeds automatically (no
+    # Influence check), wherever the Lord stands -- no co-location requirement.
+    auto = (target == own_seat)
+    # A Route free of Enemy Lords must still connect a remote target (4.6.3), but
+    # Tax pays NO per-Way Influence surcharge -- that surcharge is Parley-only
+    # (1.4.2). way_cost is route distance, used only for Naval Blockade, never charged.
     way_cost = 0
-    if not auto:
+    if target != here:
         has_ship = lord.assets.get("ship", 0) > 0
-        if target == here:
-            way_cost = 0
-        else:
-            gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
-            way_cost = _tax_route_cost(state, here, target, lord.side, has_ship, all_seas=gs)
-            _require(way_cost is not None, "no_route",
-                     f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
+        gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
+        way_cost = _tax_route_cost(state, here, target, lord.side, has_ship, all_seas=gs)
+        _require(way_cost is not None, "no_route",
+                 f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
 
     extra = int(action.get("extra_spend", 0))
     _require(extra in (0, 1, 3), "bad_extra_spend",
              "added Influence spend must be 0, 1, or 3 (1.4.2)")
     # Which blockaded Sea(s) (if any) does the Tax Route use (Y15)?
     used_seas: list[str] = []
-    if not auto and not (target == here) and lord.side == "lancastrian":
+    if target != here and lord.side == "lancastrian":
         blk = _live_blockade_seas(state)
         if blk:
             gs2 = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
@@ -654,8 +660,7 @@ def tax_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> di
         chk = {"success": True, "auto": True, "roll": None, "spent": 0}
     else:
         chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                        extra_spend=data["extra"], way_cost=data["way_cost"],
-                                        action="tax")
+                                        extra_spend=data["extra"], action="tax")  # no per-Way
     coin_added = 0
     if chk["success"]:
         coin_added = static_data.stronghold_yields(target).get("tax", {}).get("coin", 0)

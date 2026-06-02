@@ -201,11 +201,12 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
     return None
 
 
-def _snap(state, lords=(), locales=(), vassals=()):
+def _snap(state, lords=(), locales=(), vassals=(), decks=()):
     return {
         "lords": {x: state.lords[x].model_dump() for x in lords if x in state.lords},
         "locales": {x: state.locales[x].model_dump() for x in locales if x in state.locales},
         "vassals": {x: state.vassals[x].model_dump() for x in vassals if x in state.vassals},
+        "decks": {s: {p: list(v) for p, v in state.decks.get(s, {}).items()} for s in decks},
     }
 
 
@@ -217,6 +218,8 @@ def _restore(state, snap):
         state.locales[x] = LocaleState.model_validate(d)
     for x, d in snap.get("vassals", {}).items():
         state.vassals[x] = VassalState.model_validate(d)
+    for s, piles in snap.get("decks", {}).items():
+        state.decks[s] = {p: list(v) for p, v in piles.items()}
 
 
 def _gate_levy_cancel(state, actor_side, undo, result):
@@ -492,10 +495,12 @@ def _h_levy_transport(state: GameState, action: dict[str, Any]) -> dict[str, Any
              "Levy Transport requires the acting Lord at a Friendly Locale (3.4.5)")
     kind = action.get("transport", "cart")
     _require(kind in ("cart", "ship"), "bad_transport", "transport must be 'cart' or 'ship'")
+    undo = _snap(state, lords=[lord.lord_id])
     if kind == "cart":
         lord.assets["cart"] = lord.assets.get("cart", 0) + 2
         lord.lordship_spent += 1
-        return {"type": "levy_transport", "by_lord": lord.lord_id, "added": "2 cart"}
+        result = {"type": "levy_transport", "by_lord": lord.lord_id, "added": "2 cart"}
+        return _gate_levy_cancel(state, lord.side, undo, result)   # The King's Name (Y32)
     # Ship requirements (3.4.5)
     loc = lord_location(lord)
     at_port_or_exile = loc[0] == "exile" or static_data.load_locales()[loc[1]].get("port")
@@ -507,7 +512,8 @@ def _h_levy_transport(state: GameState, action: dict[str, Any]) -> dict[str, Any
              "a Lord may not exceed two Ships (1.7.3, 3.4.5)")
     lord.assets["ship"] = lord.assets.get("ship", 0) + 1
     lord.lordship_spent += 1
-    return {"type": "levy_transport", "by_lord": lord.lord_id, "added": "1 ship"}
+    result = {"type": "levy_transport", "by_lord": lord.lord_id, "added": "1 ship"}
+    return _gate_levy_cancel(state, lord.side, undo, result)       # The King's Name (Y32)
 
 
 # ------------------------------------------------ Levy Troops / Transport (3.4.4-.5)
@@ -641,6 +647,7 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
     new_title = cards[card_id]["capability"]["title"]
     _require(all(cards[c]["capability"]["title"] != new_title for c in lord.capabilities),
              "duplicate_capability", f"{lord.lord_id} already has a {new_title} Capability (3.4.6)")
+    undo = _snap(state, lords=[lord.lord_id], decks=[lord.side])
     lord.capabilities.append(card_id)
     # The Levied card leaves the unused pool for the Lord's mat (3.4.6): remove
     # it from any live deck pile so it cannot be drawn again.
@@ -650,8 +657,9 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
             p.remove(card_id)
     lord.lordship_spent += 1
     sv = _muster_special_vassal(state, lord, card_id)
-    return {"type": "levy_capability", "by_lord": lord.lord_id, "card": card_id,
-            "title": new_title, "special_vassal": sv}
+    result = {"type": "levy_capability", "by_lord": lord.lord_id, "card": card_id,
+              "title": new_title, "special_vassal": sv}
+    return _gate_levy_cancel(state, lord.side, undo, result)       # The King's Name (Y32)
 
 
 def _muster_special_vassal(state: GameState, lord, card_id: str) -> str | None:
