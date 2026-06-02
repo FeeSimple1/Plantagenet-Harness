@@ -312,7 +312,8 @@ def _try_intercept(state: GameState, dest: str, side: str,
                      "bad_group_member", f"{gid} is not a Friendly Lord co-located with {iid}")
             if title == "lieutenant":
                 _require(static_data.load_lords()[gid].get("title") != "marshal",
-                         "lieutenant_cannot_lead_marshal", "a Lieutenant may not lead a Marshal (4.3.1)")
+                         "lieutenant_cannot_lead_marshal",
+                         "a Lieutenant may not lead a Marshal (4.3.1)")
             movers.append(g)
     valour = ratings.rating(state, iid, "valour")
     flank = bool(decisions.get("flank_attack"))
