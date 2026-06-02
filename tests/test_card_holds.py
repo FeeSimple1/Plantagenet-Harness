@@ -119,14 +119,18 @@ def test_exile_pact_moves_lord_to_friendly_exile_box():
 
 
 def test_be_sent_for_musters_unready_lancastrian_exile():
-    s = _muster()
-    # A Lancastrian Lord far out on the Calendar (not normally Ready).
-    tgt = next(x for x, v in s.lords.items()
-               if v.side == "lancastrian" and v.status == LordStatus.CALENDAR)
-    s.lords[tgt].calendar_box = s.turn_box + 9
-    s.active_events.append({"card": "L4", "side": "lancastrian"})
-    # Without Be Sent For this would fail target_not_ready; with it, the Muster
-    # is allowed (success still depends on the Influence check).
-    r = actions.apply_action(s, {"type": "levy_lord", "side": "lancastrian",
-                                 "by_lord": "clarence", "target": tgt, "extra_spend": 3})
-    assert r["type"] in ("levy_lord", "pending_reactions")
+    # L4 Be Sent For: Muster Exiles may take an Exile-marked Lancastrian from ANY
+    # Calendar box, into its designated Exile box (3.3.1), not via Levy Lord.
+    s = _muster("henry_vi")            # has Lancastrian Exile networks
+    s.active_side = "lancastrian"
+    box_of = {lid: box for box, lids in actions._allied_networks(s).items() for lid in lids}
+    tgt = next(x for x, v in s.lords.items() if v.side == "lancastrian" and x in box_of)
+    s.lords[tgt].status = LordStatus.CALENDAR
+    s.lords[tgt].calendar_exile = True
+    s.lords[tgt].calendar_box = s.turn_box + 9          # far out -> not normally Ready
+    s.active_events.append({"card": "L4", "side": "lancastrian"})   # Be Sent For
+    r = actions.apply_action(s, {"type": "muster_exiles", "side": "lancastrian",
+                                 "lords": [tgt]})
+    assert r["type"] == "muster_exiles"
+    assert s.lords[tgt].status == LordStatus.MUSTERED
+    assert s.lords[tgt].exile_box == box_of[tgt]

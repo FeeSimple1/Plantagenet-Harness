@@ -388,12 +388,10 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     target = state.lords[target_id]
     _require(target.side == lord.side, "target_wrong_side",
              f"{target_id} is not a {lord.side} Lord")
-    be_sent_for = (lord.side == "lancastrian"
-                   and bool(ratings.event_active(state, "BE SENT FOR")))
     _require(target.status == LordStatus.CALENDAR and target.calendar_box is not None
-             and (be_sent_for or target.calendar_box <= state.turn_box), "target_not_ready",
+             and target.calendar_box <= state.turn_box, "target_not_ready",
              f"{target_id} is not Ready (cylinder on the Calendar in the current or a "
-             "lower Turn box) (3.4.2); Be Sent For (L4) Musters from anywhere")
+             "lower Turn box) (3.4.2)")
     seat = static_data.load_lords()[target_id]["seat"]
     seat_free = not enemy_lord_at(state, seat, lord.side)
     fallback = None
@@ -752,9 +750,12 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Muster (Rebel then King)")
     lord_to_box = {lid: box for box, lids in _allied_networks(state).items() for lid in lids}
+    # Be Sent For (L4): treat any Exile-marked Lancastrian on the Calendar as Ready.
+    be_sent_for = side == "lancastrian" and bool(ratings.event_active(state, "BE SENT FOR"))
     eligible = {lid for lid, ls in state.lords.items()
                 if ls.side == side and ls.status == LordStatus.CALENDAR and ls.calendar_exile
-                and ls.calendar_box is not None and ls.calendar_box <= state.turn_box
+                and ls.calendar_box is not None
+                and (be_sent_for or ls.calendar_box <= state.turn_box)
                 and lid in lord_to_box}
     targets = action.get("lords")
     _require(isinstance(targets, list) and targets, "no_lords",

@@ -75,8 +75,10 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     try:
         net = {lid for _box, lids in actions._allied_networks(state).items() for lid in lids}
         for lid, ls in state.lords.items():
+            bsf = side == "lancastrian" and ratings.event_active(state, "BE SENT FOR")
             if (ls.side == side and ls.status == LordStatus.CALENDAR and ls.calendar_exile
-                    and ls.calendar_box is not None and ls.calendar_box <= state.turn_box
+                    and ls.calendar_box is not None
+                    and (bsf or ls.calendar_box <= state.turn_box)
                     and lid in net):
                 out.append({"type": "muster_exiles", "side": side, "lords": [lid]})
     except (KeyError, AttributeError):
