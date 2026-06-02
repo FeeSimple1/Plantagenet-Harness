@@ -432,3 +432,110 @@ def test_kings_name_cancels_levy_capability_returns_card_to_deck():
     assert cand not in s.lords[lanc].capabilities
     assert any(cand in s.decks["lancastrian"].get(p, [])
                for p in ("draw", "discard", "held", "set_aside"))   # returned to deck
+
+
+# --------------------------------------------------------------------------- #
+# Battle player choices restored (collapsed-default audit, 4.4.2/4.4.3)         #
+# --------------------------------------------------------------------------- #
+class _SeqDice:
+    def __init__(self, seq):
+        self.seq = list(seq)
+        self.i = 0
+
+    def d6(self):
+        v = self.seq[self.i % len(self.seq)]
+        self.i += 1
+        return v
+
+
+def test_spoils_distributed_as_owner_chooses():
+    s = build_initial_state("henry_vi")
+    s.locales["london"].favour = "yorkist"               # Friendly -> take all (4.4.3)
+    for lid in ("york", "march"):
+        s.lords[lid].location = "london"
+        s.lords[lid].assets = {}
+    s.lords["henry_vi"].assets = {"cart": 2, "provender": 0}
+    w1 = battle._Force(s, "york")
+    w2 = battle._Force(s, "march")
+    res: dict = {}
+    battle._spoils(s, "london", [w1, w2], ["henry_vi"], res,
+                   {"march": {"cart": 2, "provender": 0}})
+    assert s.lords["march"].assets["cart"] == 2          # owner sent all to march
+    assert s.lords["york"].assets.get("cart", 0) == 0    # not the default first winner
+
+
+def test_spoils_split_must_total():
+    import pytest
+
+    from plantagenet.errors import IllegalAction
+    s = build_initial_state("henry_vi")
+    s.locales["london"].favour = "yorkist"
+    for lid in ("york", "march"):
+        s.lords[lid].location = "london"
+        s.lords[lid].assets = {}
+    s.lords["henry_vi"].assets = {"cart": 2, "provender": 0}
+    w1 = battle._Force(s, "york")
+    w2 = battle._Force(s, "march")
+    with pytest.raises(IllegalAction) as e:
+        battle._spoils(s, "london", [w1, w2], ["henry_vi"], {},
+                       {"march": {"cart": 1}})           # 1 != 2 taken
+    assert e.value.code == "bad_spoils_split"
+
+
+def test_valour_reroll_can_be_withheld_per_lord():
+    # A Lord excluded from the valour list does NOT reroll a failed Protection.
+    s = build_initial_state("henry_vi")
+    s.lords["york"].forces = {"retinue": 1}
+    f = battle._Force(s, "york")
+    f.valour = 2
+    log: list = []
+    # roll sequence would fail then "save" on reroll; with york excluded, no reroll.
+    battle._absorb_side([f], 1, _SeqDice([6, 1]), battle._ABSORB_DEFAULT,
+                        set(), log, "melee")             # valour_lords = {} -> none reroll
+    assert f.valour == 2                                 # unspent
+    assert f.routed.get("retinue", 0) == 1               # routed (no reroll)
+    assert "valour_reroll" not in log[0]
+
+
+def test_final_charge_can_be_limited_to_chosen_rounds():
+    s = build_initial_state("my_kingdom_for_a_horse")
+    rid = "richard_iii"
+    s.lords[rid].status = LordStatus.MUSTERED
+    s.lords[rid].location = "leicester"
+    s.lords[rid].capabilities = ["Y32"]                  # FINAL CHARGE
+    foe = next(lo for lo, ls in s.lords.items() if ls.side == "lancastrian")
+    s.lords[foe].status = LordStatus.MUSTERED
+    s.lords[foe].location = "leicester"
+    base = battle.resolve_battle(s, "leicester", rid, foe, {})
+    base_m = next(st for st in base["rounds"][0]["engagements"][0]["strikes"]
+                  if st["phase"] == "melee")["attacker_hits"]
+    s2 = build_initial_state("my_kingdom_for_a_horse")
+    s2.lords[rid].status = LordStatus.MUSTERED
+    s2.lords[rid].location = "leicester"
+    s2.lords[rid].capabilities = ["Y32"]
+    s2.lords[foe].status = LordStatus.MUSTERED
+    s2.lords[foe].location = "leicester"
+    # Scheduled for Round 2 only -> Round 1 melee is NOT boosted.
+    r = battle.resolve_battle(s2, "leicester", rid, foe, {"final_charge": {rid: [2]}})
+    r_m = next(st for st in r["rounds"][0]["engagements"][0]["strikes"]
+               if st["phase"] == "melee")["attacker_hits"]
+    assert r_m == base_m                                 # +3 withheld in Round 1
+
+
+def test_flank_center_tie_honours_choice():
+    # Front: attackers left/center/right (center has no opposite), defenders
+    # left+right. The center attacker, equidistant, chooses which wing to join.
+    s = build_initial_state("henry_vi")
+    ids = ("york", "march", "salisbury", "henry_vi", "somerset_1")
+    for lid in ids:
+        s.lords[lid].status = LordStatus.MUSTERED
+    forces = {lid: battle._Force(s, lid) for lid in ids}
+    positions = {"attacker": {0: "york", 1: "march", 2: "salisbury"},
+                 "defender": {0: "henry_vi", 2: "somerset_1"}}
+
+    def eng_with_march(flank):
+        engs = battle._engagements(positions, forces, {"march": flank})
+        return next(e for e in engs if "march" in e["attacker"])
+
+    assert "henry_vi" in eng_with_march("left")["defender"]      # joined the left wing
+    assert "somerset_1" in eng_with_march("right")["defender"]   # joined the right wing

@@ -283,10 +283,14 @@ class _Force:
 
 
 def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
-                 use_valour: bool, log: list, phase: str = "melee") -> None:
+                 valour_lords, log: list, phase: str = "melee") -> None:
     """Apply ``n_hits`` to a side's Forces in an Engagement: each Hit -> a
     unit (owner's priority order, across the side's Lords) -> Protection roll
     (Valour reroll) -> Rout on failure (4.4.2)."""
+    if valour_lords is True:        # tolerate a bool (legacy callers): True=all, False=none
+        valour_lords = None
+    elif valour_lords is False:
+        valour_lords = set()
     types = order + [t for f in side_forces for t in f.count if t not in order]
     for _ in range(n_hits):
         hit_force = hit_type = None
@@ -303,7 +307,8 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
         roll = dice.d6()
         saved = lo <= roll <= hi
         entry = {"lord": hit_force.lord_id, "unit": hit_type, "roll": roll}
-        if not saved and use_valour and hit_force.valour > 0:
+        if (not saved and hit_force.valour > 0
+                and (valour_lords is None or hit_force.lord_id in valour_lords)):
             hit_force.valour -= 1
             roll2 = dice.d6()
             saved = lo <= roll2 <= hi
@@ -361,7 +366,8 @@ def _reposition(positions: dict, reserves: dict, forces: dict, held=frozenset())
                     break
 
 
-def _engagements(positions: dict, forces: dict) -> list[dict]:
+def _engagements(positions: dict, forces: dict, flank_choice: dict | None = None) -> list[dict]:
+    flank_choice = flank_choice or {}
     atk = {i: lid for i, lid in positions["attacker"].items()
            if lid and not forces[lid].lord_routed}
     dfn = {i: lid for i, lid in positions["defender"].items()
@@ -377,20 +383,27 @@ def _engagements(positions: dict, forces: dict) -> list[dict]:
     def union(a, b):
         parent[find(a)] = find(b)
 
-    def target(i, enemy):
+    def target(i, enemy, chooser=None):
         if not enemy:
             return None
         if i in enemy:
             return enemy[i]
-        best = min(enemy, key=lambda j: (abs(j - i), j))   # nearest; tie -> left
-        return enemy[best]
+        dmin = min(abs(j - i) for j in enemy)
+        cands = sorted(j for j in enemy if abs(j - i) == dmin)
+        if len(cands) > 1 and chooser is not None:         # 4.4.2: center may choose L/R
+            pref = flank_choice.get(chooser)
+            if pref == "right":
+                return enemy[cands[-1]]
+            if isinstance(pref, int) and pref in enemy:
+                return enemy[pref]
+        return enemy[cands[0]]                              # default: nearest, ties -> left
 
     for i, lid in atk.items():
-        t = target(i, dfn)
+        t = target(i, dfn, lid)
         if t:
             union(lid, t)
     for i, lid in dfn.items():
-        t = target(i, atk)
+        t = target(i, atk, lid)
         if t:
             union(lid, t)
     aset = set(atk.values())
@@ -513,7 +526,13 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                  f"Flee round for {_fid} must be a Round number >= 1 (4.4.2)")
         flee_at[_fid] = _rnd
     order = decisions.get("absorb_order", _ABSORB_DEFAULT)
-    use_valour = decisions.get("valour", True)
+    # Valour rerolls are optional per Lord (4.4.2 "may"): ``valour`` may be a bool
+    # (applies to all) or a list of lord_ids permitted to reroll.
+    _vraw = decisions.get("valour", True)
+    valour_lords = (None if _vraw else set()) if isinstance(_vraw, bool) else set(_vraw)
+    engagement_order = decisions.get("engagement_order") or []   # 4.4.2: Attacker declares order
+    flank_choice = decisions.get("flank_choice", {}) or {}       # 4.4.2: center may pick L/R
+    swift_end = decisions.get("swift_maneuver_end", True)         # Y36 "if desired"
     dice = state.dice()
 
     aside = state.lords[attackers[0]].side
@@ -576,7 +595,9 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                  f"{sm_side} has no Swift Maneuver Held Event to play (Y36)")
         _use_held_event(state, sm_side, cid)
         swift = sm_side
-    final_charge = set(decisions.get("final_charge", []))
+    _fc_raw = decisions.get("final_charge", [])
+    final_charge = {lid: None for lid in _fc_raw} if isinstance(_fc_raw, (list, tuple, set)) \
+        else {lid: set(rs) for lid, rs in _fc_raw.items()}   # None = every Round
     for lid in final_charge:
         _require(lid in attackers + defenders and lid == "richard_iii"
                  and _lord_has_capability(state, lid, FINAL_CHARGE), "no_final_charge",
@@ -660,7 +681,11 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                     if lo <= dice.d6() <= hi:
                         rec += 1
                 f.routed[t] -= rec
-        engs = _engagements(positions, forces)
+        engs = _engagements(positions, forces, flank_choice)
+        if engagement_order:                               # 4.4.2: Attacker declares order
+            engs.sort(key=lambda e: min(
+                (engagement_order.index(x) for x in e["attacker"] + e["defender"]
+                 if x in engagement_order), default=len(engagement_order)))
         if n == 1 and ravine_target is not None:               # Ravine: ignore Lord Round 1
             for eng in engs:
                 eng["attacker"] = [x for x in eng["attacker"] if x != ravine_target]
@@ -687,7 +712,9 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                     if dside in caltrops and dside not in caltrops_done:
                         d_hits += 2
                         caltrops_done.add(dside)
-                    for lid in final_charge:           # Final Charge (Y32): +3 Hits, +1 self
+                    for lid, fc_rounds in final_charge.items():   # Final Charge (Y32)
+                        if fc_rounds is not None and n not in fc_rounds:
+                            continue                   # not chosen this Round (4.4.2 "may")
                         if lid in eng["attacker"]:
                             a_hits += 3
                         elif lid in eng["defender"]:
@@ -698,7 +725,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                         if fc.avail("retinue") > 0:    # Retinue suffers +1 Hit
                             lo, hi = fc.prot_range("retinue", "melee")
                             saved = lo <= dice.d6() <= hi
-                            if not saved and use_valour and fc.valour > 0:
+                            if (not saved and fc.valour > 0
+                                    and (valour_lords is None or lid in valour_lords)):
                                 fc.valour -= 1
                                 saved = lo <= dice.d6() <= hi
                             if not saved:
@@ -726,24 +754,27 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                             d_hits = ceil(d_hits / 2)
                 dlog: list = []
                 alog: list = []
-                _absorb_side(d_forces, a_hits, dice, order, use_valour, dlog, phase)
-                _absorb_side(a_forces, d_hits, dice, order, use_valour, alog, phase)
+                _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase)
+                _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase)
                 elog["strikes"].append({"phase": phase, "attacker_hits": a_hits,
                                         "defender_hits": d_hits,
                                         "defender_rolls": dlog, "attacker_rolls": alog})
             rlog["engagements"].append(elog)
-            if swift == "yorkist" and any(
+            _swift_now = swift_end is True or (
+                isinstance(swift_end, (list, tuple, set)) and n in swift_end)
+            if swift == "yorkist" and _swift_now and any(
                     forces[lid].routed.get("retinue", 0) > lanc_ret_before.get(lid, 0)
                     and forces[lid].avail("retinue") == 0
                     for lid in lanc_ret_before):
-                break                                          # Swift Maneuver: end Round
+                break                                          # Swift Maneuver: end Round (Y36)
         for f in forces.values():                              # LORD ROUT
             f.lord_routed = f.is_lord_routed()
         rounds.append(rlog)
 
     state.store_dice(dice)
     res = _ending(state, locale, forces, attackers, defenders, rounds,
-                  decisions.get("escape_ship", []), warden=warden, talbot=talbot)
+                  decisions.get("escape_ship", []), warden=warden, talbot=talbot,
+                  spoils_to=decisions.get("spoils_to"))
     if susp is not None:
         res["suspicion"] = susp
     if ftrust is not None:
@@ -762,7 +793,8 @@ def _friendly_north_stronghold(state: GameState) -> str | None:
 
 def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
             defenders: list[str], rounds: list, escape_ship: list[str],
-            *, warden: bool = False, talbot: bool = False) -> dict[str, Any]:
+            *, warden: bool = False, talbot: bool = False,
+            spoils_to: dict | None = None) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -786,7 +818,7 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
                        + len(state.lords[lid].vassals) for lid in lose_ids)
             influence.gain_influence(state, wside, gain)
             result["influence_award"] = {wside: gain}
-            _spoils(state, locale, winners, lose_ids, result)
+            _spoils(state, locale, winners, lose_ids, result, spoils_to)
     for w in winners:                                    # LOSSES (4.4.3)
         _losses(state, w, dice, result)
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
@@ -883,7 +915,7 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
 
 
 def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list[str],
-            result: dict) -> None:
+            result: dict, spoils_to: dict | None = None) -> None:
     if not winners:
         return
     fav = state.locales[locale].favour
@@ -891,7 +923,14 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
     frac = 1.0 if fav == wside else (0.5 if fav == "neutral" else 0.0)
     if frac == 0.0:
         return
-    wmat = state.lords[winners[0].lord_id].assets   # piled on the first Unrouted winner
+    win_ids = [w.lord_id for w in winners]
+    # 4.4.3: Spoils are distributed "as desired" among the Unrouted winning Lords.
+    # ``spoils_to`` ({lord: {cart, provender}}) lets the owner choose; default piles
+    # everything on the first Unrouted winner.
+    if spoils_to:
+        for lid in spoils_to:
+            _require(lid in win_ids, "bad_spoils_target",
+                     f"{lid} is not an Unrouted winning Lord (4.4.3)")
     taken = {"cart": 0, "provender": 0}
     # 4.4.3 SPOILS: at a Friendly locale take all losers' Carts/Provender; at a
     # Neutral locale total each across ALL losers and halve (round up) before
@@ -908,7 +947,15 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
             take = min(remaining, lassets.get(a, 0))
             lassets[a] = lassets.get(a, 0) - take
             remaining -= take
-        wmat[a] = wmat.get(a, 0) + move
+        if spoils_to:                                    # distribute as the owner chose
+            assigned = sum(amts.get(a, 0) for amts in spoils_to.values())
+            _require(assigned == move, "bad_spoils_split",
+                     f"Spoils split of {a} must total {move} (4.4.3)")
+            for lid, amts in spoils_to.items():
+                state.lords[lid].assets[a] = state.lords[lid].assets.get(a, 0) + amts.get(a, 0)
+        else:
+            state.lords[win_ids[0]].assets[a] = \
+                state.lords[win_ids[0]].assets.get(a, 0) + move
     result["spoils"] = taken
 
 
