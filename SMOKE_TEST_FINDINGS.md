@@ -887,3 +887,50 @@ LOW
 DATA: data_integrity now validates the grand scenario (heirs / succession
 triggers / arts_of_war_spec), which the old `sides`-only loop skipped. All
 static JSON re-verified against the references: clean, no transcription errors.
+
+## Round (2026-06-02): full rule-by-rule audit -- 20 findings fixed
+
+A complete pass over the rulebook (sections 1-6), every Arts of War card
+(Y1-Y37, L1-L37, both halves), and all scenario setups, via nine parallel
+section auditors cross-checking code against the rules/Errata. Static data
+(map/ways/seas/strongholds/forces/scenarios) re-verified CLEAN. Fixes, by area:
+
+ENGINE / RULES
+- Levy-action cap now uses EFFECTIVE Lordship (Y22/Y26/Y33 +Lordship Events).
+- Pay (3.2.1/3.2.2) covers EXILE-status Lords (Y8 Exile Pact) -- Troops + 2/box.
+- Grand-scenario Victory threshold = flat per-War value (5.2/E3-E7), not the
+  henry_vi per-turn table; wins/losses had fired at the wrong Influence.
+- Supply via Ship counts Shared Ships (4.5.2).
+- Battle: Disband Routed Vassals of Unrouted winners (4.4.3); Losses no longer
+  over-remove mat Troops when battle-local Capability Troops Rout.
+- Succession: replacement-King "as long as <Lord> remains" cards (Edward IV, E4)
+  drop on that Lord's removal (not _PERMANENT); general War Victory when a side's
+  current-War Heirs are all removed (E2); ship-levy 9-holder cap edge.
+
+CAPABILITIES / EVENTS (effect fixes)
+- Restricted single-Lord Capability eligibility via the card "Lord:" line
+  (cards.json lords==null had let any Lord Levy ~23 caps).
+- Y5 Thomas Bourchier (Friendly City only); L17 Margaret Takes the Reins /
+  L18 Council Member (Exile-box cases); Y7 (L7/L35/L37 supersession);
+  Y34 An Honest Tale (Campaign Parley incl. own-location); L14 Percy's Power
+  (Influence + Vassal Pay); L29 High Admiral (Parliament's Truce); L24/L28
+  (shared-Exile-box alternative); Escape Ship + England Is My Home (Y8) plain
+  Disband; Warden of the Marches (L16) destination/troopless-Disband.
+
+NOT-IMPLEMENTED CAPABILITIES NOW IMPLEMENTED
+- Y14/Y23 Burgundians (Handgunner deployment -- the only Handgunner source).
+- Y18 Irishmen (5 Militia in Ireland / Irish-Sea Port, no Deplete).
+- L12 Commission of Array (Levy Troops from an adjacent Friendly Stronghold).
+
+MIS-TARGETED / PROCEDURE
+- L4 Be Sent For now drives Muster Exiles (any Calendar box -> Exile box), not
+  Levy Lord. Y10 Tax Collectors follows the full Tax procedure (Influence check,
+  qualifying target, Deplete) for DOUBLE Coin. Intercept (4.3.4) may bring a
+  Group. L33 Surprise Landing requires the Lord at a Port.
+
+REMAINING (documented, low priority)
+- L33 free action not constrained to a non-Path March (consumer-enforced).
+- Somerset(1)->(2) on death enters the Calendar rather than a literal in-place
+  swap (defensible; the dead cylinder is off the map). E5 says "in place".
+
+Suite 459 -> 520; ruff clean. Commits: audit/full-rules-batch1 + batches 2-11.
