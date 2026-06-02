@@ -1046,3 +1046,21 @@ def test_burgundians_adds_handgunners_at_a_port_once():
     s2.lords["york"].capabilities = ["Y14"]
     s2.lords["york"].location = "york"
     assert commands._apply_burgundians(s2, s2.lords["york"]) == 0
+
+
+def test_y10_tax_collectors_doubles_coin_via_full_procedure():
+    # Y10: each Yorkist Lord may Tax (4.6.3) for DOUBLE Coin; own-Seat auto-succeeds.
+    from plantagenet import events, static_data
+    s = build_initial_state("henry_vi", seed=1)
+    s.lords["york"].status = LordStatus.MUSTERED
+    s.lords["york"].location = "cambridge"
+    s.lords["york"].assets = {"coin": 0}
+    base = static_data.stronghold_yields("ely")["tax"]["coin"]   # York's Seat (Ely, a City)
+    r = events._tax_collectors(s, "yorkist",
+                               {"lords": ["york"], "tax_targets": {"york": "ely"}})
+    assert r["taxes"]["york"]["coin"] == base * 2               # doubled
+    assert s.lords["york"].assets["coin"] == base * 2
+    assert s.locales["ely"].depletion == "depleted"            # the Taxed Stronghold Depletes
+    # A Lord with no valid target/route Taxes nothing (no free Coin).
+    r2 = events._tax_collectors(s, "yorkist", {"lords": ["york"], "tax_targets": {}})
+    assert r2["taxes"] == {}

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plantagenet import influence, static_data
+from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import Favour, GameState, LordStatus
 
@@ -320,20 +320,46 @@ def _tudor_banners(state, side, d):                          # L32
 
 
 def _tax_collectors(state, side, d):                         # Y10
-    sel = d.get("lords", [])
+    """Each Yorkist Lord may immediately Tax (full 4.6.3 procedure: Influence check,
+    a qualifying Stronghold reached by Route, Deplete) for DOUBLE the Coin.
+    Decisions: ``lords`` (electing Lords) and ``tax_targets`` ({lord: Stronghold})."""
+    from plantagenet import commands
+    statics = static_data.load_lords()
+    regular = static_data.load_vassals()["regular"]
+    targets = d.get("tax_targets", {})
     out = {}
-    for lid in sel:
+    for lid in d.get("lords", []):
         ls = state.lords.get(lid)
         if ls is None or ls.side != "yorkist" or ls.status != LordStatus.MUSTERED:
             continue
-        loc = ls.location
-        st = state.locales[loc]
-        if st.favour == "yorkist" and st.depletion != "exhausted":
-            coin = static_data.stronghold_yields(loc).get("tax", {}).get("coin", 0) * 2
-            ls.assets["coin"] = ls.assets.get("coin", 0) + coin
-            st.depletion = "exhausted" if st.depletion == "depleted" else "depleted"
-            out[lid] = coin
-    return {"coin_added": out}
+        here = ls.location
+        target = targets.get(lid)
+        own_seat = statics[lid]["seat"]
+        vassal_seats = {regular[v]["seat"] for v in ls.vassals if v in regular}
+        if target is None or here is None:
+            continue
+        if not (target == own_seat or target in vassal_seats
+                or target in {"london", "calais", "harlech"}):
+            continue
+        if state.locales[target].depletion == "exhausted":
+            continue
+        auto = (target == own_seat)
+        if not auto:                                  # must trace a Route and pass the check
+            gs = ratings.has_capability(state, lid, "GREAT SHIPS")
+            way = commands._tax_route_cost(state, here, target, "yorkist",
+                                           ls.assets.get("ship", 0) > 0, all_seas=gs)
+            if way is None:
+                continue
+            chk = influence.check_influence(state, lid, "yorkist", action="tax")  # no per-Way
+            if not chk["success"]:
+                out[lid] = {"target": target, "success": False}
+                continue
+        coin = static_data.stronghold_yields(target).get("tax", {}).get("coin", 0) * 2
+        ls.assets["coin"] = ls.assets.get("coin", 0) + coin
+        st = state.locales[target]
+        st.depletion = "exhausted" if st.depletion == "depleted" else "depleted"
+        out[lid] = {"target": target, "coin": coin, "success": True}
+    return {"taxes": out}
 
 
 _IMMEDIATE = {
