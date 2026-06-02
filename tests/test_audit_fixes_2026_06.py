@@ -295,3 +295,47 @@ def test_parley_event_mods_peek_does_not_consume():
     m1 = actions._parley_event_mods(s, "york", "yorkist", commit=False)
     m2 = actions._parley_event_mods(s, "york", "yorkist", commit=False)
     assert m2["used"] == m1["used"]
+
+
+# --------------------------------------------------------------------------- #
+# Battle: Flee may be declared in any Round, not only Round 1 (4.4.2)           #
+# --------------------------------------------------------------------------- #
+def _two_armies(seed):
+    s = build_initial_state("henry_vi", seed=seed)
+    s.lords["york"].location = "london"
+    s.lords["york"].forces = {"retinue": 1, "men_at_arms": 8}
+    s.lords["henry_vi"].location = "london"
+    s.lords["henry_vi"].forces = {"retinue": 1, "men_at_arms": 8}
+    return s
+
+
+def test_flee_in_a_later_round():
+    # seed 1 yields a >=2-round Battle with no early Rout.
+    s = _two_armies(1)
+    r = battle.resolve_battle(s, "london", "york", "henry_vi",
+                              {"flee_rounds": {"york": 2}})
+    assert len(r["rounds"]) >= 2
+    assert "fled" not in r["rounds"][0]                 # fought Round 1
+    assert r["rounds"][1].get("fled") == ["york"]       # fled at the start of Round 2
+
+
+def test_flee_list_still_means_round_one():
+    s = _two_armies(1)
+    r = battle.resolve_battle(s, "london", "york", "henry_vi", {"flee": ["york"]})
+    assert r["rounds"][0].get("fled") == ["york"]       # backward compatible
+
+
+def test_flee_rounds_validates_participant_and_round():
+    import pytest
+
+    from plantagenet.errors import IllegalAction
+    s = _two_armies(1)
+    with pytest.raises(IllegalAction) as e1:
+        battle.resolve_battle(s, "london", "york", "henry_vi",
+                              {"flee_rounds": {"salisbury": 2}})
+    assert e1.value.code == "bad_flee"
+    s = _two_armies(1)
+    with pytest.raises(IllegalAction) as e2:
+        battle.resolve_battle(s, "london", "york", "henry_vi",
+                              {"flee_rounds": {"york": 0}})
+    assert e2.value.code == "bad_flee_round"
