@@ -1064,3 +1064,21 @@ def test_y10_tax_collectors_doubles_coin_via_full_procedure():
     # A Lord with no valid target/route Taxes nothing (no free Coin).
     r2 = events._tax_collectors(s, "yorkist", {"lords": ["york"], "tax_targets": {}})
     assert r2["taxes"] == {}
+
+
+def test_surprise_landing_requires_active_lord_at_a_port():
+    import pytest
+
+    from plantagenet import events
+    from plantagenet.errors import IllegalAction
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")
+    s.campaign.active_lord = "york"
+    s.lords["york"].location = "ely"                  # not a Port
+    with pytest.raises(IllegalAction) as e:
+        events._hp_surprise_landing(s, "lancastrian", {})
+    assert e.value.code == "not_at_port"
+    s.lords["york"].location = "bristol"              # a Port
+    before = s.campaign.actions_remaining
+    events._hp_surprise_landing(s, "lancastrian", {})
+    assert s.campaign.actions_remaining == before + 1

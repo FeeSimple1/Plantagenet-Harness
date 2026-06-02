@@ -404,6 +404,14 @@ def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a
 
 def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, free March
     _require(state.campaign is not None, "not_campaign", "Surprise Landing is a Campaign play")
+    # "Play just after a Sail that ends at a Port (only)" (L33): the active Lord
+    # must be at a Port. (The free action should be a non-Path March -- the
+    # consumer is responsible for that constraint.)
+    alid = state.campaign.active_lord
+    al = state.lords.get(alid) if alid else None
+    _require(al is not None and al.location is not None
+             and static_data.load_locales().get(al.location, {}).get("port"),
+             "not_at_port", "Surprise Landing is played just after Sailing to a Port (L33)")
     state.campaign.actions_remaining += 1       # a free (March) action
     return {"free_action": True}
 
