@@ -339,3 +339,96 @@ def test_flee_rounds_validates_participant_and_round():
         battle.resolve_battle(s, "london", "york", "henry_vi",
                               {"flee_rounds": {"york": 0}})
     assert e2.value.code == "bad_flee_round"
+
+
+# --------------------------------------------------------------------------- #
+# Tax: no per-Way Influence surcharge (Parley-only, 1.4.2); own-Seat auto (4.6.3) #
+# --------------------------------------------------------------------------- #
+def test_tax_does_not_charge_per_way_surcharge():
+    from plantagenet import commands
+    s = build_initial_state("henry_vi")
+    # Resolve a (forced non-auto) Tax with a 3-Way route: the spend must be the
+    # base 1 Influence, NOT 1 + 3 Ways. Per-Way is a Parley-only cost (1.4.2).
+    data = {"lord": "york", "target": "ely", "auto": False, "way_cost": 3, "extra": 0}
+    r = commands.tax_finish(s, data, cancelled=False)
+    assert r["spent"] == 1
+
+
+def test_tax_own_seat_auto_without_co_location():
+    from plantagenet import actions
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")                 # York's Seat is Ely
+    s.locales["bury_st_edmunds"].favour = "yorkist"
+    s.lords["york"].location = "bury_st_edmunds"   # NOT standing on its Seat
+    track = s.influence["track"]
+    before = (track.marker_side, track.marker_at)
+    r = actions.apply_action(s, {"type": "tax", "side": "yorkist",
+                                 "by_lord": "york", "target": "ely"})
+    assert r["auto"] is True and r["spent"] == 0          # auto-success, 0 Influence
+    assert (track.marker_side, track.marker_at) == before  # nothing spent (4.6.3 exception)
+
+
+# --------------------------------------------------------------------------- #
+# Highway 2-for-1 cannot bypass an Enemy Lord at the intermediate Stronghold     #
+# --------------------------------------------------------------------------- #
+def test_highway_chain_blocked_by_enemy_at_intermediate():
+    from plantagenet import commands
+    s = build_initial_state("henry_vi")
+    # winchester -> guildford -> london is a 2-Highway chain (mid = guildford).
+    assert commands._march_cost(s, "winchester", "london", "highway",
+                                side="yorkist") == ("highway2", False)
+    # Place an Enemy (Lancastrian) Lord at the intermediate: the chain is blocked.
+    s.lords["somerset_1"].status = LordStatus.MUSTERED
+    s.lords["somerset_1"].location = "guildford"
+    assert commands._march_cost(s, "winchester", "london", "highway",
+                                side="yorkist") is None
+
+
+# --------------------------------------------------------------------------- #
+# The King's Name (Y32) can cancel Levy Transport and Levy Capability (errata)   #
+# --------------------------------------------------------------------------- #
+def _levy_setup_with_kings_name(seed=1):
+    from tests._helpers import to_muster
+    s = build_initial_state("henry_vi", seed=seed)
+    to_muster(s)
+    s.active_side = "lancastrian"
+    s.levy_step = "muster"
+    lanc = [lid for lid, ld in s.lords.items()
+            if ld.side == "lancastrian" and ld.status == LordStatus.MUSTERED][0]
+    s.lords[lanc].location = "london"
+    s.locales["london"].favour = "lancastrian"
+    s.lords[lanc].capabilities = []
+    s.lords["gloucester_1"] = LordState(lord_id="gloucester_1", side="yorkist",
+                                        status=LordStatus.MUSTERED, location="york")
+    s.active_events.append({"card": "Y32", "side": "yorkist"})   # The King's Name
+    return s, lanc
+
+
+def test_kings_name_cancels_levy_transport():
+    from plantagenet import actions
+    s, lanc = _levy_setup_with_kings_name()
+    cart0 = s.lords[lanc].assets.get("cart", 0)
+    r = actions.apply_action(s, {"type": "levy_transport", "side": "lancastrian",
+                                 "by_lord": lanc, "transport": "cart"})
+    assert r["type"] == "pending_reactions"           # Y32 window opens (was missing)
+    out = actions.apply_action(s, {"type": "react", "side": "yorkist", "play": "Y32"})
+    assert out.get("cancelled") is True
+    assert s.lords[lanc].assets.get("cart", 0) == cart0   # transport reverted
+
+
+def test_kings_name_cancels_levy_capability_returns_card_to_deck():
+    from plantagenet import actions, static_data
+    s, lanc = _levy_setup_with_kings_name()
+    cards = static_data.load_cards()
+    deck = static_data.scenario_card_deck(s.scenario, "lancastrian")
+    cand = next(cid for cid in (deck or [c for c in cards if cards[c]["side"] == "lancastrian"])
+                if actions._capability_eligible(cid, lanc)
+                and cid not in actions._capabilities_in_play(s, "lancastrian"))
+    actions.apply_action(s, {"type": "levy_capability", "side": "lancastrian",
+                             "by_lord": lanc, "card": cand})
+    assert s.pending
+    out = actions.apply_action(s, {"type": "react", "side": "yorkist", "play": "Y32"})
+    assert out.get("cancelled") is True
+    assert cand not in s.lords[lanc].capabilities
+    assert any(cand in s.decks["lancastrian"].get(p, [])
+               for p in ("draw", "discard", "held", "set_aside"))   # returned to deck
