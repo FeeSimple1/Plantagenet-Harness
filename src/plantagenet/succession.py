@@ -212,8 +212,18 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
                        forces=dict(ns.get("forces", {})), assets=dict(ns.get("assets", {})),
                        vassals=list(o.vassals), capabilities=list(o.capabilities))
     state.lords[new] = nstate
+    # ``old`` leaves play entirely (6.2): its Capabilities/Vassals/Forces now
+    # belong to ``new``'s mat, so clear them from the REMOVED Lord. Leaving them
+    # behind double-counts the cards (they later hit the discard pile while still
+    # listed on the REMOVED mat -> card_in_deck_and_on_mat).
     o.status = LordStatus.REMOVED
     o.location = None
+    o.exile_box = None
+    o.capabilities = []
+    o.vassals = []
+    o.special_vassals = []
+    o.forces = {}
+    o.assets = {}
 
 
 def _seat_in_place(state: GameState, side: str, new: str, at: dict) -> bool:
