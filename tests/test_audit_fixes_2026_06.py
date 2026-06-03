@@ -1082,3 +1082,43 @@ def test_surprise_landing_requires_active_lord_at_a_port():
     before = s.campaign.actions_remaining
     events._hp_surprise_landing(s, "lancastrian", {})
     assert s.campaign.actions_remaining == before + 1
+
+
+def test_surprise_landing_free_march_may_not_be_path():
+    import pytest
+
+    from plantagenet import actions
+    from plantagenet.errors import IllegalAction
+    from tests.test_commands import _to_campaign
+    s = _to_campaign("henry_vi")
+    s.active_side = "yorkist"
+    s.campaign.active_lord = "york"
+    s.campaign.actions_remaining = 1
+    s.lords["york"].location = "lancaster"            # only Path neighbours
+    s.locales["lancaster"].favour = "yorkist"
+    s.locales["appleby"].favour = "yorkist"
+    s.flags["surprise_march_lord"] = "york"
+    with pytest.raises(IllegalAction) as e:           # L33: the free March may not Path
+        actions.apply_action(s, {"type": "march", "side": "yorkist",
+                                 "by_lord": "york", "to": "appleby"})
+    assert e.value.code == "surprise_landing_no_path"
+    # A non-Path March is allowed and consumes the grant.
+    s.lords["york"].location = "ely"
+    s.locales["ely"].favour = "yorkist"
+    s.campaign.actions_remaining = 1
+    actions.apply_action(s, {"type": "march", "side": "yorkist",
+                             "by_lord": "york", "to": "cambridge"})   # Highway
+    assert "surprise_march_lord" not in s.flags
+
+
+def test_somerset_one_replaced_in_place_on_death():
+    # E5: any removal of Somerset (1) replaces it with Somerset (2) IN PLACE,
+    # not onto the Calendar.
+    s = build_initial_state("wars_of_the_roses")
+    s.grand_scenario["current_war"] = "war_iil"
+    s.lords["somerset_1"] = LordState(lord_id="somerset_1", side="lancastrian",
+                                      status=LordStatus.MUSTERED, location="york")
+    battle._kill_lord(s, "somerset_1")
+    s2 = s.lords["somerset_2"]
+    assert s2.status == LordStatus.MUSTERED and s2.location == "york"
+    assert s.lords["somerset_1"].status == LordStatus.REMOVED

@@ -412,7 +412,8 @@ def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, 
     _require(al is not None and al.location is not None
              and static_data.load_locales().get(al.location, {}).get("port"),
              "not_at_port", "Surprise Landing is played just after Sailing to a Port (L33)")
-    state.campaign.actions_remaining += 1       # a free (March) action
+    state.campaign.actions_remaining += 1       # a free March action ...
+    state.flags["surprise_march_lord"] = alid   # ... which may NOT be a Path (L33)
     return {"free_action": True}
 
 

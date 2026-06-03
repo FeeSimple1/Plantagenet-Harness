@@ -171,6 +171,10 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(cost is not None, "no_march_route",
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     way_kind, whole_card = cost
+    if state.flags.get("surprise_march_lord") == lord.lord_id:   # L33 Surprise Landing
+        _require(way_kind != "path", "surprise_landing_no_path",
+                 "the Surprise Landing free March may not use a Path (L33)")
+        state.flags.pop("surprise_march_lord", None)
 
     dest_has_enemy = enemy_lord_at(state, dest, lord.side)
 

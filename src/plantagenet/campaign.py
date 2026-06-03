@@ -154,6 +154,7 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(c is not None and c.step == "activation", "wrong_step", "not Activating")
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Activation")
+    state.flags.pop("surprise_march_lord", None)   # L33 grant does not carry over
     # 4.7 Feed at end of each card for BOTH sides, Rebel then King.
     feed = {s: _feed(state, s) for s in (_rebel(state), _king(state))}
     c.plan_index[side] += 1

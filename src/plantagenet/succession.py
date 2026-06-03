@@ -216,6 +216,19 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     o.location = None
 
 
+def _seat_in_place(state: GameState, side: str, new: str, at: dict) -> bool:
+    """Seat ``new`` Mustered at a captured board position (6.2 REPLACE in place)."""
+    statics = static_data.load_lords()
+    if new not in statics:
+        return False
+    ns = statics[new]
+    state.lords[new] = LordState(
+        lord_id=new, side=side, status=LordStatus.MUSTERED,
+        location=at.get("location"), exile_box=at.get("exile_box"), ring=at.get("ring"),
+        forces=dict(ns.get("forces", {})), assets=dict(ns.get("assets", {})))
+    return True
+
+
 def _add_cards(state: GameState, side: str, cards, source: str) -> None:
     for c in cards:
         _register_source(state, side, c, source)
@@ -279,7 +292,8 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------- removal
-def on_heir_removed(state: GameState, lord_id: str) -> dict[str, Any] | None:
+def on_heir_removed(state: GameState, lord_id: str,
+                    removed_at: dict | None = None) -> dict[str, Any] | None:
     """Apply Succession when ``lord_id`` is removed by Death/Shipwreck (6.2.2).
     Runs the War's structured ``on: remove`` triggers (to_calendar, deck adds),
     drops the Lord's continuous deck contributions, then falls back to the
@@ -307,9 +321,15 @@ def on_heir_removed(state: GameState, lord_id: str) -> dict[str, Any] | None:
                     explicit = True
                 rep = trig.get("replace_lord_in_place")
                 if rep:                       # the dead Lord's slot passes to the replacement
-                    _enter_calendar(state, side, rep["new"])
-                    result["succession"] = rep["new"]
-                    result["to_box"] = state.turn_box + 1
+                    at = removed_at or {}
+                    if (at.get("location") or at.get("exile_box")) and \
+                            _seat_in_place(state, side, rep["new"], at):
+                        result["succession"] = rep["new"]
+                        result["replaced_in_place"] = rep        # E5: in place, not the Calendar
+                    else:
+                        _enter_calendar(state, side, rep["new"])
+                        result["succession"] = rep["new"]
+                        result["to_box"] = state.turn_box + 1
                     explicit = True
                 for card in trig.get("add_cards_to_deck", []):
                     _register_source(state, side, card, _PERMANENT)

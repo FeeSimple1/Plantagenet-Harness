@@ -1053,12 +1053,14 @@ def _losses(state: GameState, winner: _Force, dice, result: dict) -> None:
 
 
 def _kill_lord(state: GameState, lord_id: str) -> None:
-    campaign._disband_lord(state, state.lords[lord_id])
-    state.lords[lord_id].status = LordStatus.REMOVED
-    state.lords[lord_id].calendar_box = None
+    _ld = state.lords[lord_id]
+    pre = {"location": _ld.location, "exile_box": _ld.exile_box, "ring": _ld.ring}
+    campaign._disband_lord(state, _ld)
+    _ld.status = LordStatus.REMOVED
+    _ld.calendar_box = None
     if state.grand_scenario:                    # Succession (6.2.2): next Heir enters
         from plantagenet import succession
-        succ = succession.on_heir_removed(state, lord_id)
+        succ = succession.on_heir_removed(state, lord_id, removed_at=pre)
         if succ and succ.get("automatic_victory"):
             state.victory = {"result": succ["automatic_victory"]["winner"],
                              "rule": "Automatic War Victory (6.x)"}
