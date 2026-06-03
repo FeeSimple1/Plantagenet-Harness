@@ -184,3 +184,58 @@ def test_crown_richard_clears_gloucester_mat_no_invariant_break():
     assert s.lords[g].capabilities == []
     assert cid in s.lords["richard_iii"].capabilities
     assert invariants.board_invariant_violations(s) == []
+
+
+# ------------------- Merchants clears an Exhausted marker outright (L30) ------
+def test_merchants_clears_exhausted_marker_outright():
+    """L30: 'Removal of Exhausted leaves the Stronghold neither Exhausted nor
+    Depleted' -- one removal fully clears the Stronghold (not Exhausted->Depleted)."""
+    s = _activate(_into_activation(), _lancastrian_lord())
+    lid = s.campaign.active_lord
+    here = s.lords[lid].location
+    s.locales[here].depletion = "exhausted"
+    _give_capability(s, lid, "MERCHANTS")
+    # Spend enough to make the Influence check certain, then apply.
+    r = actions.apply_action(s, {"type": "merchants", "side": "lancastrian",
+                                 "by_lord": lid, "targets": [here], "extra_spend": 3})
+    if r["success"]:
+        assert s.locales[here].depletion is None
+
+
+# ------------------- Heralds offers only own-side Calendar Lords (L4) ---------
+def test_heralds_does_not_offer_enemy_calendar_lord():
+    s = _activate(_into_activation(), _lancastrian_lord_at_port())
+    lid = s.campaign.active_lord
+    _give_capability(s, lid, "HERALDS")
+    # Force a Yorkist (enemy) Lord onto the Calendar.
+    enemy = next(cid for cid, v in s.lords.items() if v.side == "yorkist")
+    s.lords[enemy].status = LordStatus.CALENDAR
+    s.lords[enemy].location = None
+    s.lords[enemy].calendar_box = s.turn_box + 2
+    moves = legal_moves.legal_moves(s)
+    assert not [m for m in moves if m["type"] == "heralds" and m["target"] == enemy]
+
+
+# ----------- Succession replace-in-place also clears the replaced mat (6.2) ---
+def test_succession_replace_in_place_clears_old_mat():
+    """The shared _apply_replace_in_place (used by becomes_highest_heir, e.g.
+    March -> Edward IV in the grand scenario) must clear the replaced Lord's
+    mat, not just crown_richard's path."""
+    from plantagenet import invariants, static_data, succession
+    s = build_initial_state("wars_of_the_roses")
+    old, new = "march", "edward_iv"
+    s.lords[old].status = LordStatus.MUSTERED
+    s.lords[old].location = "york"
+    cards = static_data.load_cards()
+    cid = next(c for c, v in cards.items()
+               if v.get("side") == "yorkist" and v.get("capability"))
+    for pile in ("draw", "discard", "held", "set_aside"):
+        if cid in s.decks["yorkist"].get(pile, []):
+            s.decks["yorkist"][pile].remove(cid)
+    s.lords[old].capabilities = [cid]
+    assert invariants.board_invariant_violations(s) == []
+    succession._apply_replace_in_place(s, "yorkist", old, new)
+    assert s.lords[old].capabilities == []
+    assert s.lords[old].status == LordStatus.REMOVED
+    assert cid in s.lords[new].capabilities
+    assert invariants.board_invariant_violations(s) == []

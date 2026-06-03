@@ -26,7 +26,7 @@ from typing import Any
 
 from plantagenet import actions, ratings, static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus, VassalStatus
+from plantagenet.state import GameState, LordState, LordStatus, VassalStatus
 
 
 def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
@@ -291,8 +291,9 @@ def _sail_moves(state, lord_id, lord, side, from_sea, *, here, origin_at_sea):
     return moves
 
 
-def _capability_command_moves(state: GameState, side: str, lord_id: str, lord,
-                              loc) -> list[dict[str, Any]]:
+def _capability_command_moves(state: GameState, side: str, lord_id: str,
+                              lord: LordState,
+                              loc: tuple[str, str] | None) -> list[dict[str, Any]]:
     """Command actions granted by Events/Capabilities -- Exile Pact (Y8),
     Agitators (Y10), Merchants (L30), Heralds (L4). Each mirrors its handler
     pre-check so nothing offered is rejected (round-trip discipline). Exile Pact
@@ -354,7 +355,8 @@ def _capability_command_moves(state: GameState, side: str, lord_id: str, lord,
         if (ratings.has_capability(state, lord_id, "HERALDS")
                 and static_data.load_locales()[here].get("port")):
             for tid, tl in state.lords.items():
-                if tl.status == LordStatus.CALENDAR and tl.calendar_box is not None:
+                if (tl.side == side and tl.status == LordStatus.CALENDAR
+                        and tl.calendar_box is not None):
                     out.append({"type": "heralds", "side": side,
                                 "by_lord": lord_id, "target": tid})
     except (KeyError, AttributeError):

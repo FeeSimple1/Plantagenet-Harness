@@ -627,10 +627,10 @@ def merchants(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if chk["success"]:
         for t in targets[:2]:
             ls = state.locales[t]
-            if ls.depletion == "exhausted":
-                ls.depletion = "depleted"
-                removed.append(t)
-            elif ls.depletion == "depleted":
+            # Removing the Depletion marker clears the Stronghold outright --
+            # "Removal of Exhausted leaves the Stronghold neither Exhausted nor
+            # Depleted" (L30). Each removal frees one Stronghold; remove 2 if able.
+            if ls.depletion in ("exhausted", "depleted"):
                 ls.depletion = None
                 removed.append(t)
     return {"type": "merchants", "by_lord": lord.lord_id, "removed": removed, **chk}

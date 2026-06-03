@@ -133,7 +133,9 @@ def test_merchants_removes_depletion_on_success():
                                  "by_lord": lid, "targets": [lord.location],
                                  "extra_spend": 3})
     if r["success"]:
-        assert s.locales[lord.location].depletion == "depleted"
+        # Removing an Exhausted marker clears the Stronghold entirely (L30):
+        # "neither Exhausted nor Depleted".
+        assert s.locales[lord.location].depletion is None
 
 
 def test_heralds_shifts_calendar_lord_on_success():

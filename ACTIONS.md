@@ -208,13 +208,17 @@ mover that is not already Exhausted.
 
 `merchants` (L30 Capability, Warwick): {`side`, `by_lord`, `targets`,
 `extra_spend?`} — one Command action plus a successful Influence check removes up
-to two Depletion markers at/adjacent to the Lord (Exhausted→Depleted→none). The
-menu offers every maximal target set (two markers when able, else one).
+to two Depletion markers, one per Stronghold, at/adjacent to the Lord. Removing a
+marker clears the Stronghold outright: "Removal of Exhausted leaves the
+Stronghold neither Exhausted nor Depleted" (L30). The menu offers every maximal
+target set (two distinct marked Strongholds when able, else one).
 
 `heralds` (L4 Capability): {`side`, `by_lord`, `target`, `extra_spend?`} — at a
 Port, the full Command card buys an Influence check that, on success, advances a
-Lord cylinder on the Calendar to the next Turn box. Offered for each Lord on the
-Calendar while the Active Lord is at a Port.
+Lord cylinder on the Calendar to the next Turn box. The shifted Lord is the
+capability owner's own side ("typically Lancastrian, possibly marked Exile", L4),
+so the menu offers each own-side Lord on the Calendar while the Active Lord is at
+a Port.
 
 `crown_richard` (My Kingdom for a Horse, King Richard 6.2): {`side`} — the
 Yorkist player replaces a Gloucester Lord Mustered at London with Richard III in
