@@ -10,6 +10,14 @@ phantom-legal one).
 
 All Muster actions (incl. levy_capability and muster_exiles) and the
 Campaign Command actions are enumerated, each mirroring its handler check.
+This includes the Event/Capability Command actions (Y8 Exile Pact, Y10
+Agitators, L30 Merchants, L4 Heralds) and the scenario action crown_richard
+(My Kingdom for a Horse, King Richard 6.2).
+
+`concede` (6.1.1 Surrender) is deliberately NOT enumerated: its legal window
+("just before the last Heir's Death roll") is not modeled in state, so it is a
+manual-adjudication action the consumer submits as a raw action at the right
+moment (see ACTIONS.md).
 """
 
 from __future__ import annotations
@@ -83,6 +91,9 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
                 out.append({"type": "muster_exiles", "side": side, "lords": [lid]})
     except (KeyError, AttributeError):
         pass
+    # King Richard (My Kingdom for a Horse) -- offered to the Yorkist player
+    # whenever Gloucester is Mustered at London.
+    out.extend(_special_rule_moves(state, side))
     # The active side may always end its Muster segment.
     out.append({"type": "end_muster", "side": side})
     return out
@@ -231,6 +242,7 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
         moves: list[dict[str, Any]] = []
         if c.active_lord is not None and c.actions_remaining > 0:
             moves.extend(_command_moves(state, side, c.active_lord))
+        moves.extend(_special_rule_moves(state, side))   # King Richard (6.2)
         moves.append({"type": "end_activation", "side": side})
         return moves
     if c.step == "end":
@@ -279,6 +291,99 @@ def _sail_moves(state, lord_id, lord, side, from_sea, *, here, origin_at_sea):
     return moves
 
 
+def _capability_command_moves(state: GameState, side: str, lord_id: str, lord,
+                              loc) -> list[dict[str, Any]]:
+    """Command actions granted by Events/Capabilities -- Exile Pact (Y8),
+    Agitators (Y10), Merchants (L30), Heralds (L4). Each mirrors its handler
+    pre-check so nothing offered is rejected (round-trip discipline). Exile Pact
+    is available whether the Active Lord is on a Locale or at Sea; the other
+    three require the Lord at a Locale (their handlers read its location)."""
+    import itertools
+
+    from plantagenet import actions, commands
+    out: list[dict[str, Any]] = []
+
+    # Exile Pact (Y8 Event): a Yorkist Lord may enter a Friendly Exile box for
+    # free (no Influence cost), this Campaign.
+    try:
+        if side == "yorkist" and commands._active_event(state, "EXILE PACT", "yorkist"):
+            boxes = static_data.load_exile_boxes()
+            for box, align in state.exile_alignment.items():
+                if box in boxes and align == "yorkist":
+                    out.append({"type": "exile_pact", "side": side,
+                                "by_lord": lord_id, "box": box})
+    except (KeyError, AttributeError):
+        pass
+
+    if loc is None:
+        return out                       # the remaining three need a Locale
+    here = loc[1]
+
+    # Agitators (Y10 Capability): Deplete an adjacent Neutral/Enemy Stronghold,
+    # or flip a Depleted one there to Exhausted (never one already Exhausted).
+    try:
+        if ratings.has_capability(state, lord_id, "AGITATORS"):
+            for tgt, _t in actions._adjacency().get(here, []):
+                ls = state.locales.get(tgt)
+                if ls is not None and ls.favour != side and ls.depletion != "exhausted":
+                    out.append({"type": "agitators", "side": side,
+                                "by_lord": lord_id, "target": tgt})
+    except (KeyError, AttributeError):
+        pass
+
+    # Merchants (L30 Capability, Warwick): 1 Command action + Influence check
+    # removes up to 2 Depletion markers at/adjacent to the Lord (must remove 2
+    # if able, else 1). Offer every maximal target set so the menu matches the
+    # rule's "remove 2 if able".
+    try:
+        if ratings.has_capability(state, lord_id, "MERCHANTS"):
+            region = {here} | {n for n, _t in actions._adjacency().get(here, [])}
+            markers = [t for t in region
+                       if (ls := state.locales.get(t)) is not None
+                       and ls.depletion in ("depleted", "exhausted")]
+            k = min(2, len(markers))
+            for combo in itertools.combinations(sorted(markers), k) if k else ():
+                out.append({"type": "merchants", "side": side,
+                            "by_lord": lord_id, "targets": list(combo)})
+    except (KeyError, AttributeError):
+        pass
+
+    # Heralds (L4 Capability): at a Port, the full Command card buys an Influence
+    # check that advances a Lord on the Calendar to the next Turn box.
+    try:
+        if (ratings.has_capability(state, lord_id, "HERALDS")
+                and static_data.load_locales()[here].get("port")):
+            for tid, tl in state.lords.items():
+                if tl.status == LordStatus.CALENDAR and tl.calendar_box is not None:
+                    out.append({"type": "heralds", "side": side,
+                                "by_lord": lord_id, "target": tid})
+    except (KeyError, AttributeError):
+        pass
+
+    return out
+
+
+def _special_rule_moves(state: GameState, side: str) -> list[dict[str, Any]]:
+    """Scenario special-rule actions outside the normal phase palette. King
+    Richard (My Kingdom for a Horse): the Yorkist player may replace a
+    Gloucester Lord Mustered at London with Richard III, in place (6.2)."""
+    out: list[dict[str, Any]] = []
+    if side != "yorkist":
+        return out
+    try:
+        from plantagenet import campaign
+        if "King Richard" in campaign._active_special_rules(state):
+            for gid in ("gloucester_1", "gloucester_2"):
+                gl = state.lords.get(gid)
+                if (gl is not None and gl.status == LordStatus.MUSTERED
+                        and gl.location == "london"):
+                    out.append({"type": "crown_richard", "side": "yorkist"})
+                    break
+    except (KeyError, AttributeError):
+        pass
+    return out
+
+
 def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, Any]]:
     """Enumerate Command actions for the Active Lord (4.3-4.6), mirroring the
     handler pre-checks so nothing offered is rejected (round-trip discipline)."""
@@ -290,6 +395,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         if lord.at_sea is not None:           # a Lord at Sea may only Sail (4.6.1) or Pass
             out.extend(_sail_moves(state, lord_id, lord, side, lord.at_sea,
                                    here=None, origin_at_sea=True))
+        out.extend(_capability_command_moves(state, side, lord_id, lord, loc))
         return out
     kind, here = loc
     # Forage (4.6.2): any Locale not yet Exhausted (Exile boxes are foragable and
@@ -354,6 +460,10 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
                                    here=here, origin_at_sea=False))
     except (KeyError, AttributeError, IndexError):
         pass
+
+    # Event/Capability Command actions (Y8 Exile Pact, Y10 Agitators,
+    # L30 Merchants, L4 Heralds) -- none require a Friendly Locale here.
+    out.extend(_capability_command_moves(state, side, lord_id, lord, loc))
 
     if not friendly_here:
         return out

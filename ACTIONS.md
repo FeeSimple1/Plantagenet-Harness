@@ -190,5 +190,50 @@ Friendly Lords whose Ships / Carts are pooled for the capacity requirement
 `pass`, `advance_step`, and similar phase-flow actions are documented as
 the sequence of play is implemented.
 
+### Special Command / Event / Capability actions
+
+These actions are accepted by `apply_action` and are now also surfaced by
+`legal_moves` (round-trip discipline), each gated on the same pre-checks its
+handler enforces:
+
+`exile_pact` (Y8 Event): {`side`, `by_lord`, `box`} — while the Yorkist EXILE
+PACT Event is in effect, the Active Yorkist Lord enters a Friendly Exile box for
+free (no Influence cost). Offered on every Friendly Yorkist Exile box, whether
+the Lord stands at a Locale or at Sea.
+
+`agitators` (Y10 Capability): {`side`, `by_lord`, `target`} — the Active Lord
+with Agitators Depletes an adjacent Neutral/Enemy Stronghold, or flips a Depleted
+one there to Exhausted. Offered for each adjacent Stronghold not Favouring the
+mover that is not already Exhausted.
+
+`merchants` (L30 Capability, Warwick): {`side`, `by_lord`, `targets`,
+`extra_spend?`} — one Command action plus a successful Influence check removes up
+to two Depletion markers at/adjacent to the Lord (Exhausted→Depleted→none). The
+menu offers every maximal target set (two markers when able, else one).
+
+`heralds` (L4 Capability): {`side`, `by_lord`, `target`, `extra_spend?`} — at a
+Port, the full Command card buys an Influence check that, on success, advances a
+Lord cylinder on the Calendar to the next Turn box. Offered for each Lord on the
+Calendar while the Active Lord is at a Port.
+
+`crown_richard` (My Kingdom for a Horse, King Richard 6.2): {`side`} — the
+Yorkist player replaces a Gloucester Lord Mustered at London with Richard III in
+place (the new Lord inherits Gloucester's board position, Capabilities, and
+Vassals; Gloucester leaves play). Offered to the Yorkist player during its Muster
+and during Campaign activation whenever Gloucester is Mustered at London.
+
+### Manual-adjudication actions (not enumerated)
+
+`concede` (6.1.1 Surrender): {`side`} — in the grand scenario's first or second
+War, a side with an Heir still present may concede that War as the loser, so the
+consumer proceeds to Renewed War. `apply_action` validates the grand-scenario,
+War-order, and surviving-Heir conditions, but the Surrender's timing window —
+"just before the last Heir's Death roll" (6.1.1) — is **not** modeled in state.
+For that reason `concede` is intentionally **omitted from `legal_moves`** and is
+treated as a manual-adjudication action: the consumer chooses when to submit it
+as a raw action at the correct moment. Enumerating it on every step of the first
+two Wars (the only condition the engine can check) would misrepresent its legal
+window; modeling that window in state is the prerequisite for enumerating it.
+
 > **Status:** Phase 0 fixes only the envelope and this catalog skeleton.
 > No action is executable yet; the CLI `do` command is a stub.
