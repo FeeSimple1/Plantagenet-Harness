@@ -934,3 +934,13 @@ REMAINING (documented, low priority)
   swap (defensible; the dead cylinder is off the map). E5 says "in place".
 
 Suite 459 -> 520; ruff clean. Commits: audit/full-rules-batch1 + batches 2-11.
+
+## Round (2026-06-02b): closed the two documented remainders
+
+- L33 Surprise Landing free March may not use a Path (enforced in march() via a
+  per-Lord flag, consumed on a valid non-Path March, cleared at end of activation).
+- Somerset (1) -> (2) now replaces IN PLACE on removal (E5): _kill_lord captures
+  the board position and Succession re-seats the replacement Mustered there,
+  not on the Calendar (Calendar fallback only when no map/exile position exists).
+
+Suite 520 -> 522; ruff clean.
