@@ -169,6 +169,21 @@ attempts to Levy a regular Enemy Vassal in the Battle onto its own mat;
 `{"by": <lord>, "target": <vassal_id>}`; ignores Routes/Seat Favour, Salisbury's
 Vassals immune via Y17).
 
+A March or Sail move that would resolve a Battle (its `to` holds an Enemy Lord)
+is annotated by `legal_moves` with a `battle_reactions` list -- the in-Battle
+reaction windows playable in that Battle, from `reactions.available_battle_reactions`
+gated by location and capability (e.g. Warden of the Marches only in the North,
+Patrick de la Mote only with a Yorkist Culverins and Falconets present). It is
+advisory metadata for menu-driven play: `apply_action` ignores the extra key, and
+the effects are still submitted via the move's `decisions` payload.
+
+These windows are gated and consumed at their real timing (4.4.3): Warden (L16)
+and Talbot (L36) are committed only when the Death-check window actually opens --
+for a Routed Lancastrian Lord that will reach a Death roll (not one taking the
+Escape Ship, not Henry VI captured), and never under Bloody Thou Art (Y33), which
+suppresses Death checks. Patrick de la Mote (Y37) requires a Yorkist Culverins
+and Falconets in the Battle.
+
 ### Edge-case completeness (Phase 5j)
 
 `muster_exiles` (3.3.1): {`side`, `lords`} — during the Muster window, move the

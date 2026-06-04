@@ -455,6 +455,33 @@ def _held_event_moves(state: GameState, side: str) -> list[dict[str, Any]]:
     return out
 
 
+def _attach_battle_reactions(state: GameState, side: str,
+                             moves: list[dict[str, Any]]) -> None:
+    """Annotate each March/Sail move that would resolve a Battle (a destination
+    holding an Enemy Lord) with the in-Battle reaction windows that would be
+    playable there -- the catalog gated by location/capability (e.g. Warden only
+    in the North, Patrick only with Culverins). A menu-driven player can then see
+    which Held Events / Capabilities it may pass in the move's ``decisions``.
+    Advisory metadata only: apply_action ignores the extra key."""
+    from plantagenet import reactions
+    for mv in moves:
+        if mv.get("type") not in ("march", "sail"):
+            continue
+        dest = mv.get("to")
+        if dest not in state.locales or not actions.enemy_lord_at(state, dest, side):
+            continue
+        attackers = [mv["by_lord"], *mv.get("group", [])]
+        defenders = [lid for lid, ls in state.lords.items()
+                     if ls.side != side and ls.status == LordStatus.MUSTERED
+                     and ls.location == dest]
+        try:
+            av = reactions.available_battle_reactions(state, attackers, defenders, locale=dest)
+        except (KeyError, AttributeError):
+            continue
+        if av:
+            mv["battle_reactions"] = av
+
+
 def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, Any]]:
     """Enumerate Command actions for the Active Lord (4.3-4.6), mirroring the
     handler pre-checks so nothing offered is rejected (round-trip discipline)."""
@@ -599,6 +626,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
                 out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": t})
     except (KeyError, AttributeError, IndexError):
         pass
+    _attach_battle_reactions(state, side, out)
     return out
 
 

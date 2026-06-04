@@ -903,20 +903,6 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
     # consumed nor applied below.
     bloody = ("richard_iii" in win_ids
               and _lord_has_capability(state, "richard_iii", BLOODY_THOU_ART))
-    # Warden (L16) / Talbot (L36) commit only now that the Death-check window is
-    # known: never under Bloody Thou Art (Y33 suppresses the window), and only if
-    # a Routed Lancastrian Lord actually faces the check. Consuming the card here
-    # -- not at Battle setup -- is what keeps a blocked or never-opened window
-    # from discarding it for no effect.
-    routed_lanc = any(forces[lid].lord_routed
-                      and state.lords[lid].side == "lancastrian"
-                      for lid in defenders + attackers)
-    warden = warden and not bloody and routed_lanc
-    talbot = talbot and not bloody and routed_lanc
-    if warden and warden_cid is not None:
-        _use_held_event(state, "lancastrian", warden_cid)
-    if talbot and talbot_cid is not None:
-        _use_held_event(state, "lancastrian", talbot_cid)
     escaped: set[str] = set()
     used_escape_side: set[str] = set()
     if not bloody:
@@ -931,6 +917,31 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
                     _use_held_event(state, side, cid)
                     used_escape_side.add(side)
                 escaped.add(lid)
+
+    # Warden (L16) / Talbot (L36) commit only now that the Death-check window is
+    # known. They are consumed at Battle setup no longer; here, only when the
+    # window actually opens for a Routed Lancastrian Lord that will reach a Death
+    # roll -- i.e. NOT under Bloody Thou Art (Y33 suppresses the window), NOT a
+    # Lord taking the Escape Ship (4.3.5), and NOT Henry VI captured by Capture
+    # of the King. A blocked or never-opened window does not spend the card.
+    def _faces_death_check(lid: str) -> bool:
+        if bloody or lid in escaped:
+            return False
+        if (lid == "henry_vi" and win_ids
+                and state.lords[win_ids[0]].side == "yorkist"
+                and "Capture of the King" in campaign._active_special_rules(state)):
+            return False
+        return True
+    routed_lanc = any(forces[lid].lord_routed
+                      and state.lords[lid].side == "lancastrian"
+                      and _faces_death_check(lid)
+                      for lid in defenders + attackers)
+    warden = warden and routed_lanc
+    talbot = talbot and routed_lanc
+    if warden and warden_cid is not None:
+        _use_held_event(state, "lancastrian", warden_cid)
+    if talbot and talbot_cid is not None:
+        _use_held_event(state, "lancastrian", talbot_cid)
 
     deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
     for lid in defenders + attackers:                    # Defenders first

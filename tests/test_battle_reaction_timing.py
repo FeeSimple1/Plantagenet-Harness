@@ -136,3 +136,41 @@ def test_talbot_consumed_and_applied_when_lancastrian_routs():
                          talbot=True, talbot_cid="L36")
     assert foe in res.get("disbands", [])
     assert "L36" not in s.decks["lancastrian"]["held"]   # spent
+
+
+def test_talbot_not_consumed_when_only_routed_lancastrian_is_captured():
+    """Capture of the King (Scenario Ia): Henry VI is captured rather than
+    death-rolled, so Talbot's Death-check window never opens for him and the
+    card is not spent."""
+    s = build_initial_state("henry_vi")
+    _muster(s, "york", "cambridge")
+    _muster(s, "henry_vi", "cambridge")
+    s.decks["lancastrian"]["held"] = ["L36"]
+    forces = {"york": battle._Force(s, "york"), "henry_vi": battle._Force(s, "henry_vi")}
+    forces["henry_vi"].lord_routed = True
+    res = battle._ending(s, "cambridge", forces, ["york"], ["henry_vi"], [], [],
+                         talbot=True, talbot_cid="L36")
+    assert "henry_vi" in [c["lord"] for c in res.get("captured", [])]
+    assert "L36" in s.decks["lancastrian"]["held"]          # window never opened
+
+
+# ---------------- Wiring: legal_moves annotates contact marches ----------------
+def test_legal_moves_annotates_contact_march_with_gated_reactions():
+    """A March that would resolve a Battle carries the playable in-Battle
+    reaction windows, gated by location/capability (Warden only in the North)."""
+    from plantagenet import legal_moves as lm
+    s = build_initial_state("henry_vi")
+    _muster(s, "henry_vi", "newcastle")              # Lancastrian defender, North
+    s.decks["lancastrian"]["held"] = ["L16"]
+    north_move = [{"type": "march", "side": "yorkist", "by_lord": "york", "to": "newcastle"}]
+    lm._attach_battle_reactions(s, "yorkist", north_move)
+    assert "warden" in {o["effect"] for o in north_move[0].get("battle_reactions", [])}
+    # The same card is NOT advertised for a Battle outside the North.
+    _muster(s, "henry_vi", "london")
+    south_move = [{"type": "march", "side": "yorkist", "by_lord": "york", "to": "london"}]
+    lm._attach_battle_reactions(s, "yorkist", south_move)
+    assert "warden" not in {o["effect"] for o in south_move[0].get("battle_reactions", [])}
+    # A move not resolving a Battle (no enemy at the destination) is untouched.
+    quiet = [{"type": "march", "side": "yorkist", "by_lord": "york", "to": "york"}]
+    lm._attach_battle_reactions(s, "yorkist", quiet)
+    assert "battle_reactions" not in quiet[0]
