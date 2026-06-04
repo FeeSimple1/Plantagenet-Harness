@@ -261,6 +261,21 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             "intercept": intercept_log, "approach": approach}
 
 
+def _maybe_open_hold_window(state: GameState, action_type: str,
+                            movers: list[str], dest: str) -> None:
+    """Open the Hold-event timing window (1.9.1) after a qualifying March / Sail
+    that ends with mover(s) at a Port -- the trigger for Rebel Supply Depot (L28)
+    and Surprise Landing (L33). No-op if the destination is not a Port or no
+    mover actually ended there (e.g. removed in a Battle)."""
+    if not static_data.load_locales().get(dest, {}).get("port"):
+        return
+    at_port = [m for m in movers if state.lords[m].location == dest]
+    if not at_port:
+        return
+    state.hold_window = {"action": action_type, "side": state.lords[at_port[0]].side,
+                         "lords": at_port, "dest": dest}
+
+
 def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
     """Resume after the Approach reaction window (4.3.5 / Q-004)."""
     base = {"type": "march", "by_lord": data["leader"], "to": data["dest"],
@@ -285,6 +300,7 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
         _apply_burgundians(state, state.lords[mid])      # Y14/Y23 Burgundians at a Port
     base["approach"] = battle.approach(state, data["dest"], data["movers"], decisions)
     state.campaign.actions_remaining = 0
+    _maybe_open_hold_window(state, "march", data["movers"], data["dest"])
     return base
 
 
@@ -558,6 +574,7 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
         _apply_burgundians(state, m)                     # Y14/Y23 Burgundians at a Port
     out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
            "from_sea": data["from_sea"], "to_sea": data["to_sea"], "group": group}
+    _maybe_open_hold_window(state, "sail", [m.lord_id for m in movers], data["dest"])
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
         from plantagenet import battle
         out["approach"] = battle.approach(state, data["dest"],

@@ -390,10 +390,20 @@ def _use_held(state, side, cid):
 
 
 def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a Port
+    # Timing (1.9.1): only just after a qualifying March/Sail to a Port -- the
+    # Hold-event window names the mover(s). The named Lord(s) must be those movers.
+    win = state.hold_window
+    _require(win is not None and win.get("side") == side
+             and win.get("action") in ("march", "sail"),
+             "no_move_window",
+             "Rebel Supply Depot is played just after a March or Sail to a Port (L28)")
+    movers = set(win.get("lords", []))
     lids = d.get("lords", [])
     _require(lids, "no_lords", "name the Lord(s) that just reached the Port (L28)")
     locs = static_data.load_locales()
     for lid in lids:
+        _require(lid in movers, "not_mover",
+                 f"{lid} did not just March/Sail to the Port (L28)")
         ls = state.lords[lid]
         _require(ls.location and locs.get(ls.location, {}).get("port"),
                  "not_at_port", f"{lid} is not at a Port (L28)")
@@ -404,9 +414,13 @@ def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a
 
 def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, free March
     _require(state.campaign is not None, "not_campaign", "Surprise Landing is a Campaign play")
-    # "Play just after a Sail that ends at a Port (only)" (L33): the active Lord
-    # must be at a Port. (The free action should be a non-Path March -- the
-    # consumer is responsible for that constraint.)
+    # Timing (1.9.1): only just after a Sail that ends at a Port -- the Hold-event
+    # window must record a Sail for this side. (The free action should be a
+    # non-Path March -- the consumer is responsible for that constraint.)
+    win = state.hold_window
+    _require(win is not None and win.get("action") == "sail" and win.get("side") == side,
+             "no_sail_window",
+             "Surprise Landing is played just after Sailing to a Port (L33)")
     alid = state.campaign.active_lord
     al = state.lords.get(alid) if alid else None
     _require(al is not None and al.location is not None

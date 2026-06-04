@@ -154,6 +154,14 @@ def on_muster_lord(state: GameState, lord_id: str) -> dict[str, Any] | None:
                 card = spec["card"]
                 if card not in state.lords[lord_id].capabilities:
                     state.lords[lord_id].capabilities.append(card)
+                    # The mandatory Capability lives on the mat, not in a deck
+                    # pile: when the Lord re-Musters after a Disband that set the
+                    # card aside (6.2), pull it back out of any pile -- including
+                    # set_aside -- so it is not counted in both zones.
+                    _remove_from_deck(state, side, card)
+                    sa_pile = state.decks.get(side, {}).get("set_aside", [])
+                    if card in sa_pile:
+                        sa_pile.remove(card)
                 if spec.get("on_disband") == "set_aside":
                     sa = state.grand_scenario.setdefault("set_aside_on_disband", {})
                     sa.setdefault(lord_id, [])

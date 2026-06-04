@@ -169,6 +169,12 @@ class GameState(_Model):
     # play_event is legal and the Levy does not advance.
     pending_events: list[dict[str, Any]] = Field(default_factory=list)
     flags: dict[str, Any] = Field(default_factory=dict)   # scenario-level one-shot flags
+    # Transient Hold-event timing window (1.9.1), opened by a qualifying March /
+    # Sail to a Port and cleared by the next non-Held action. Lets the enumerator
+    # advertise play_held_event for L28/L33 only when legal, and lets their
+    # handlers validate timing independently. Keys: action ("march"|"sail"),
+    # side, lords (movers now at the Port), dest (the Port).
+    hold_window: dict[str, Any] | None = None
 
     # -- dice -------------------------------------------------------------
     def dice(self) -> DiceRoller:

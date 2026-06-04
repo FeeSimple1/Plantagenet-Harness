@@ -138,6 +138,11 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         result = reactions.resolve(state, action)
         state.history.append({"action": action, "result": result})
         return result
+    # The Hold-event timing window (1.9.1) lasts only until the next action; any
+    # non-Held action closes it. (``react`` returned above; it resolves a move's
+    # reaction gate before the move's window ever opens.)
+    if atype != "play_held_event":
+        state.hold_window = None
     # While immediate Events drawn during Arts of War await resolution (3.1.3),
     # only play_event is legal and the Levy does not advance.
     if state.pending_events and atype != "play_event":

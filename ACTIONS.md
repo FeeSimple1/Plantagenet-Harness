@@ -226,6 +226,35 @@ place (the new Lord inherits Gloucester's board position, Capabilities, and
 Vassals; Gloucester leaves play). Offered to the Yorkist player during its Muster
 and during Campaign activation whenever Gloucester is Mustered at London.
 
+### Own-timing Held Events (1.9.1, play_held_event)
+
+`play_held_event` plays a Held Event in one of its own-timing windows. All six
+coded cards are now advertised by `legal_moves` for the active side, each
+emitted fully-formed (decisions filled) so it is directly playable, and each
+mirroring its handler pre-check:
+
+`Y13` / `L13` Aspielles — inspect the Enemy's Held cards. Any moment; offered
+whenever held. `{card, side}`.
+
+`Y20` Yorkist Parade — `{card, side}`. Offered whenever London Favours the
+Yorkists with York or Warwick there.
+
+`Y24` Sun in Splendour — `{card, side, decisions:{target}}`. Offered during the
+Levy while Edward IV is on the Calendar/Exile; one move per Friendly Enemy-free
+Stronghold or Yorkist Exile box.
+
+`L28` Rebel Supply Depot — `{card, side, decisions:{lords}}`. Movement-triggered:
+offered only while the Hold-event timing window opened by a qualifying March or
+Sail to a Port is open; the named Lord(s) must be those movers.
+
+`L33` Surprise Landing — `{card, side}`. Offered only while the window records a
+Sail (not a March) to a Port.
+
+The Hold-event timing window (`state.hold_window`) is opened by `march_finish` /
+`sail_finish` when mover(s) end at a Port and is cleared by the next non-Held
+action; the L28/L33 handlers validate it independently, so the engine no longer
+grants those plays without a preceding qualifying Move.
+
 ### Manual-adjudication actions (not enumerated)
 
 `concede` (6.1.1 Surrender): {`side`} — in the grand scenario's first or second

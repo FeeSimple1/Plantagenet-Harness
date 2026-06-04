@@ -1074,6 +1074,10 @@ def test_surprise_landing_requires_active_lord_at_a_port():
     from tests.test_commands import _to_campaign
     s = _to_campaign("henry_vi")
     s.campaign.active_lord = "york"
+    # A valid Sail window is open; the timing precondition is met, so the test
+    # exercises the at-Port check specifically.
+    s.hold_window = {"action": "sail", "side": "lancastrian",
+                     "lords": ["york"], "dest": "bristol"}
     s.lords["york"].location = "ely"                  # not a Port
     with pytest.raises(IllegalAction) as e:
         events._hp_surprise_landing(s, "lancastrian", {})

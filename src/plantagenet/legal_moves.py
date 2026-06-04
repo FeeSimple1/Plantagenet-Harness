@@ -94,6 +94,7 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     # King Richard (My Kingdom for a Horse) -- offered to the Yorkist player
     # whenever Gloucester is Mustered at London.
     out.extend(_special_rule_moves(state, side))
+    out.extend(_held_event_moves(state, side))   # own-timing Held Events (1.9.1)
     # The active side may always end its Muster segment.
     out.append({"type": "end_muster", "side": side})
     return out
@@ -243,6 +244,7 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
         if c.active_lord is not None and c.actions_remaining > 0:
             moves.extend(_command_moves(state, side, c.active_lord))
         moves.extend(_special_rule_moves(state, side))   # King Richard (6.2)
+        moves.extend(_held_event_moves(state, side))     # Held Events (1.9.1)
         moves.append({"type": "end_activation", "side": side})
         return moves
     if c.step == "end":
@@ -383,6 +385,70 @@ def _special_rule_moves(state: GameState, side: str) -> list[dict[str, Any]]:
                     break
     except (KeyError, AttributeError):
         pass
+    return out
+
+
+def _held_event_moves(state: GameState, side: str) -> list[dict[str, Any]]:
+    """Enumerate own-timing Held Event plays (1.9.1, play_held_event) the active
+    side may make now, each emitted fully-formed (decisions filled) so it is
+    directly playable. Any-moment cards -- Aspielles (Y13/L13), Yorkist Parade
+    (Y20), Sun in Splendour (Y24) -- are offered whenever held and their own
+    preconditions hold; the movement-triggered cards -- Rebel Supply Depot (L28),
+    Surprise Landing (L33) -- only while the Hold-event window opened by a
+    qualifying March/Sail to a Port is open (mirrors each handler pre-check)."""
+    out: list[dict[str, Any]] = []
+    held = state.decks.get(side, {}).get("held", [])
+    if not held:
+        return out
+    win = state.hold_window
+
+    # Aspielles (Y13 / L13): inspect Enemy Held cards -- play at any moment.
+    for cid in ("Y13", "L13"):
+        if cid in held:
+            out.append({"type": "play_held_event", "side": side, "card": cid})
+
+    # Yorkist Parade (Y20): any time London Favours Yorkists with York/Warwick there.
+    if side == "yorkist" and "Y20" in held:
+        try:
+            york_warwick_at_london = any(
+                state.lords.get(lid) is not None
+                and state.lords[lid].status == LordStatus.MUSTERED
+                and state.lords[lid].location == "london"
+                for lid in ("york", "warwick_yorkist"))
+            if state.locales["london"].favour == "yorkist" and york_warwick_at_london:
+                out.append({"type": "play_held_event", "side": side, "card": "Y20"})
+        except (KeyError, AttributeError):
+            pass
+
+    # Sun in Splendour (Y24): any moment of the Levy, Muster Edward IV at a
+    # Friendly Enemy-free Locale / Yorkist Exile box. One move per valid target.
+    if side == "yorkist" and "Y24" in held and state.phase == "levy":
+        try:
+            ed = state.lords.get("edward_iv")
+            if ed is not None and ed.status in (LordStatus.CALENDAR, LordStatus.EXILE):
+                for box, align in state.exile_alignment.items():
+                    if align == "yorkist":
+                        out.append({"type": "play_held_event", "side": side,
+                                    "card": "Y24", "decisions": {"target": box}})
+                for tid, ls in state.locales.items():
+                    if (ls.favour == "yorkist"
+                            and not actions.enemy_lord_at(state, tid, "yorkist")):
+                        out.append({"type": "play_held_event", "side": side,
+                                    "card": "Y24", "decisions": {"target": tid}})
+        except (KeyError, AttributeError):
+            pass
+
+    # Rebel Supply Depot (L28): just after a March/Sail to a Port (window movers).
+    if ("L28" in held and win is not None and win.get("side") == side
+            and win.get("action") in ("march", "sail") and win.get("lords")):
+        out.append({"type": "play_held_event", "side": side, "card": "L28",
+                    "decisions": {"lords": list(win["lords"])}})
+
+    # Surprise Landing (L33): just after a Sail to a Port.
+    if ("L33" in held and win is not None and win.get("side") == side
+            and win.get("action") == "sail"):
+        out.append({"type": "play_held_event", "side": side, "card": "L33"})
+
     return out
 
 

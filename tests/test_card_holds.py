@@ -73,6 +73,8 @@ def test_rebel_supply_depot_grants_provender_and_skips_feed():
     lid = next(x for x, v in s.lords.items() if v.status == "mustered")
     s.lords[lid].location = "ipswich"           # a Port
     s.decks[s.lords[lid].side]["held"] = ["L28"]
+    s.hold_window = {"action": "march", "side": s.lords[lid].side,
+                     "lords": [lid], "dest": "ipswich"}   # just Marched to the Port
     prov = s.lords[lid].assets.get("provender", 0)
     actions.apply_action(s, {"type": "play_held_event", "card": "L28",
                                  "side": s.lords[lid].side, "decisions": {"lords": [lid]}})

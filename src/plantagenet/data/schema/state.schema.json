@@ -656,6 +656,19 @@
       "additionalProperties": true,
       "title": "Flags",
       "type": "object"
+    },
+    "hold_window": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hold Window"
     }
   },
   "required": [
