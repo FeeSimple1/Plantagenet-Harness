@@ -283,11 +283,29 @@ _BATTLE_CAPS = {"CULVERINS AND FALCONETS": {"effect": "culverins", "window": "ev
                                             "priority": 15}}
 
 
-def available_battle_reactions(state, attackers, defenders):
+def _battle_reaction_applicable(state, effect, side, attackers, defenders, locale) -> bool:
+    """Condition-gate a declared battle reaction so the catalog never advertises a
+    card that could not take effect: Warden of the Marches (L16) only at a Battle
+    in the North; Patrick de la Mote (Y37) only with a Yorkist Culverins and
+    Falconets in the Battle. Other windows are unconditional at Battle entry."""
+    if effect == "warden":
+        if locale is None:
+            return False                        # location unknown -> cannot confirm North
+        return static_data.load_locales().get(locale, {}).get("region") == "north"
+    if effect == "patrick":
+        from plantagenet import battle
+        return any(battle._lord_has_capability(state, lid, battle.CULVERINS)
+                   for lid in list(attackers) + list(defenders)
+                   if state.lords[lid].side == "yorkist")
+    return True
+
+
+def available_battle_reactions(state, attackers, defenders, locale=None):
     """List the in-Battle reaction windows currently playable (1.9.1): Held
     Events in each participating side's held pile and battle Capabilities on the
     participating Lords' mats, ordered by window then priority. Declarative --
-    resolve_battle still applies the effects via its ``decisions`` payload."""
+    resolve_battle still applies the effects via its ``decisions`` payload.
+    ``locale`` enables location-gated windows (e.g. Warden of the Marches)."""
     cards = static_data.load_cards()
     sides = {state.lords[a].side for a in attackers} | {state.lords[d].side for d in defenders}
     out = []
@@ -297,8 +315,10 @@ def available_battle_reactions(state, attackers, defenders):
             for k, meta in BATTLE_REACTIONS.items():
                 if meta["kind"] == "held" and cards.get(k, {}).get("event", {}).get(
                         "title") == title:
-                    out.append({"side": side, "card": cid, **{m: meta[m] for m in
-                                ("effect", "window", "priority")}})
+                    if _battle_reaction_applicable(state, meta["effect"], side,
+                                                   attackers, defenders, locale):
+                        out.append({"side": side, "card": cid, **{m: meta[m] for m in
+                                    ("effect", "window", "priority")}})
                     break
     for lid in list(attackers) + list(defenders):
         for cid in state.lords[lid].capabilities:

@@ -647,20 +647,32 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         cid = _side_held_event(state, "yorkist", PATRICK)
         _require(cid is not None, "no_patrick",
                  "Yorkist has no Patrick de la Mote Held Event to play (Y37)")
+        _require(any(_lord_has_capability(state, lid, CULVERINS)
+                     for lid in attackers + defenders
+                     if state.lords[lid].side == "yorkist"),
+                 "no_culverins_for_patrick",
+                 "Patrick de la Mote enhances a Yorkist Culverins and Falconets that "
+                 "is in the Battle (Y37)")
         _use_held_event(state, "yorkist", cid)
         patrick = True
-    warden = talbot = None
-    if decisions.get("warden"):                 # L16 Event (consumed in _ending)
-        cid = _side_held_event(state, "lancastrian", WARDEN)
-        _require(cid is not None, "no_warden",
+    # Warden (L16) / Talbot (L36) are "upon Death check" cards (4.4.3): validated
+    # now, but CONSUMED only when the Death-check window actually opens (below).
+    # A window suppressed by Bloody Thou Art (Y33) or that never opens (no Routed
+    # Lancastrian) must not burn the card. Warden is legal only in the North.
+    warden = talbot = False
+    warden_cid = talbot_cid = None
+    if decisions.get("warden"):
+        warden_cid = _side_held_event(state, "lancastrian", WARDEN)
+        _require(warden_cid is not None, "no_warden",
                  "Lancastrian has no Warden of the Marches Held Event (L16)")
-        _use_held_event(state, "lancastrian", cid)
+        _require(static_data.load_locales().get(locale, {}).get("region") == "north",
+                 "warden_not_north",
+                 "Warden of the Marches is played only upon a Death check in the North (L16)")
         warden = True
-    if decisions.get("talbot"):                 # L36 Event (consumed in _ending)
-        cid = _side_held_event(state, "lancastrian", TALBOT)
-        _require(cid is not None, "no_talbot",
+    if decisions.get("talbot"):
+        talbot_cid = _side_held_event(state, "lancastrian", TALBOT)
+        _require(talbot_cid is not None, "no_talbot",
                  "Lancastrian has no Talbot to the Rescue Held Event (L36)")
-        _use_held_event(state, "lancastrian", cid)
         talbot = True
 
     forces = {lid: _Force(state, lid) for lid in attackers + defenders}
@@ -827,6 +839,7 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     state.store_dice(dice)
     res = _ending(state, locale, forces, attackers, defenders, rounds,
                   decisions.get("escape_ship", []), warden=warden, talbot=talbot,
+                  warden_cid=warden_cid, talbot_cid=talbot_cid,
                   spoils_to=decisions.get("spoils_to"))
     if susp is not None:
         res["suspicion"] = susp
@@ -847,6 +860,7 @@ def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> 
 def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
             defenders: list[str], rounds: list, escape_ship: list[str],
             *, warden: bool = False, talbot: bool = False,
+            warden_cid: str | None = None, talbot_cid: str | None = None,
             spoils_to: dict | None = None) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
@@ -889,6 +903,20 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
     # consumed nor applied below.
     bloody = ("richard_iii" in win_ids
               and _lord_has_capability(state, "richard_iii", BLOODY_THOU_ART))
+    # Warden (L16) / Talbot (L36) commit only now that the Death-check window is
+    # known: never under Bloody Thou Art (Y33 suppresses the window), and only if
+    # a Routed Lancastrian Lord actually faces the check. Consuming the card here
+    # -- not at Battle setup -- is what keeps a blocked or never-opened window
+    # from discarding it for no effect.
+    routed_lanc = any(forces[lid].lord_routed
+                      and state.lords[lid].side == "lancastrian"
+                      for lid in defenders + attackers)
+    warden = warden and not bloody and routed_lanc
+    talbot = talbot and not bloody and routed_lanc
+    if warden and warden_cid is not None:
+        _use_held_event(state, "lancastrian", warden_cid)
+    if talbot and talbot_cid is not None:
+        _use_held_event(state, "lancastrian", talbot_cid)
     escaped: set[str] = set()
     used_escape_side: set[str] = set()
     if not bloody:
