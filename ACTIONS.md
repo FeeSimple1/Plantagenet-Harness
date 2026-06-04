@@ -198,8 +198,11 @@ handler enforces:
 
 `exile_pact` (Y8 Event): {`side`, `by_lord`, `box`} — while the Yorkist EXILE
 PACT Event is in effect, the Active Yorkist Lord enters a Friendly Exile box for
-free (no Influence cost). Offered on every Friendly Yorkist Exile box, whether
-the Lord stands at a Locale or at Sea.
+free (no Influence cost). Offered on every Friendly Yorkist Exile box the Lord
+does not already occupy, whether the Lord stands at a Locale or at Sea; entering
+the box clears every other position field (location / at_sea / Calendar / captor)
+so the Lord is never recorded in two places, and re-entering the box it already
+occupies is rejected as a no-op (`already_in_box`).
 
 `agitators` (Y10 Capability): {`side`, `by_lord`, `target`} — the Active Lord
 with Agitators Depletes an adjacent Neutral/Enemy Stronghold, or flips a Depleted

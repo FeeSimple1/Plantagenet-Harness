@@ -87,6 +87,17 @@ def lord_status_violations(state: GameState) -> list[dict[str, Any]]:
             out.append({"kind": "exile_no_box", "lord": lid})
         elif st == LordStatus.CAPTURED and ls.captured_by is None:
             out.append({"kind": "captured_no_holder", "lord": lid})
+        # A Lord occupies exactly one position: at most one of these mutually
+        # exclusive "where" fields may be set. (A Lord Mustered in an Exile box
+        # uses exile_box alone; one on the map uses location alone; one at Sea
+        # uses at_sea alone; etc.) Two at once -- e.g. an Exiled Lord still
+        # carrying at_sea -- is an impossible dual location.
+        occupied = [f for f in ("location", "exile_box", "at_sea",
+                                "calendar_box", "captured_by")
+                    if getattr(ls, f) is not None]
+        if len(occupied) > 1:
+            out.append({"kind": "incompatible_position", "lord": lid,
+                        "fields": occupied})
     return out
 
 

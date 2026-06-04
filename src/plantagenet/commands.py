@@ -598,9 +598,17 @@ def exile_pact(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(box in boxes, "bad_box", f"{box!r} is not an Exile box (Y8)")
     _require(state.exile_alignment.get(box) == "yorkist", "not_friendly_box",
              f"{box} is not a Friendly Exile box (Y8)")
+    _require(not (lord.status == LordStatus.EXILE and lord.exile_box == box),
+             "already_in_box", f"{lord.lord_id} is already in Exile box {box} (Y8 no-op)")
     lord.status = LordStatus.EXILE
     lord.exile_box = box
+    # The Lord now occupies exactly the Exile box: clear every other position
+    # field so it is never recorded in two places at once.
     lord.location = None
+    lord.at_sea = None
+    lord.calendar_box = None
+    lord.calendar_exile = False
+    lord.captured_by = None
     state.campaign.actions_remaining -= 1
     return {"type": "exile_pact", "by_lord": lord.lord_id, "box": box}
 

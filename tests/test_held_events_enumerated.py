@@ -172,6 +172,7 @@ def test_remustered_lord_capability_not_left_in_set_aside_pile():
     # Re-Muster: L26 returns to the mat AND leaves the set_aside pile.
     s.lords["margaret"].status = LordStatus.MUSTERED
     s.lords["margaret"].location = here
+    s.lords["margaret"].calendar_box = None      # as _h_levy_lord clears on Muster
     succession.on_muster_lord(s, "margaret")
     assert "L26" in s.lords["margaret"].capabilities
     assert "L26" not in s.decks["lancastrian"]["set_aside"]

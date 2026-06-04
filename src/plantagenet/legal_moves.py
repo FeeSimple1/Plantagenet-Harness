@@ -312,9 +312,12 @@ def _capability_command_moves(state: GameState, side: str, lord_id: str,
         if side == "yorkist" and commands._active_event(state, "EXILE PACT", "yorkist"):
             boxes = static_data.load_exile_boxes()
             for box, align in state.exile_alignment.items():
-                if box in boxes and align == "yorkist":
-                    out.append({"type": "exile_pact", "side": side,
-                                "by_lord": lord_id, "box": box})
+                if box not in boxes or align != "yorkist":
+                    continue
+                if lord.status == LordStatus.EXILE and lord.exile_box == box:
+                    continue          # already in this box -- a no-op (suppress)
+                out.append({"type": "exile_pact", "side": side,
+                            "by_lord": lord_id, "box": box})
     except (KeyError, AttributeError):
         pass
 
