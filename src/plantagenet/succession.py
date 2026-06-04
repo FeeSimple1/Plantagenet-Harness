@@ -206,27 +206,50 @@ def _mark_fired(state: GameState, key: str) -> None:
         f.append(key)
 
 
+def _rewrite_lord_refs(state: GameState, old: str, new: str) -> None:
+    """REPLACE (Scenario Ref): swap Command-card references from ``old`` to
+    ``new`` wherever they sit -- the side's already-built Plan stack and the
+    Active-Lord pointer -- so a replacement is reflected in an in-progress
+    Campaign rather than leaving dangling references to the removed Lord."""
+    c = state.campaign
+    if c is None:
+        return
+    for plan in c.plans.values():
+        for entry in plan:
+            if entry.get("lord") == old:
+                entry["lord"] = new
+    if c.active_lord == old:
+        c.active_lord = new
+
+
 def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> None:
-    """Replace Lord ``old`` with ``new`` in the same position (6.2): ``new`` takes
-    ``old``'s status/location, ``old`` leaves play. ``new`` uses its own ratings."""
+    """REPLACE a living Lord ``old`` with ``new`` in place (Scenario Ref REPLACE):
+    the new Lord card takes over the SAME mat -- Forces, Assets, Capabilities,
+    Vassals -- and the cylinder's position, using its own ratings. Command-card
+    references (including in that side's Plan stack) follow; ``old`` leaves play."""
     statics = static_data.load_lords()
     o = state.lords.get(old)
     if o is None or new not in statics:
         return
-    ns = statics[new]
     nstate = LordState(lord_id=new, side=side, status=o.status, location=o.location,
                        exile_box=o.exile_box, calendar_box=o.calendar_box,
-                       calendar_exile=o.calendar_exile, ring=o.ring,
-                       forces=dict(ns.get("forces", {})), assets=dict(ns.get("assets", {})),
-                       vassals=list(o.vassals), capabilities=list(o.capabilities))
+                       calendar_exile=o.calendar_exile, at_sea=o.at_sea,
+                       captured_by=o.captured_by, ring=o.ring,
+                       forces=dict(o.forces), assets=dict(o.assets),
+                       vassals=list(o.vassals), special_vassals=list(o.special_vassals),
+                       capabilities=list(o.capabilities))
     state.lords[new] = nstate
-    # ``old`` leaves play entirely (6.2): its Capabilities/Vassals/Forces now
-    # belong to ``new``'s mat, so clear them from the REMOVED Lord. Leaving them
-    # behind double-counts the cards (they later hit the discard pile while still
-    # listed on the REMOVED mat -> card_in_deck_and_on_mat).
+    _rewrite_lord_refs(state, old, new)
+    # ``old`` leaves play entirely: its mat now belongs to ``new``, so clear
+    # every field on the REMOVED Lord (leaving Capabilities behind would
+    # double-count the cards -> card_in_deck_and_on_mat).
     o.status = LordStatus.REMOVED
     o.location = None
     o.exile_box = None
+    o.at_sea = None
+    o.calendar_box = None
+    o.calendar_exile = False
+    o.captured_by = None
     o.capabilities = []
     o.vassals = []
     o.special_vassals = []
@@ -338,16 +361,27 @@ def on_heir_removed(state: GameState, lord_id: str,
                     result["to_box"] = state.turn_box + 1
                     explicit = True
                 rep = trig.get("replace_lord_in_place")
-                if rep:                       # the dead Lord's slot passes to the replacement
+                if rep:                       # the removed Lord's slot passes to the replacement
+                    from plantagenet.actions import enemy_lord_at
                     at = removed_at or {}
-                    if (at.get("location") or at.get("exile_box")) and \
+                    loc = at.get("location")
+                    # "In place" only when the position is still tenable: a Lord
+                    # removed in a lost Battle leaves the victor holding the Locale,
+                    # so seating the replacement there would illegally co-locate
+                    # opposing Lords. In that case -- and whenever there is no board
+                    # position -- the replacement enters the Calendar (E5/REPLACE).
+                    seat_ok = bool(loc) and not enemy_lord_at(state, loc, side)
+                    if (seat_ok or at.get("exile_box")) and \
                             _seat_in_place(state, side, rep["new"], at):
                         result["succession"] = rep["new"]
-                        result["replaced_in_place"] = rep        # E5: in place, not the Calendar
+                        result["replaced_in_place"] = rep        # E5: in place
                     else:
                         _enter_calendar(state, side, rep["new"])
                         result["succession"] = rep["new"]
                         result["to_box"] = state.turn_box + 1
+                    # Swap Command-card refs (incl. the Plan stack) regardless of
+                    # where the replacement landed.
+                    _rewrite_lord_refs(state, rep["old"], rep["new"])
                     explicit = True
                 for card in trig.get("add_cards_to_deck", []):
                     _register_source(state, side, card, _PERMANENT)
