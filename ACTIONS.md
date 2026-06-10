@@ -200,6 +200,12 @@ Asset Sharing (1.5.3): `sail` and `supply` accept a `share` list of co-located
 Friendly Lords whose Ships / Carts are pooled for the capacity requirement
 (used, never transferred).
 
+`resolve_battle` (battle-only scenarios, e.g. Bosworth): `{decisions?}` — resolves
+the single set-piece Battle and sets the scenario result (winner wins; all-Rout is
+a draw). The Rebel side Arrays as Attacker, the King side as Defender (4.2);
+`decisions` flows into `resolve_battle` for Array / Capability / Valour choices.
+`legal_moves` offers it as the only move while `phase=="battle"`.
+
 ### System / flow actions
 
 `pass`, `advance_step`, and similar phase-flow actions are documented as

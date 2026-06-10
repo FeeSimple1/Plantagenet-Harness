@@ -101,6 +101,8 @@ def build_plan(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         lid = entry.get("lord")
         _require(lid in state.lords and state.lords[lid].side == side, "bad_plan_lord",
                  f"{lid!r} is not a {side} Lord")
+        _require(state.lords[lid].status == LordStatus.MUSTERED, "plan_lord_not_in_play",
+                 f"{lid} is not Mustered -- a Plan is built from Lords in play (4.1)")
         per_lord[lid] = per_lord.get(lid, 0) + 1
         _require(per_lord[lid] <= 3, "too_many_activations",
                  f"each Lord has only three Command cards (4.1.1): {lid}")
@@ -358,6 +360,31 @@ def ready_vassals(state: GameState) -> list[str]:
 
 
 # ----------------------------------------------------------------- 4.7 Feed
+def _co_located_group(state: GameState, lord) -> list:
+    """Friendly Mustered Lords sharing ``lord``'s position (same Locale or Exile
+    box), the Lord itself first -- the Sharing group for Assets (1.5.3)."""
+    pos = (lord.location, lord.exile_box)
+    if pos == (None, None):
+        return [lord]
+    group = [lord]
+    for m in state.lords.values():
+        if (m is not lord and m.side == lord.side and m.status == LordStatus.MUSTERED
+                and (m.location, m.exile_box) == pos):
+            group.append(m)
+    return group
+
+
+def _drain_provender(group: list, amount: int) -> None:
+    """Remove ``amount`` Provender from a co-located group (Sharing, 1.5.3),
+    drawing from the first Lord's mat before its allies'."""
+    for m in group:
+        if amount <= 0:
+            break
+        take = min(m.assets.get("provender", 0), amount)
+        m.assets["provender"] = m.assets.get("provender", 0) - take
+        amount -= take
+
+
 def _feed(state: GameState, side: str) -> dict[str, Any]:
     """Moved-Fought Lords remove 1 Provender per 6 Troops, rounded up (4.7).
     A Lord short on Provender Pillages its Locale (if an Unexhausted
@@ -374,15 +401,18 @@ def _feed(state: GameState, side: str) -> dict[str, Any]:
             fed.append({"lord": lid, "skipped": "rebel_supply_depot"})
             continue
         need = -(-_troop_count(lord) // 6)  # ceil(troops / 6)
-        have = lord.assets.get("provender", 0)
+        # Sharing (1.5.3): a Lord Feeds from the Provender of all Friendly Lords
+        # at its Locale, not just its own mat.
+        group = _co_located_group(state, lord)
+        have = sum(m.assets.get("provender", 0) for m in group)
         if have < need:
             loc = _lord_locale(lord)
             if (loc is not None and loc[0] == "stronghold"
                     and state.locales[loc[1]].depletion != "exhausted"):
                 _pillage(state, lord, loc[1])
-                have = lord.assets.get("provender", 0)
+                have = sum(m.assets.get("provender", 0) for m in group)
         spend = min(need, have)
-        lord.assets["provender"] = have - spend
+        _drain_provender(group, spend)   # own mat first, then co-located allies
         if spend < need:   # still Unfed -> Disband, with Influence penalty (3.2.1)
             inf = static_data.load_lords()[lid]["ratings"]["influence"]
             penalty = inf + len(lord.vassals)
@@ -741,7 +771,8 @@ def _waste(state: GameState) -> None:
 
 
 def _reset_to_next_levy(state: GameState) -> None:
-    state.active_events = [e for e in state.active_events if e.get("scope") != "this_campaign"]
+    from plantagenet.events import expire_scope
+    expire_scope(state, "this_campaign")  # discard expired This-Campaign Event cards (no leak)
     state.turn_box += 1
     state.phase = "levy"
     # A rolled-over Turn begins at the Arts of War draw (3.1), then Pay (3.2),

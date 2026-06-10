@@ -55,6 +55,8 @@ def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
 def legal_moves(state: GameState) -> list[dict[str, Any]]:
     if state.phase == "over":
         return []
+    if state.phase == "battle":           # battle-only scenario (e.g. Bosworth)
+        return [] if state.victory is not None else [{"type": "resolve_battle"}]
     if state.pending:                 # a reaction window is open: only react/pass
         return _reaction_moves(state)
     if state.pending_events:          # drawn immediate Events await resolution (3.1.3)
@@ -182,7 +184,11 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
             in_play = actions._capabilities_in_play(state, side)
             held_titles = {cards[c]["capability"]["title"] for c in lord.capabilities}
             deck = static_data.scenario_card_deck(state.scenario, side)
-            pool = deck or [c for c in cards if cards[c]["side"] == side]
+            if deck:
+                pool = deck
+            else:                        # grand scenario: only cards live this War
+                pool = [c for pile in ("draw", "discard", "held", "set_aside")
+                        for c in state.decks.get(side, {}).get(pile, [])]
             for cid in pool:
                 if (cid not in in_play and actions._capability_eligible(cid, lord_id)
                         and cards[cid]["capability"]["title"] not in held_titles):
@@ -314,7 +320,8 @@ def _capability_command_moves(state: GameState, side: str, lord_id: str,
             for box, align in state.exile_alignment.items():
                 if box not in boxes or align != "yorkist":
                     continue
-                if lord.status == LordStatus.EXILE and lord.exile_box == box:
+                if (lord.status == LordStatus.MUSTERED and lord.exile_box == box
+                        and lord.location is None):
                     continue          # already in this box -- a no-op (suppress)
                 out.append({"type": "exile_pact", "side": side,
                             "by_lord": lord_id, "box": box})

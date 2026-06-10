@@ -644,11 +644,16 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 
 def _capabilities_in_play(state: GameState, side: str) -> set[str]:
-    """Card ids whose Capability is currently on one of ``side``'s Lord mats."""
+    """Card ids whose Capability is unavailable to Levy now: those on one of
+    ``side``'s Lord mats, plus any card whose This-Levy / This-Campaign Event is
+    currently in force ("the card's Capability is unavailable that turn")."""
     out: set[str] = set()
     for v in state.lords.values():
         if v.side == side:
             out.update(v.capabilities)
+    for e in state.active_events:
+        if e.get("side") == side and e.get("card"):
+            out.add(e["card"])
     return out
 
 
@@ -688,6 +693,11 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
     deck = static_data.scenario_card_deck(state.scenario, lord.side)
     _require(not deck or card_id in deck, "card_not_in_scenario",
              f"{card_id} is not in this scenario's deck (6.0)")
+    if not deck:                         # grand scenario: decks are Succession-built
+        live = {c for pile in ("draw", "discard", "held", "set_aside")
+                for c in state.decks.get(lord.side, {}).get(pile, [])}
+        _require(card_id in live, "card_not_available",
+                 f"{card_id} is not in the {lord.side} deck this War (6.2)")
     _require(card_id not in _capabilities_in_play(state, lord.side), "card_in_play",
              f"{card_id} is already in play (3.4.6)")
     _require(_capability_eligible(card_id, lord.lord_id), "ineligible_lord",
@@ -843,8 +853,39 @@ def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.active_side = king
         return {"type": "end_muster", "next": "king_muster"}
     state.levy_step = "done"
-    state.active_events = [e for e in state.active_events if e.get("scope") != "this_levy"]
+    from plantagenet.events import expire_scope
+    expire_scope(state, "this_levy")     # discard expired This-Levy Event cards (no leak)
     return {"type": "end_muster", "next": "levy_complete"}
+
+
+def _h_resolve_battle(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Resolve the single Battle of a battle-only scenario (e.g. Bosworth) and
+    set the scenario result: the winner of the Battle wins; an all-Rout result is
+    a draw (Bosworth special rule "Victory"). The Rebel side Arrays as the
+    Attacker, the King side as the Defender (4.2); ``decisions`` flows straight
+    into ``resolve_battle`` for Array / Capability / Valour choices."""
+    _require(state.phase == "battle", "not_battle_scenario",
+             "resolve_battle applies only to a battle-only scenario")
+    _require(state.victory is None, "already_resolved", "the Battle is already resolved")
+    rebel = next((sd for sd, r in state.roles.items() if r == "rebel"), None)
+    king = next((sd for sd, r in state.roles.items() if r == "king"), None)
+    attackers = [lid for lid, v in state.lords.items()
+                 if v.side == rebel and v.status == LordStatus.MUSTERED]
+    defenders = [lid for lid, v in state.lords.items()
+                 if v.side == king and v.status == LordStatus.MUSTERED]
+    _require(attackers and defenders, "no_combatants", "both sides need Mustered Lords")
+    scn = static_data.load_scenario(state.scenario)
+    locale = scn.get("battle_locale", "leicester")
+    for lid in attackers + defenders:                 # Arrayed at the Battle Locale
+        state.lords[lid].location = locale
+    from plantagenet import battle
+    res = battle.resolve_battle(state, locale, attackers, defenders,
+                                action.get("decisions", {}))
+    winner = res.get("winner_side")
+    state.victory = ({"result": winner, "rule": "battle-only scenario Victory"}
+                     if winner else {"result": None, "rule": "draw -- all Lords Rout"})
+    state.phase = "over"
+    return {"type": "resolve_battle", "winner": winner, **res}
 
 
 def _campaign_handler(name):
@@ -889,6 +930,7 @@ _HANDLERS = {
     "muster_exiles": _h_muster_exiles,
     "concede": _h_concede,
     "crown_richard": _h_crown_richard,
+    "resolve_battle": _h_resolve_battle,
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),

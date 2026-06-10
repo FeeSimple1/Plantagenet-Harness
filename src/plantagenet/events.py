@@ -260,7 +260,19 @@ def _welsh_rebellion(state, side, d):                        # L25
                     ls.forces[t] -= 1
                     taken += 1
             removed[lid] = taken
-        return {"troops_removed": removed}
+        # "If left without Troops, that Lord Disbands (1.6, 3.2.4)" (L25). Troops
+        # are wooden units; a Lord with only a Retinue (and Vassals) has none.
+        from plantagenet import campaign
+        troop_units = {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners"}
+        disbanded = []
+        for lid, ls in yorkist_in_wales:
+            if not any(ls.forces.get(t, 0) > 0 for t in troop_units):
+                campaign._disband_lord(state, ls)
+                disbanded.append(lid)
+        out = {"troops_removed": removed}
+        if disbanded:
+            out["disbanded"] = disbanded
+        return out
     n = 0
     for loc in wales:
         if n >= 2:
@@ -291,14 +303,33 @@ def _to_wilful_disobedience(state, side, d):                 # L29
 
 
 def _robins_rebellion(state, side, d):                       # L31
+    """L31 ROBIN'S REBELLION: the playing side may, in the North only, remove the
+    Enemy's Favour (-> neutral) and/or place its OWN Favour on a *neutral*
+    Stronghold -- up to 3 markers total. It may not place the Enemy's Favour, nor
+    flip an Enemy Stronghold straight to its own (that is two marker actions)."""
     north = set(_region_locales("north"))
+    enemy = "yorkist" if side == "lancastrian" else "lancastrian"
+    neutral = Favour.NEUTRAL.value
     ops = d.get("favour", [])             # [{locale, side|"neutral"}]
     _require(len(ops) <= 3, "too_many", "Robin's Rebellion places/removes up to 3 Favour (L31)")
     done = []
     for op in ops:
         loc = op["locale"]
         _require(loc in north, "not_north", f"{loc} is not in the North (L31)")
-        state.locales[loc].favour = op.get("side", Favour.NEUTRAL.value)
+        target = op.get("side", neutral)
+        cur = state.locales[loc].favour
+        cur = cur.value if hasattr(cur, "value") else cur
+        if target in (neutral, "neutral"):           # remove Enemy Favour
+            _require(cur == enemy, "not_enemy_favour",
+                     f"{loc} does not hold {enemy} Favour to remove (L31)")
+        elif target == side:                          # place own Favour on a neutral
+            _require(cur in (neutral, "neutral"), "not_neutral",
+                     f"{loc} is not neutral -- place Favour only on neutral Strongholds (L31)")
+        else:                                         # placing Enemy Favour is illegal
+            _require(False, "bad_favour_side",
+                     "Robin's Rebellion may only remove Enemy Favour or place your own (L31)")
+        state.locales[loc].favour = (Favour.NEUTRAL if target in (neutral, "neutral")
+                                     else Favour(side))
         done.append(op)
     return {"changes": done}
 
@@ -387,6 +418,26 @@ def _use_held(state, side, cid):
     if cid in held:
         held.remove(cid)
     state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
+
+
+def expire_scope(state, scope: str) -> list:
+    """Remove active Events of ``scope`` ("this_levy"/"this_campaign") and
+    DISCARD any whose card is not already in a pile. A drawn This-Levy/This-
+    Campaign Event lives only in ``active_events``; without this it would vanish
+    from the game when the scope ends, silently shrinking the side's deck."""
+    expired = [e for e in state.active_events if e.get("scope") == scope]
+    state.active_events = [e for e in state.active_events if e.get("scope") != scope]
+    discarded = []
+    for e in expired:
+        cid = e.get("card")
+        sd = e.get("side")
+        if not cid or not sd:
+            continue
+        piles = state.decks.setdefault(sd, {"draw": [], "discard": [], "held": []})
+        if not any(cid in piles.get(p, []) for p in ("draw", "discard", "held", "set_aside")):
+            piles.setdefault("discard", []).append(cid)
+            discarded.append(cid)
+    return discarded
 
 
 def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a Port

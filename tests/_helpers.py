@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from plantagenet import actions
-from plantagenet.state import VassalStatus
+from plantagenet.state import LordStatus, VassalStatus
 
 
 def fill_event_decisions(state, card, side):
@@ -19,6 +19,9 @@ def fill_event_decisions(state, card, side):
               if v.status == VassalStatus.MUSTERED and v.on_lord is not None
               and state.lords.get(v.on_lord) is not None
               and state.lords[v.on_lord].side == "yorkist"]
+        for ld in state.lords.values():         # Special Vassals count too (handler parity)
+            if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED:
+                av.extend(ld.special_vassals)
         return {"vassals": av[:min(2, len(av))]}
     return {}
 

@@ -134,6 +134,14 @@ def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> Gam
 
     # ---- Vassals ----
     vassals = _build_vassals(setup, vassals_static)
+    # A regular Vassal set up on a Lord's mat (e.g. Fauconberg on March at Towton)
+    # must also appear in that Lord's ``.vassals`` list -- the book every Vassal
+    # mechanic reads (Battle Array unit, Exile/Unfed +1-per-Vassal penalties,
+    # Vassal disbands, Tax via the Vassal's Seat).
+    for _vid, _vs in vassals.items():
+        if (_vs.status == VassalStatus.MUSTERED and _vs.on_lord
+                and _vs.on_lord in lords and _vid not in lords[_vs.on_lord].vassals):
+            lords[_vs.on_lord].vassals.append(_vid)
 
     # ---- Locales / Favour ----
     locales: dict[str, LocaleState] = {lid: LocaleState() for lid in locales_static}

@@ -33,7 +33,7 @@ def test_exile_pact_from_sea_clears_at_sea():
     actions.apply_action(s, {"type": "exile_pact", "side": "yorkist",
                              "by_lord": lid, "box": "scotland"})
     lord = s.lords[lid]
-    assert lord.status == LordStatus.EXILE
+    assert lord.status == LordStatus.MUSTERED      # Mustered in the Exile box, not stranded
     assert lord.exile_box == "scotland"
     assert lord.at_sea is None            # no longer "in the English Channel"
     assert lord.location is None
@@ -47,7 +47,7 @@ def test_invariant_flags_incompatible_position():
     s, lid = _yorkist_at_sea_with_pact()
     lord = s.lords[lid]
     # Hand-build the impossible state the old handler produced.
-    lord.status = LordStatus.EXILE
+    lord.status = LordStatus.MUSTERED
     lord.exile_box = "scotland"
     lord.at_sea = "english_channel"       # still recorded at Sea -> impossible
     viol = [v for v in invariants.lord_status_violations(s)

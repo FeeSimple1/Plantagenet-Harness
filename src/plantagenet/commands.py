@@ -598,9 +598,14 @@ def exile_pact(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(box in boxes, "bad_box", f"{box!r} is not an Exile box (Y8)")
     _require(state.exile_alignment.get(box) == "yorkist", "not_friendly_box",
              f"{box} is not a Friendly Exile box (Y8)")
-    _require(not (lord.status == LordStatus.EXILE and lord.exile_box == box),
+    _require(not (lord.status == LordStatus.MUSTERED and lord.exile_box == box
+                 and lord.location is None),
              "already_in_box", f"{lord.lord_id} is already in Exile box {box} (Y8 no-op)")
-    lord.status = LordStatus.EXILE
+    # A Lord in an Exile box is Mustered there (Reference: "Each Mustered ... Lord,
+    # even Exile box"; "All on-map ... Lords, including Exile boxes"). Using a dead
+    # -end EXILE status stranded the Lord; MUSTERED lets it later Sail/act and keeps
+    # it on-map for scoring, matching muster_exiles. Y8: "no effect on Assets/Vassals".
+    lord.status = LordStatus.MUSTERED
     lord.exile_box = box
     # The Lord now occupies exactly the Exile box: clear every other position
     # field so it is never recorded in two places at once.

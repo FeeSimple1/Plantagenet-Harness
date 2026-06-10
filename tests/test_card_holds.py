@@ -117,7 +117,10 @@ def test_exile_pact_moves_lord_to_friendly_exile_box():
     r = actions.apply_action(s, {"type": "exile_pact", "side": "yorkist",
                                  "by_lord": lid, "box": box})
     assert r["box"] == box
-    assert s.lords[lid].status == LordStatus.EXILE and s.lords[lid].exile_box == box
+    # A Lord placed in an Exile box is Mustered there (Reference: Exile-box Lords
+    # are Mustered), not a dead-end EXILE status.
+    assert s.lords[lid].status == LordStatus.MUSTERED and s.lords[lid].exile_box == box
+    assert s.lords[lid].location is None
 
 
 def test_be_sent_for_musters_unready_lancastrian_exile():
