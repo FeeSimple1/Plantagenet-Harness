@@ -247,7 +247,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                         and ls.side != lord.side]
         ctx = {"approaching_side": lord.side, "dest": dest, "target_lords": target_lords}
         finish_data = {"movers": [m.lord_id for m in movers], "leader": lord.lord_id,
-                       "origin": here, "dest": dest, "way": way_kind,
+                       "origin": here, "origin_kind": kind, "dest": dest, "way": way_kind,
                        "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
                        "intercept": intercept_log, "decisions": decisions}
         from plantagenet import reactions
@@ -286,7 +286,15 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
         # March's movers are not marked Moved/Fought; the Command card ends.
         for mid in data["movers"]:
             m = state.lords[mid]
-            m.location = data["origin"]
+            # Restore the pre-March position. An Exile-box origin must go back to
+            # ``exile_box`` (not ``location``, which is for Strongholds) -- else the
+            # Lord is recorded "at" a box id that is not a Locale.
+            if data.get("origin_kind") == "exile":
+                m.exile_box = data["origin"]
+                m.location = None
+            else:
+                m.location = data["origin"]
+                m.exile_box = None
             m.moved_fought = False
         state.campaign.actions_remaining = 0
         base["approach"] = None

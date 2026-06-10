@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus
+from plantagenet.state import GameState, LordStatus, VassalStatus
 
 
 def _pending_approach_dests(state: GameState) -> set[str]:
@@ -98,6 +98,11 @@ def lord_status_violations(state: GameState) -> list[dict[str, Any]]:
         if len(occupied) > 1:
             out.append({"kind": "incompatible_position", "lord": lid,
                         "fields": occupied})
+        # ``location`` is a Stronghold/Locale id; an Exile box belongs in
+        # ``exile_box``. A box id (or any non-Locale) in ``location`` is corrupt.
+        if ls.location is not None and ls.location not in state.locales:
+            out.append({"kind": "location_not_a_locale", "lord": lid,
+                        "location": ls.location})
     return out
 
 
@@ -121,6 +126,25 @@ def card_zone_violations(state: GameState) -> list[dict[str, Any]]:
     return out
 
 
+def vassal_book_violations(state: GameState) -> list[dict[str, Any]]:
+    """The two Vassal books must agree: a Mustered regular Vassal's ``on_lord``
+    names the Lord whose ``.vassals`` list includes it, and every id in a Lord's
+    ``.vassals`` is a regular Vassal Mustered on that Lord. (Special Vassals live
+    in ``.special_vassals`` and are exempt.)"""
+    out: list[dict[str, Any]] = []
+    for vid, vs in state.vassals.items():
+        if vs.status == VassalStatus.MUSTERED and vs.on_lord is not None:
+            ld = state.lords.get(vs.on_lord)
+            if ld is None or vid not in ld.vassals:
+                out.append({"kind": "vassal_orphan", "vassal": vid, "on_lord": vs.on_lord})
+    for lid, ls in state.lords.items():
+        for vid in ls.vassals:
+            vs = state.vassals.get(vid)
+            if vs is None or vs.on_lord != lid:
+                out.append({"kind": "vassal_book_mismatch", "lord": lid, "vassal": vid})
+    return out
+
+
 def board_invariant_violations(state: GameState) -> list[dict[str, Any]]:
     """All always-on invariants as one flat list of ``{kind, ...}`` (advisory
     §3). Empty == the board is in a legal configuration."""
@@ -128,4 +152,5 @@ def board_invariant_violations(state: GameState) -> list[dict[str, Any]]:
     out += influence_violations(state)
     out += lord_status_violations(state)
     out += card_zone_violations(state)
+    out += vassal_book_violations(state)
     return out

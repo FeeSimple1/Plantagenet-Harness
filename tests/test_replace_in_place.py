@@ -83,3 +83,19 @@ def test_replacement_seats_in_place_when_locale_is_enemy_free():
     assert s2.status == LordStatus.MUSTERED and s2.location == "wells"
     assert not [v for v in invariants.board_invariant_violations(s)
                 if v["kind"] == "co_location"]
+
+
+# In-place replacement re-points carried Vassals' on_lord to the new Lord.
+def test_replacement_repoints_vassal_on_lord():
+    from plantagenet import invariants, succession
+    from plantagenet.scenarios import build_initial_state
+    from plantagenet.state import VassalStatus
+    s = build_initial_state("wars_of_the_roses", seed=1)
+    vid = "beaumont"
+    s.lords["march"].vassals = [vid]
+    s.vassals[vid].status = VassalStatus.MUSTERED
+    s.vassals[vid].on_lord = "march"
+    succession._apply_replace_in_place(s, "yorkist", "march", "edward_iv")
+    assert vid in s.lords["edward_iv"].vassals
+    assert s.vassals[vid].on_lord == "edward_iv"     # book re-pointed
+    assert not [v for v in invariants.vassal_book_violations(s)]

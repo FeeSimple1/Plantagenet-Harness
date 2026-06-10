@@ -239,6 +239,13 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
                        vassals=list(o.vassals), special_vassals=list(o.special_vassals),
                        capabilities=list(o.capabilities))
     state.lords[new] = nstate
+    # Regular Vassals carried to the new mat must point at the new Lord, or the
+    # Vassal book (state.vassals[...].on_lord) and the Lord's .vassals list
+    # disagree (one names the REMOVED Lord).
+    for _vid in nstate.vassals:
+        _vs = state.vassals.get(_vid)
+        if _vs is not None and _vs.on_lord == old:
+            _vs.on_lord = new
     _rewrite_lord_refs(state, old, new)
     # ``old`` leaves play entirely: its mat now belongs to ``new``, so clear
     # every field on the REMOVED Lord (leaving Capabilities behind would

@@ -150,3 +150,43 @@ def test_build_plan_rejects_non_mustered_lord():
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "build_plan", "side": "yorkist", "plan": plan})
     assert e.value.code == "plan_lord_not_in_play"
+
+
+# 11. A cancelled March from an Exile box restores the box, not location=<box id>.
+def test_march_cancel_from_exile_box_restores_box():
+    from plantagenet import commands, invariants
+    from plantagenet.state import CampaignState
+    s = build_initial_state("wars_of_the_roses", seed=1)
+    lid = "somerset_1"
+    s.campaign = CampaignState(step="activation", cards_required=2, active_lord=lid,
+                               actions_remaining=1)
+    # Mid-March state: the Lord has left the scotland Exile box for a Stronghold.
+    s.lords[lid].status = LordStatus.MUSTERED
+    s.lords[lid].location = "carlisle"
+    s.lords[lid].exile_box = None
+    data = {"movers": [lid], "leader": lid, "origin": "scotland", "origin_kind": "exile",
+            "dest": "carlisle", "way": "road", "group": [], "whole_card": False,
+            "intercept": None, "decisions": {}}
+    commands.march_finish(s, data, cancelled=True)         # Parliament's Truce cancel
+    assert s.lords[lid].exile_box == "scotland"
+    assert s.lords[lid].location is None
+    assert not [v for v in invariants.lord_status_violations(s) if v["lord"] == lid]
+
+
+# 12. A cancelled March from a Stronghold still restores location (no regression).
+def test_march_cancel_from_stronghold_restores_location():
+    from plantagenet import commands
+    from plantagenet.state import CampaignState
+    s = build_initial_state("wars_of_the_roses", seed=1)
+    lid = "somerset_1"
+    s.campaign = CampaignState(step="activation", cards_required=2, active_lord=lid,
+                               actions_remaining=1)
+    s.lords[lid].status = LordStatus.MUSTERED
+    s.lords[lid].location = "carlisle"
+    s.lords[lid].exile_box = None
+    data = {"movers": [lid], "leader": lid, "origin": "york", "origin_kind": "stronghold",
+            "dest": "carlisle", "way": "road", "group": [], "whole_card": False,
+            "intercept": None, "decisions": {}}
+    commands.march_finish(s, data, cancelled=True)
+    assert s.lords[lid].location == "york"
+    assert s.lords[lid].exile_box is None
