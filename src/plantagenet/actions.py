@@ -834,6 +834,7 @@ def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "the conceding side has no Heir still present to surrender (6.1.1)")
     winner = other_side(side)
     state.victory = {"result": winner, "rule": "6.1.1 Surrender", "conceded_by": side}
+    state.phase = "over"            # the conceded War ends at once (6.1.1 -> 6.1.2)
     return {"type": "concede", "side": side, "winner": winner, "rule": "6.1.1"}
 
 

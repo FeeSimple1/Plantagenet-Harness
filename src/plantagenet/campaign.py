@@ -648,7 +648,11 @@ def _victory_check(state: GameState) -> dict[str, Any] | None:
     if state.turn_box >= (state.calendar.last_box or state.turn_box):
         li, yi = _side_influence(state, "lancastrian"), _side_influence(state, "yorkist")
         if li == yi:
-            return {"result": "draw", "rule": "5.3"}
+            # Errata & Clarification FAQ #5: if a scenario is Tied (Influence
+            # at 0) at Scenario End, victory goes to the King's side -- not a
+            # draw. (Also keeps a grand-scenario War transitionable via 6.1.)
+            return {"result": _king(state), "rule": "5.3",
+                    "tie_break": "FAQ #5: tie goes to the King's side"}
         return {"result": "lancastrian" if li > yi else "yorkist", "rule": "5.3"}
     return None
 

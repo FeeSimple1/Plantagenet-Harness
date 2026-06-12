@@ -944,3 +944,29 @@ Suite 459 -> 520; ruff clean. Commits: audit/full-rules-batch1 + batches 2-11.
   not on the Calendar (Calendar fallback only when no map/exile position exists).
 
 Suite 520 -> 522; ruff clean.
+
+## Round (2026-06-11): grand-scenario playthroughs -- 5.3 tie-break + Surrender end
+
+Full `wars_of_the_roses` playthroughs (random, survival-biased, and
+battle-seeking policies; per-step `validated_legal_moves` + board invariants)
+ran clean through all Renewed-War transitions, but probing the War-end paths
+play rarely reaches surfaced two rules bugs, both fixed:
+
+1. **Scenario End tie went to a draw instead of the King (Errata FAQ #5).**
+   `campaign._victory_check` 5.3 returned `draw` when Influence was tied at
+   the final Victory check. Errata & Clarification FAQ #5: "If a scenario is
+   Tied (IP at 0 at end of scenario), victory goes to the King." Worse in the
+   grand scenario: the "draw" was indecisive, so `renew_war` refused the
+   transition and a tied War I/II silently ended the entire Wars of the Roses.
+   Fix: 5.3 tie now resolves to the King's side (with a `tie_break` note in
+   the victory dict). Towton's Test of Arms keeps its explicit no-Favour draw,
+   and the 5.1 both-sides-wiped draw is unchanged.
+2. **Surrender (6.1.1) did not end the conceded War.** `concede` set
+   `state.victory` but left `phase` at levy/campaign, so the menu kept
+   offering moves and play could continue after the concession (and a later
+   victory check could overwrite the surrender result). Fix: `concede` sets
+   `phase = "over"`; `legal_moves` then returns nothing and the consumer
+   proceeds straight to Renewed War (6.1.2).
+
+New regression tests in `tests/test_playthrough_findings_2026_06.py` (5).
+580 pass.
