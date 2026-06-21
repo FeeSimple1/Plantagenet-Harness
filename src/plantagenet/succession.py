@@ -79,7 +79,15 @@ def _sources(state: GameState) -> dict[str, dict[str, list[str]]]:
 
 def _deck_has(state: GameState, side: str, card: str) -> bool:
     d = state.decks.get(side, {})
-    return any(card in d.get(p, []) for p in _DECK_PILES)
+    if any(card in d.get(p, []) for p in _DECK_PILES):
+        return True
+    # One-zone invariant: a card already deployed as a Capability on a Friendly
+    # Lord's mat is in play and must not be duplicated back into the deck (the
+    # card_in_deck_and_on_mat invariant). A succession's while_king/count ADDs
+    # re-register cards that may currently sit on a mat (e.g. Y20 Yorkist Parade);
+    # without this guard _add_to_deck would clone them into the draw pile.
+    return any(card in ls.capabilities
+               for ls in state.lords.values() if ls.side == side)
 
 
 def _add_to_deck(state: GameState, side: str, card: str) -> None:

@@ -612,6 +612,8 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     regroup_lord = regroup_round = None
     rg = decisions.get("regroup")
     if rg:
+        _require(isinstance(rg, dict) and rg.get("lord"), "bad_regroup",
+                 "Regroup decision must be a mapping {'lord': <id>, 'round': <n>} (4.4.2)")
         regroup_lord = rg["lord"]
         regroup_round = rg.get("round", 2)
         _require(regroup_lord in attackers + defenders, "bad_regroup",

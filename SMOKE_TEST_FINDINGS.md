@@ -970,3 +970,39 @@ play rarely reaches surfaced two rules bugs, both fixed:
 
 New regression tests in `tests/test_playthrough_findings_2026_06.py` (5).
 580 pass.
+
+## Round (2026-06-21): bug-finding gauntlet -- battle decision fuzz + mass sweeps
+
+Built two reusable harnesses (`scripts/sweep_harness.py`, `scripts/battle_fuzz.py`)
+and ran the gauntlet the prior round called for: a competent scripted player
+(random / survival / aggressor / plan-order-fuzz policies) over ~950 full
+`wars_of_the_roses` games plus the five standalone scenarios, with per-step board
+invariants; and a dedicated battle decision-payload fuzzer (~14k fuzzed battles)
+that resolves each fuzzed battle FULLY on a fork -- IllegalAction anywhere =
+illegal combo (discard), any other exception or a post-resolution invariant break
+= bug. Probing on `model_copy(deep=True)` is exact (the RNG lives in the state).
+
+Mass normal play was clean (0 crashes / over-enumerations / invariant breaks);
+the fuzzer surfaced two real bugs, both fixed:
+
+1. **Malformed battle `regroup` decision crashed with a raw `TypeError`.**
+   `battle.resolve_battle` expects `{"regroup": {"lord": <id>, "round": <n>}}`
+   (4.4.2) and did `rg["lord"]` unconditionally, so a wrong-shaped value (a bare
+   Lord-id string, or a dict missing "lord") raised `TypeError: string indices
+   must be integers` / `KeyError` instead of the graceful `IllegalAction` the
+   rest of the file uses. An agent-facing harness must reject bad payloads
+   descriptively, never crash. Fix: validate `isinstance(rg, dict) and
+   rg.get("lord")` -> `IllegalAction("bad_regroup")`. (An empty dict stays a
+   legitimate no-op via the existing `if rg:` guard.)
+2. **Succession deck-ADD cloned a mat Capability into the draw pile**
+   (`card_in_deck_and_on_mat`). A battle that changes a side's Heir fires
+   `succession._recompute`, re-registering while_king / count-threshold cards via
+   `_add_to_deck`. Its `_deck_has` guard checked only deck piles, not Lords'
+   mats, so a card already deployed as a Capability (surfaced with Y20 Yorkist
+   Parade on rutland's mat) was duplicated into `draw`, breaking the one-zone
+   invariant the engine relies on (cf. the `on_muster_lord` "not counted in both
+   zones" note). Fix: `_deck_has` now also treats a card on any Friendly Lord's
+   mat as in play, so `_add_to_deck` won't clone it.
+
+New regression tests in `tests/test_fuzz_findings_2026_06b.py` (6). 580 -> 586
+pass; ruff clean.
