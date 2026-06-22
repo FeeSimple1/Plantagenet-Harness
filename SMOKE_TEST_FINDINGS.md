@@ -1037,3 +1037,41 @@ unobservable when `marker_at == 0`.
 
 Suite 586 -> 598 (+6 fuzz regressions earlier, +2 property, +12 influence-branch
 ... net 580 -> 598 across both 06-21 rounds); ruff clean.
+
+## Round (2026-06-21c): mutation testing across the engine
+
+Built a coverage-guided mutation harness (`scripts/mutation_cov.py`): record
+per-test line coverage once (`pytest --cov-context=test`), then for each mutant
+run only the tests that execute the mutated line (a test that never runs the line
+cannot kill it). Sound and far faster than a blind suite re-run. Hardened against
+the sandbox's hard wall-clock kills: atomic source writes (temp + os.replace),
+git-restore of the target on startup, and PYTHONDONTWRITEBYTECODE in the test
+subprocess (a killed run had left a stale mutant .pyc that briefly poisoned the
+suite). Budgeted (`--max-seconds`) and resumable (`--resume`).
+
+Fully swept (mutants killed / total):
+- influence.py  32/32  (100%)  -- 1.4.2 Influence check
+- invariants.py 45/45  (100%)
+- arts_of_war.py 27/27 (100%)
+- ratings.py    77/78  (98.7%) -- lone survivor is an equivalent defensive
+  `or`-guard in _loc (crashes only on a nonexistent lord id, never reached)
+
+Gaps found and closed (real, not equivalent):
+- influence.py: the success rule (crit/fumble/roll<=rating), spend formula and
+  _RATING_BONUS map were only ever exercised at rating 5, masking every branch.
+  -> tests/test_influence_check_branches.py (12).
+- ratings.py: the card-capability rating BONUSES -- exact values and the
+  "... or in the same Exile box as <Lord>" alternative clauses (Y5, Y20, Y22,
+  Y26, L11, L13, L20, L24, L28) plus the active-Event modifiers (Y14/Y35/Y20/
+  Y22/Y33) -- were largely unasserted; a wrong +1/+2 on a card is a rules bug.
+  -> tests/test_capability_rating_bonuses.py (14).
+
+Not yet swept (the harness is resumable; run offline):
+- battle, commands, actions, campaign, legal_moves, events, scenarios,
+  succession, reactions, pay (~2,500 of ~2,982 sites). pay had a partial run
+  with boundary survivors (e.g. pool>=need at L138) left open. These behaviour-
+  heavy modules are exercised hard by the integration suite (full-game smoke +
+  the sweeps), so their kill rates are expected to be high; confirming that and
+  closing any stragglers is the remaining work.
+
+Suite 600 -> 614; ruff clean.

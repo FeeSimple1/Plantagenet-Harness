@@ -28,3 +28,6 @@ htmlcov/
 # mutation-testing scratch
 mutants/
 .mutmut-cache
+
+# CI workflow added manually (PAT lacks workflow scope)
+.github/workflows/ci.yml

@@ -16,7 +16,8 @@ scenario all play end-to-end through the agent-facing interface.
 - `scripts/battle_fuzz.py` — battle decision-payload fuzzer that resolves each
   fuzzed battle on a fork (sound crash / invariant oracle).
 - Property-based conservation tests (`tests/test_property_conservation.py`).
-- Mutation-testing harness (`scripts/mutation_probe.py`); a baseline run on
+- Mutation-testing harnesses (`scripts/mutation_probe.py` and the coverage-
+  guided `scripts/mutation_cov.py`); sweeps on
   `influence.py` killed 31/32 mutants (the 1 survivor is an equivalent mutant)
   and surfaced an Influence-check branch-coverage gap, now closed...
 - GitHub Actions CI (ruff + pytest on a Python 3.10–3.12 matrix).

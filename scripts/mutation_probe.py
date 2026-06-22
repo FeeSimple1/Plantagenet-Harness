@@ -22,8 +22,10 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 _CMP_SWAP = {
@@ -80,9 +82,10 @@ def _mutate(src: str, target_counter: int) -> str:
 def _run_tests(tests: list[str], timeout: int) -> bool:
     """True if the suite PASSES (mutation survived); False if it fails (killed)."""
     try:
-        r = subprocess.run([sys.executable, "-m", "pytest", "-q", "-x",
+        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        r = subprocess.run([sys.executable, "-B", "-m", "pytest", "-q", "-x",
                             "-p", "no:cacheprovider", "--no-header", *tests],
-                           cwd=str(Path.cwd()), capture_output=True, timeout=timeout)
+                           cwd=str(Path.cwd()), capture_output=True, timeout=timeout, env=env)
         return r.returncode == 0
     except subprocess.TimeoutExpired:
         return False        # a hang (e.g. mutated loop bound) counts as killed
@@ -98,6 +101,10 @@ def main():
     ap.add_argument("--end", type=int, default=10**9)
     ap.add_argument("--timeout", type=int, default=120)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--max-seconds", type=float, default=1e9,
+                    help="stop after this wall-clock budget; resume via --out")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip sites already recorded in --out")
     args = ap.parse_args()
 
     path = Path(args.target)
@@ -105,10 +112,24 @@ def main():
     sites = _collect_sites(ast.parse(original))
     verify = args.verify_tests or args.tests
     end = min(args.end, len(sites))
+    done = set()
+    if args.resume and args.out and Path(args.out).exists():
+        for line in Path(args.out).read_text().splitlines():
+            try:
+                done.add(json.loads(line)["site"])
+            except Exception:
+                pass
+    t0 = time.time()
+    stopped_at = None
     killed = survived = errored = 0
     survivors = []
     try:
         for k, desc in [(c, d) for c, d in sites][args.start:end]:
+            if k in done:
+                continue
+            if time.time() - t0 > args.max_seconds:
+                stopped_at = k
+                break
             try:
                 mutated = _mutate(original, k)
             except Exception:             # unparse/parse hiccup -> skip site
@@ -133,6 +154,8 @@ def main():
     finally:
         path.write_text(original)         # ALWAYS restore
 
+    if stopped_at is not None:
+        print(f"BUDGET_REACHED next_site={stopped_at}")
     total = killed + survived
     score = (killed / total * 100) if total else 0.0
     print(f"target={args.target} sites={len(sites)} ran={total} "
