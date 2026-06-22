@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plantagenet-harness"
-version = "0.1.0"
+version = "0.3.0"
 description = "Python harness for GMT's Plantagenet: Cousins' War (Levy & Command series)."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "Proprietary" }
 authors = [{ name = "FeeSimple1" }]
 dependencies = [
@@ -22,6 +22,7 @@ dev = [
     "ruff",
     "mypy",
     "jsonschema>=4",
+    "hypothesis>=6",
 ]
 parallel = [
     "pytest-xdist>=3",
@@ -39,7 +40,7 @@ addopts = "-v"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
@@ -52,6 +53,6 @@ ignore = ["UP042"]
 "scripts/*" = ["E501"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = true
 files = ["src/plantagenet"]

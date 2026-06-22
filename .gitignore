@@ -24,3 +24,7 @@ htmlcov/
 *.state.json
 !src/plantagenet/data/**/*.json
 !tests/**/*.json
+
+# mutation-testing scratch
+mutants/
+.mutmut-cache

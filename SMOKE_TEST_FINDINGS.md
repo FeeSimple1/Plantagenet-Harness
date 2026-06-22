@@ -1006,3 +1006,34 @@ the fuzzer surfaced two real bugs, both fixed:
 
 New regression tests in `tests/test_fuzz_findings_2026_06b.py` (6). 580 -> 586
 pass; ruff clean.
+
+## Round (2026-06-21b): hygiene, property-based + mutation testing
+
+Closed the cheap "honest gaps" and added two test-strength layers.
+
+Hygiene: `requires-python` corrected `>=3.11` -> `>=3.10` (the engine runs on
+3.10; ruff/mypy targets aligned); version bumped to 0.3.0; `CHANGELOG.md` added;
+README Status section rewritten (it had described combat as a future phase though
+combat + all 74 cards are implemented); GitHub Actions CI added (ruff + pytest on
+a 3.10/3.11/3.12 matrix). mypy --strict is configured but not clean (626 errors)
+so it is left out of CI for now -- recorded as a known gap.
+
+Property-based tests (`tests/test_property_conservation.py`, Hypothesis): drive
+random legal play from Hypothesis-chosen (scenario, seed, depth) and assert the
+physical card one-zone law (deck piles + mats + pending; the law the Y20 bug
+broke), all board invariants, and non-negative troop counts -- in every reachable
+state. No counterexamples found.
+
+Mutation testing (`scripts/mutation_probe.py`, a self-contained AST mutator --
+mutmut 3.x fights this repo's src-layout in the sandbox): a baseline run on
+`influence.py` (the 1.4.2 Influence check, victory-critical) initially killed only
+~50% of mutants. The survivors exposed a real gap: the success rule
+(crit roll==1 / fumble roll==6 / else roll<=rating), the spend formula, and the
+_RATING_BONUS map were only ever exercised at rating 5, which masks every one of
+those branches. Added `tests/test_influence_check_branches.py` (12 tests) pinning
+each branch with the d6 forced; score rose to 31/32 killed (96.9%). The lone
+survivor (`net >= 0` -> `net > 0`) is an equivalent mutant: `marker_side` is
+unobservable when `marker_at == 0`.
+
+Suite 586 -> 598 (+6 fuzz regressions earlier, +2 property, +12 influence-branch
+... net 580 -> 598 across both 06-21 rounds); ruff clean.

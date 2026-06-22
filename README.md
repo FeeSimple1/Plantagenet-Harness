@@ -14,34 +14,36 @@ is an operator's guide to the codebase as it stands.
 
 ## Status
 
-**Phase 2 (done): Levy Muster mechanics.** The harness now enforces the
-Levy Muster segment (3.4): `parley`, `levy_lord`, `levy_vassal`,
-`levy_transport`, and `levy_troops`, each gated by the Influence check (1.4.2) and Lordship,
-with `legal-moves` enumerating the active side's options and `do` executing
-actions. Turn order is "Rebel then King's" (3.1-3.4). Two Muster actions are
-(`levy_troops` uses the Strongholds table, D-004, and Depletes/Exhausts the
-Locale.) The one remaining deferred Muster action is `levy_capability`
-(Arts of War cards, Phase 4).
+**Feature-complete engine.** The harness plays *Plantagenet* end-to-end through
+the agent-facing interface (`legal_moves` -> `apply_action`), rolling all dice
+from a seeded RNG:
 
-**Phase 3a-i (done): Campaign backbone.** The Campaign turn now runs:
-`begin_campaign` -> Plan (4.1, season-sized) -> Activation (4.2, Rebel/King
-alternating) with the `forage` (4.6.2) and `pass` (4.6.5) Commands and Feed
-(4.7) -> `end_campaign` (4.8): Tides of War scoring (4.8.1), Victory check
-(4.8.3/5.x), Grow (4.8.4), Waste (4.8.5), and advance to the next Turn's
-Levy. **Phase 3a-ii (done): movement & economy Commands.** `march` (4.3 — Road,
-Highway with the 2-for-1 chain, Path whole-card, Haul, Moved-Fought, Group
-March), `sail` (4.6.1), `tax` (4.6.3), and campaign `parley` (4.6.4) are
-implemented, and Feed (4.7) is now live (Pillage / Unfed-Disband via the
-Strongholds table). March into enemy contact (Approach/Intercept) is
-rejected pending Phase 3b.
+- **Levy (3.x):** Arts of War draw with immediate/Held Event resolution, Pay
+  (3.2), and the full Muster (Parley, Lord, Vassal, Transport, Troops,
+  Capability).
+- **Campaign (4.x):** Plan (4.1), alternating Activation (4.2), and every
+  Command — March (4.3, incl. Group March, Approach/Intercept into enemy
+  contact), Sail (4.6.1), Supply (4.5), Tax (4.6.3), Forage (4.6.2),
+  Parley (4.6.4), Pass — plus Feed (4.7) and End-Campaign (4.8): Tides of War
+  scoring, Victory check, Grow, Waste, Turn advance.
+- **Combat (4.3.5 / 4.4):** the multi-Lord Battle engine with Approach/Exile,
+  battle-reaction timing windows, and the Capability/Held-Event/Valour decision
+  payload.
+- **All 74 Arts of War cards** (both the Event and Capability faces) are coded.
+- **Succession (6.2)** and the three-War **Wars of the Roses grand scenario**
+  resolve through all Renewed-War transitions, alongside the standalone and
+  battle-only (Bosworth) scenarios.
 
-**Phase 3a-iii (done): Supply.** `supply` (4.5) completes the Campaign
-Command menu (March, Sail, Supply, Forage, Tax, Parley, Pass): a Stronghold
-Source gives table Provender (then Depletes) or a Port Source gives
-Ships-many Provender, over a land Supply Route limited by Carts (one Cart
-per Provender per intervening Way); Exile-box Lords Supply by Ship from a
-same-Sea Port. Deferred to 3a-iv: Pay (3.2) and the Turn-2 Levy flow.
-Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
+Verification: 586 passing tests (`pytest`), ruff clean, continuous board-invariant
+checks, and two reusable bug-finding harnesses (`scripts/sweep_harness.py`,
+`scripts/battle_fuzz.py`). See [`SMOKE_TEST_FINDINGS.md`](SMOKE_TEST_FINDINGS.md)
+for the full audit/bug log and [`CHANGELOG.md`](CHANGELOG.md) for milestones.
+
+Known gaps (not bugs): the engine has not yet been validated move-by-move against
+an external recorded game (the highest-value test still outstanding); a few rules
+calls were adjudicated rather than designer-confirmed (see
+[`RULES_DECISIONS.md`](RULES_DECISIONS.md) / [`RULES_QUESTIONS.md`](RULES_QUESTIONS.md));
+and `mypy --strict` is configured but not yet clean.
 
 ## Where things are
 
@@ -61,24 +63,26 @@ Combat is Phase 3b. See the phasing plan in `BRIEF.md`.
   - `commands.py` — March, Sail, Supply, Tax, campaign Parley (4.3, 4.5, 4.6.1-.4).
   - `pay.py` — Levy Pay step: Pay Troops/Lords/Vassals (3.2).
   - `battle.py` — Approach/Exile (4.3.5) and the multi-Lord Battle engine (4.4).
-  - `cli.py` — the CLI. `new`, `state`, `legal-moves`, `do`, and the data
-    commands work; `pending`/`history` are stubs until their phase.
+  - `cli.py` — the CLI: `new`, `state`, `legal-moves` (with `--validated`),
+    `do`, `pending`, `history`, and the data commands.
   - `data/static/` — `forces.json`, `locales.json`, `ways.json`,
     `lords.json`, `vassals.json`, `exile_boxes.json`.
   - `data/scenarios/` — one file per scenario plus `index.json`.
   - `data/schema/` — `state.schema.json` (state-file schema stub).
-  - `llm/` — LLM-consumer interface (populated in later phases).
+  - `llm/` — LLM-consumer interface.
 - `reference/` — curated `.txt` references (Arts of War, Lords & Vassals,
   Map, Scenario, Errata) — the FIRST stop for rules questions.
 - `source/` — Rules of Play, Background Book, and Errata PDFs.
 - `scripts/` — data builders (`build_map_data.py`, `build_scenarios.py`,
-  `build_grand_scenario.py`); agents and sweeps arrive in later phases.
-- `tests/` — pytest suite; Phase 0 covers data integrity and the CLI.
+  `build_grand_scenario.py`) and bug-finding sweeps (`sweep_harness.py`,
+  `battle_fuzz.py`).
+- `tests/` — pytest suite (586 tests) covering the full engine, plus
+  property-based conservation tests and the fuzz-finding regressions.
 
 ## How to run things
 
 ```
-pip install -e ".[dev]"
+pip install -e ".[dev]"   # Python 3.10+
 PYTHONPATH=src pytest -q
 ```
 
