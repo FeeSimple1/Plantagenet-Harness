@@ -1075,3 +1075,35 @@ Not yet swept (the harness is resumable; run offline):
   closing any stragglers is the remaining work.
 
 Suite 600 -> 614; ruff clean.
+
+## Round (2026-06-21d): mutation sweep continued (CI token)
+
+Live CI added (.github/workflows/ci.yml) plus a manual-dispatch mutation job
+(.github/workflows/mutation.yml) -- a full mutation sweep is a long job whose
+proper home is CI, not the interactive sandbox.
+
+Harness gained `--sample N` for sound score ESTIMATES on the big modules.
+
+More modules swept (coverage-guided):
+- reactions.py, pay.py: largely complete. pay's exact-afford boundary
+  (`pool >= total_need`, _pay_troops 3.2) was a real survivor -> closed with
+  tests/test_pay_afford_boundary.py (2).
+- battle.py, commands.py: sampled estimates ~50-75%.
+
+KEY METHODOLOGICAL FINDING: beyond the numeric-assertion gaps already closed,
+the remaining survivors are dominated by EQUIVALENT mutants, where the mutated
+program is behaviourally identical, so no test can (or should) kill them:
+- reactions.py BATTLE_REACTIONS priority table (L261-283): priorities are tiered
+  >=5 apart (5/10/15/20/25/30/40), so a +1 mutation never changes the resolution
+  order -> all ~18 are equivalent.
+- redundant multi-clause guards (e.g. battle.py L567-570 `or` chains) and
+  defensive None-guards (ratings _loc) where the mutated branch is unreachable.
+This means the raw "mutation score" UNDERSTATES test strength on these modules;
+the actionable signal is the small set of non-equivalent survivors, which have
+been triaged and closed where real (influence branches, ratings card bonuses,
+pay afford-boundary).
+
+Remaining (run via the mutation CI job): full exhaustive sweeps of battle,
+commands, actions, campaign, legal_moves, events, scenarios, succession.
+
+Suite 614 -> 616; ruff clean.

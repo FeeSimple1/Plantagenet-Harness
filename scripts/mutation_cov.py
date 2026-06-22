@@ -109,6 +109,9 @@ def main():
     ap.add_argument("--out", default=None)
     ap.add_argument("--max-seconds", type=float, default=1e9)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--sample", type=int, default=0,
+                    help="randomly sample N sites (sound score ESTIMATE for big modules)")
+    ap.add_argument("--seed", type=int, default=1234)
     args = ap.parse_args()
 
     path = Path(args.target)

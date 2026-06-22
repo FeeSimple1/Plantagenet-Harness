@@ -1,0 +1,31 @@
+name: Mutation (manual)
+
+# Mutation testing is a long-running job -- its proper home is CI, not an
+# interactive session. Dispatch manually and pick a module; the job builds
+# per-test coverage, then runs the coverage-guided harness over that module.
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "src/plantagenet module to mutate (e.g. battle.py)"
+        required: true
+        default: "influence.py"
+
+jobs:
+  mutate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Per-test coverage
+        run: pytest -q -p no:cacheprovider --cov=plantagenet --cov-context=test --cov-report=
+      - name: Mutate ${{ inputs.module }}
+        run: |
+          python scripts/mutation_cov.py \
+            --target "src/plantagenet/${{ inputs.module }}" \
+            --out "mutation-${{ inputs.module }}.jsonl"
