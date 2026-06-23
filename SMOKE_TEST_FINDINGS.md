@@ -1107,3 +1107,37 @@ Remaining (run via the mutation CI job): full exhaustive sweeps of battle,
 commands, actions, campaign, legal_moves, events, scenarios, succession.
 
 Suite 614 -> 616; ruff clean.
+
+## Round (2026-06-22): coverage-guided gap hunting
+
+Built a combined line-coverage map of the full 616-test suite (per-chunk data
+files + `coverage combine` -> JSON; the slow integration tests are isolated into
+their own chunk so each fits the sandbox budget). Triaged every uncovered line in
+the rules modules into three buckets:
+
+1. Defensive / unreachable -- the bulk. legal_moves is wrapped in
+   `try: ... except (KeyError, AttributeError, IndexError): pass` guards around
+   static-data access; those except bodies never run with valid data. Not real
+   rule gaps (testing them would mean corrupting the static data).
+2. Niche card / scenario branches -- real but setup-heavy: rare Capability
+   combos (battle.py Patrick+Leeward, Norfolk reserve, the Regroup troop-recovery
+   loop), specific Succession triggers, scenario-variant setup. Logged for later.
+3. Genuinely untested rule paths -- CLOSED this round:
+   - Lord-at-Sea Command enumeration (legal_moves._command_moves, 4.6.1: only
+     Sail/Pass at Sea) -> tests/test_legal_moves_at_sea.py.
+   - The board-invariant DETECTORS themselves. The whole test strategy asserts
+     `board_invariant_violations(state) == []`, but the violation-REPORTING
+     branches (calendar_no_box, captured_no_holder, incompatible_position,
+     location_not_a_locale, vassal_book_mismatch, influence_marker_oob) were
+     never executed -- the safety net was unverified. -> tests/
+     test_invariant_detectors.py builds each violation and asserts it is caught.
+
+Per-module line coverage after this round (rules modules): influence 97.7,
+ratings 99.1, arts_of_war 98.4, reactions 98.1, pay 95.5, campaign 97.5,
+actions 97.7, succession 95.6, scenarios 97.2, events 92.3, commands 95.4,
+battle 93.2, legal_moves ~89 (the remainder is the defensive except-bodies).
+
+Remaining low-coverage non-rules modules (cli 71, data_integrity 78, render 89)
+are reporting/IO surfaces, lower priority.
+
+Suite 616 -> 624; ruff clean.

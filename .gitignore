@@ -29,3 +29,6 @@ htmlcov/
 mutants/
 .mutmut-cache
 
+
+cov.json
+.cov.*
