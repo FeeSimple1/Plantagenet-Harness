@@ -1141,3 +1141,35 @@ Remaining low-coverage non-rules modules (cli 71, data_integrity 78, render 89)
 are reporting/IO surfaces, lower priority.
 
 Suite 616 -> 624; ruff clean.
+
+## Round (2026-06-22b): ground-truth replay vs the GMT Background Book
+
+The highest-value validation: checking the harness against an AUTHORITATIVE
+external source rather than our own reading of the rules. Transcribed the
+published "Examples of Play" (Background Book pp. 5-12) -- a complete worked turn
+of Scenario Ia "Henry VI" -- into assertions on the deterministic outcomes (the
+Arts of War draw and dice are randomised, so those are excluded). Every checked
+value MATCHED the book; no discrepancies found. Encoded as
+tests/test_ground_truth_background_book.py (9 tests):
+
+- Initial setup: York@Ely, March@Ludlow, Henry VI & Somerset@London,
+  Northumberland & Rutland on the Calendar.
+- Printed ratings: York Ldr3/Cmd2/Val2, March Ldr2/Cmd2/Inf2/Val3,
+  Henry VI Ldr2/Cmd2/Inf5/Val0, Somerset Ldr2/Inf5/Val2.
+- Table yields: Ely (City) Levy Troops -> 1 Longbow + 1 Militia; Supply London 3,
+  Winchester 2 Provender. Forces: Longbow 2 Missile, Militia 1/2, Men-at-Arms
+  Protection 1-3, Retinue 1-4; the book's "12 Missile Hits" (5x2 + 4x0.5) checks.
+- Driven actions: York Levy Transport (+2 Carts), Levy Troops at Ely
+  (+1 Longbow +1 Militia, Ely Depleted).
+- Feed: 8 Troops -> 2 Provender (ceil(troops/6), Retinue excluded).
+- Influence-check costs (1 base + Ways + extra; Loyalty modifies rating not cost):
+  March Parley (1 Way,+1)=3, Levy Vassal (0 Way,+3,Loy-1)=4, Henry VI Parley
+  (1 Way)=2, base check=1 -- all match.
+- Capability effects: Thomas Bourchier (Y5) York Command 2->3 at a Friendly City;
+  York's Favoured Son (Y20) March +1 Influence +1 Command.
+
+This is the first validation against ground truth external to the codebase. A
+VASSAL log or full move-by-move session report would extend it to the dice- and
+draw-dependent paths (battle resolution, Arts of War assignment order).
+
+Suite 624 -> 633; ruff clean.
