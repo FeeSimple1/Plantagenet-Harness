@@ -1311,3 +1311,31 @@ action sequences, only seed-trajectory reproducibility across processes.
 Candidate hunt: set iteration in legal_moves/events enumeration.
 
 Suite unchanged at 656; ruff clean; mypy --strict clean.
+
+## Round (2026-07-01d): trajectory hash-seed determinism closed
+
+Hunted the 2026-07-01c observation to ground. Instrumented a seeded
+random-policy game under PYTHONHASHSEED=0 vs 1 and bisected to the first
+divergent step (step 70 of henry_vi seed 2): identical state, identical rng,
+but the legal-move list ordered differently, so the policy's index-based
+choice picked a different Parley target (cambridge vs northampton) and the
+trajectories forked.
+
+Cause: three Command enumerations in legal_moves.py emitted moves by
+iterating sets -- Tax targets (own/Vassal Seats + London/Calais/Harlech),
+ship-borne Supply sources (Sea Ports), and campaign Parley reach (adjacent +
+same-Sea Ports). Set iteration order follows the process hash seed. Fixed
+with sorted() at the three emission sites (enumeration order is not a rules
+concept; no legality change -- same move sets, deterministic order). Other
+set uses in the enumerator are membership-only and left alone.
+
+Verification: full seeded games (henry_vi / towton / wars_of_the_roses x
+seeds 1-3) now produce byte-identical final states across PYTHONHASHSEED
+0/1/7. New regression test tests/test_hashseed_determinism.py replays a
+250-step seeded game in two subprocesses with different hash seeds and
+requires identical move-by-move trajectories and final state -- the class
+of bug in-process tests cannot see.
+
+With this and 2026-07-01b, (scenario, seed) fully determines a game across
+processes: seed-based repro reports and recorded-trajectory replays are now
+exact. Suite 656 -> 657; ruff clean; mypy --strict clean.

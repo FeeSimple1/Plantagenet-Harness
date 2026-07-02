@@ -584,7 +584,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         targets |= {regular[v]["seat"] for v in lord.vassals if v in regular}
         targets |= {"london", "calais", "harlech"}
         has_ship = lord.assets.get("ship", 0) > 0
-        for t in targets:
+        for t in sorted(targets):     # sorted: set order must not leak into move order
             if t not in state.locales or state.locales[t].depletion == "exhausted":
                 continue
             if t == here or (t == statics["seat"] and here == statics["seat"]):
@@ -617,7 +617,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         if lord.assets.get("ship", 0) > 0:
             seas = static_data.load_seas()
             ports = {p for zone in seas["zones"].values() for p in zone.get("ports", [])}
-            for src in ports:
+            for src in sorted(ports):  # sorted: set order must not leak into move order
                 if src != here and commands._same_sea_port_or_box(here, src):
                     out.append({"type": "supply", "side": side, "by_lord": lord_id,
                                 "source": src, "use_ships": True})
@@ -630,7 +630,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         reach = {n for n, _t in actions._adjacency().get(here, [])}
         if has_ship:
             reach |= {p for p in _same_sea_ports(here)}
-        for t in reach:
+        for t in sorted(reach):       # sorted: set order must not leak into move order
             if (t in state.locales and state.locales[t].favour != side
                     and not actions.enemy_lord_at(state, t, side)):
                 out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": t})

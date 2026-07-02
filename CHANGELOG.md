@@ -22,6 +22,11 @@ internal milestones.
   and the general Succession rule; suite 639 -> 656.
 
 ### Fixed
+- Command-move enumeration no longer depends on `PYTHONHASHSEED`: Tax,
+  ship-borne Supply, and campaign Parley targets were emitted in set order,
+  so seeded game trajectories varied across processes. Emission sites now
+  sorted; `(scenario, seed)` fully determines a game across processes
+  (regression-tested in two subprocesses with different hash seeds).
 - General Succession (6.2) no longer skips in-play Heirs: the Heir role passes
   to the next-ranked living Heir, and a new Lord enters play only if that Heir
   is not already in the game (War I: Margaret's removal wrongly instantiated
