@@ -8,56 +8,60 @@ active_events + per-handler hooks); this module covers the "immediate" type.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import Favour, GameState, LordStatus
+from plantagenet.state import Favour, GameState, LordState, LordStatus
 
 _OTHER = {"yorkist": "lancastrian", "lancastrian": "yorkist"}
 
 
-def _require(cond, code, msg):
+def _require(cond: object, code: str, msg: str) -> None:
     if not cond:
         raise IllegalAction(code, msg)
 
 
-def _on_map(state, side):
+def _on_map(state: GameState, side: str) -> list[tuple[str, LordState]]:
     return [(lid, ls) for lid, ls in state.lords.items()
             if ls.side == side and ls.status == LordStatus.MUSTERED]
 
 
-def _pool_add(state, lord, unit, amount):
+def _pool_add(state: GameState, lord: LordState, unit: str, amount: int) -> int:
     from plantagenet.actions import _troops_in_play
     pool = static_data.load_forces()[unit].get("pool", 0)
-    give = max(0, min(amount, pool - _troops_in_play(state, unit)))
+    give: int = max(0, min(amount, pool - _troops_in_play(state, unit)))
     if give:
         lord.forces[unit] = lord.forces.get(unit, 0) + give
     return give
 
 
-def _region_locales(region):
+def _region_locales(region: str) -> list[str]:
     return [k for k, v in static_data.load_locales().items()
             if isinstance(v, dict) and v.get("region") == region]
 
 
 # --------------------------------------------------------------- resolvers
-def _charles_the_bold(state, side, d):                       # Y23
+# Y23
+def _charles_the_bold(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     for _lid, ls in _on_map(state, "yorkist"):
         ls.assets["coin"] = ls.assets.get("coin", 0) + 1
         ls.assets["provender"] = ls.assets.get("provender", 0) + 1
     return {"granted": "1 Coin + 1 Provender to each Yorkist Lord"}
 
 
-def _french_war_loans(state, side, d):                       # L30
+# L30
+def _french_war_loans(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     for _lid, ls in _on_map(state, "lancastrian"):
         ls.assets["coin"] = ls.assets.get("coin", 0) + 1
         ls.assets["provender"] = ls.assets.get("provender", 0) + 1
     return {"granted": "1 Coin + 1 Provender to each Lancastrian Lord"}
 
 
-def _earl_rivers(state, side, d):                            # Y31: up to 2 Militia each
-    add = {}
+# Y31: up to 2 Militia each
+def _earl_rivers(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    add: dict[str, int] = {}
     per = d.get("militia", {})
     for lid, ls in _on_map(state, "yorkist"):
         n = int(per.get(lid, 2))
@@ -68,8 +72,9 @@ def _earl_rivers(state, side, d):                            # Y31: up to 2 Mili
     return {"militia_added": add}
 
 
-def _scots(state, side, d):                                  # L14: up to 1 MaA + 1 Militia
-    add = {}
+# L14: up to 1 MaA + 1 Militia
+def _scots(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    add: dict[str, dict[str, int]] = {}
     sel = d.get("lords", [lid for lid, _ in _on_map(state, "lancastrian")])
     for lid in sel:
         ls = state.lords[lid]
@@ -79,7 +84,8 @@ def _scots(state, side, d):                                  # L14: up to 1 MaA 
     return {"added": add}
 
 
-def _french_troops(state, side, d):                          # L22: a Lord at a Port (optional)
+# L22: a Lord at a Port (optional)
+def _french_troops(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     locales = static_data.load_locales()
     at_port = [lid for lid, ls in _on_map(state, "lancastrian")
                if ls.location in locales and locales[ls.location].get("port")]
@@ -91,6 +97,7 @@ def _french_troops(state, side, d):                          # L22: a Lord at a 
     ls = state.lords.get(lid)
     _require(ls is not None and ls.side == "lancastrian"
              and ls.status == LordStatus.MUSTERED, "bad_lord", "name a Lancastrian Lord (L22)")
+    assert ls is not None
     _require(ls.location in locales and bool(locales[ls.location].get("port")),
              "not_port", "French Troops reinforce a Lancastrian Lord at a Port (L22)")
     a = _pool_add(state, ls, "men_at_arms", min(2, int(d.get("men_at_arms", 2))))
@@ -98,7 +105,8 @@ def _french_troops(state, side, d):                          # L22: a Lord at a 
     return {"lord": lid, "men_at_arms": a, "militia": b}
 
 
-def _yorkist_north(state, side, d):                          # Y27
+# Y27
+def _yorkist_north(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     north = _region_locales("north")
     strongholds = sum(1 for loc in north if state.locales[loc].favour == "yorkist")
     lords = sum(1 for lid, ls in _on_map(state, "yorkist") if ls.location in north)
@@ -106,11 +114,12 @@ def _yorkist_north(state, side, d):                          # Y27
     return {"influence": strongholds + lords}
 
 
-def _henry_pressures_parliament(state, side, d):             # L15
+# L15
+def _henry_pressures_parliament(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     from plantagenet.state import LordStatus, VassalStatus
     n = sum(1 for v in state.vassals.values() if v.status == VassalStatus.MUSTERED
-            and state.lords.get(v.on_lord) is not None
-            and state.lords[v.on_lord].side == "yorkist")
+            and state.lords.get(v.on_lord or "") is not None
+            and state.lords[cast(str, v.on_lord)].side == "yorkist")
     # Special Vassals (e.g. Hastings Y24) live on the Lord's mat, not state.vassals.
     n += sum(len(ld.special_vassals) for ld in state.lords.values()
              if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED)
@@ -118,7 +127,8 @@ def _henry_pressures_parliament(state, side, d):             # L15
     return {"yorkist_influence_lost": n}
 
 
-def _henry_released(state, side, d):                         # L26
+# L26
+def _henry_released(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     gained = 0
     if state.locales["london"].favour == "lancastrian":
         influence.gain_influence(state, "lancastrian", 5)
@@ -126,7 +136,8 @@ def _henry_released(state, side, d):                         # L26
     return {"lancastrian_influence": gained}
 
 
-def _london_for_york(state, side, d):                        # Y15
+# Y15
+def _london_for_york(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     lon = state.locales["london"]
     added = False
     if lon.favour == "yorkist" and lon.favour_extra == 0:   # "If already two, no effect"
@@ -135,45 +146,49 @@ def _london_for_york(state, side, d):                        # Y15
     return {"second_favour": added}
 
 
-def _sir_richard_leigh(state, side, d):                      # Y21
+# Y21
+def _sir_richard_leigh(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     lon = state.locales["london"]
     if lon.favour == "lancastrian":
         if lon.favour_extra > 0:
             lon.favour_extra -= 1
         else:
-            lon.favour = Favour.NEUTRAL.value
+            lon.favour = cast(Favour, Favour.NEUTRAL.value)
         return {"london": "lancastrian favour removed"}
     if lon.favour == Favour.NEUTRAL.value:
-        lon.favour = "yorkist"
+        lon.favour = cast(Favour, "yorkist")
         return {"london": "yorkist favour placed"}
     return {"london": "no change"}
 
 
-def _she_wolf(state, side, d):                               # Y17: shift Yorkist Vassals +1
+# Y17: shift Yorkist Vassals +1
+def _she_wolf(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     from plantagenet.state import VassalStatus
-    shifted = []
+    shifted: list[str] = []
     for vid, v in state.vassals.items():
         if (v.status == VassalStatus.MUSTERED and v.service_box is not None
-                and state.lords.get(v.on_lord) is not None
-                and state.lords[v.on_lord].side == "yorkist"):
+                and state.lords.get(v.on_lord or "") is not None
+                and state.lords[cast(str, v.on_lord)].side == "yorkist"):
             v.service_box = v.service_box + 1   # may go off-calendar past box 15 (2.2.3)
             shifted.append(vid)
     return {"shifted": shifted}
 
 
-def _henrys_proclamation(state, side, d):                    # L19: Yorkist Vassals -> current Turn
+# L19: Yorkist Vassals -> current Turn
+def _henrys_proclamation(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     from plantagenet.state import VassalStatus
-    shifted = []
+    shifted: list[str] = []
     for vid, v in state.vassals.items():
         if (v.status == VassalStatus.MUSTERED and v.service_box is not None
-                and state.lords.get(v.on_lord) is not None
-                and state.lords[v.on_lord].side == "yorkist"):
+                and state.lords.get(v.on_lord or "") is not None
+                and state.lords[cast(str, v.on_lord)].side == "yorkist"):
             v.service_box = state.turn_box
             shifted.append(vid)
     return {"shifted": shifted}
 
 
-def _dubious_clarence(state, side, d):                       # Y26
+# Y26
+def _dubious_clarence(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     ed = state.lords.get("edward_iv")
     clar = state.lords.get("clarence")
     if not (ed is not None and ed.status == LordStatus.MUSTERED
@@ -187,7 +202,8 @@ def _dubious_clarence(state, side, d):                       # Y26
     return {"disbanded": chk["success"], **chk}
 
 
-def _luniverselle_aragne(state, side, d):                    # L27
+# L27
+def _luniverselle_aragne(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     from plantagenet import campaign
     from plantagenet.state import LordStatus, VassalStatus
     owner: dict[str, str] = {}                               # vid -> Yorkist Lord id
@@ -206,7 +222,7 @@ def _luniverselle_aragne(state, side, d):                    # L27
     targets = d.get("vassals", [])
     _require(len(targets) == need, "bad_targets",
              f"L'Universelle Aragne targets {need} Yorkist Mustered Vassals (L27)")
-    out = []
+    out: list[dict[str, Any]] = []
     for vid in targets:
         _require(vid in owner, "bad_vassal", f"{vid} not a Yorkist Mustered Vassal")
         lord = state.lords[owner[vid]]
@@ -221,7 +237,8 @@ def _luniverselle_aragne(state, side, d):                    # L27
     return {"checks": out}
 
 
-def _warwicks_propaganda(state, side, d):                    # L23/L24
+# L23/L24
+def _warwicks_propaganda(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     available = [loc for loc, ls in state.locales.items() if ls.favour == "yorkist"]
     if not available:                                        # "No effect if no ... Favour"
         return {"no_effect": "no Yorkist Favour to target (L23/L24)"}
@@ -229,7 +246,7 @@ def _warwicks_propaganda(state, side, d):                    # L23/L24
     choices = d.get("strongholds", {})   # {locale: "pay" | "remove"}
     _require(len(choices) == need, "bad_count",
              f"Warwick's Propaganda selects {need} Yorkist Strongholds (L23/L24)")
-    out = []
+    out: list[dict[str, str]] = []
     for loc, how in choices.items():
         _require(loc in state.locales and state.locales[loc].favour == "yorkist",
                  "not_yorkist", f"{loc} must Favour Yorkist (L23/L24)")
@@ -240,17 +257,18 @@ def _warwicks_propaganda(state, side, d):                    # L23/L24
             if state.locales[loc].favour_extra > 0:
                 state.locales[loc].favour_extra -= 1
             else:
-                state.locales[loc].favour = Favour.NEUTRAL.value
+                state.locales[loc].favour = cast(Favour, Favour.NEUTRAL.value)
             out.append({loc: "Favour removed"})
     return {"results": out}
 
 
-def _welsh_rebellion(state, side, d):                        # L25
+# L25
+def _welsh_rebellion(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     wales = _region_locales("wales")
     yorkist_in_wales = [(lid, ls) for lid, ls in _on_map(state, "yorkist")
                         if ls.location in wales]
     if yorkist_in_wales:
-        removed = {}
+        removed: dict[str, int] = {}
         for lid, ls in yorkist_in_wales:
             troops = [t for t in ls.forces if t in
                       {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners"}]
@@ -264,12 +282,12 @@ def _welsh_rebellion(state, side, d):                        # L25
         # are wooden units; a Lord with only a Retinue (and Vassals) has none.
         from plantagenet import campaign
         troop_units = {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners"}
-        disbanded = []
+        disbanded: list[str] = []
         for lid, ls in yorkist_in_wales:
             if not any(ls.forces.get(t, 0) > 0 for t in troop_units):
                 campaign._disband_lord(state, ls)
                 disbanded.append(lid)
-        out = {"troops_removed": removed}
+        out: dict[str, Any] = {"troops_removed": removed}
         if disbanded:
             out["disbanded"] = disbanded
         return out
@@ -278,31 +296,33 @@ def _welsh_rebellion(state, side, d):                        # L25
         if n >= 2:
             break
         if state.locales[loc].favour == "yorkist":
-            state.locales[loc].favour = Favour.NEUTRAL.value
+            state.locales[loc].favour = cast(Favour, Favour.NEUTRAL.value)
             n += 1
     return {"favour_removed": n}
 
 
-def _to_wilful_disobedience(state, side, d):                 # L29
-    from plantagenet.commands import _adjacency
+# L29
+def _to_wilful_disobedience(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    from plantagenet.actions import _adjacency
     targets = d.get("strongholds", [])
     _require(len(targets) <= 2, "bad_count", "removes Yorkist Favour from up to 2 (L29)")
     lanc = {ls.location for _lid, ls in _on_map(state, "lancastrian")}
     york = {ls.location for _lid, ls in _on_map(state, "yorkist")}
 
-    def near(locset, loc):
+    def near(locset: set[str | None], loc: str) -> bool:
         return loc in locset or any(n in locset for n, _t in _adjacency().get(loc, []))
-    removed = []
+    removed: list[str] = []
     for loc in targets[:2]:
         _require(state.locales[loc].favour == "yorkist", "not_yorkist", f"{loc} not Yorkist")
         _require(near(lanc, loc) and not near(york, loc), "bad_target",
                  f"{loc} must be at/adjacent a Lancastrian Lord and not a Yorkist one (L29)")
-        state.locales[loc].favour = Favour.NEUTRAL.value
+        state.locales[loc].favour = cast(Favour, Favour.NEUTRAL.value)
         removed.append(loc)
     return {"removed": removed}
 
 
-def _robins_rebellion(state, side, d):                       # L31
+# L31
+def _robins_rebellion(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     """L31 ROBIN'S REBELLION: the playing side may, in the North only, remove the
     Enemy's Favour (-> neutral) and/or place its OWN Favour on a *neutral*
     Stronghold -- up to 3 markers total. It may not place the Enemy's Favour, nor
@@ -312,12 +332,12 @@ def _robins_rebellion(state, side, d):                       # L31
     neutral = Favour.NEUTRAL.value
     ops = d.get("favour", [])             # [{locale, side|"neutral"}]
     _require(len(ops) <= 3, "too_many", "Robin's Rebellion places/removes up to 3 Favour (L31)")
-    done = []
+    done: list[dict[str, Any]] = []
     for op in ops:
         loc = op["locale"]
         _require(loc in north, "not_north", f"{loc} is not in the North (L31)")
         target = op.get("side", neutral)
-        cur = state.locales[loc].favour
+        cur: Any = state.locales[loc].favour
         cur = cur.value if hasattr(cur, "value") else cur
         if target in (neutral, "neutral"):           # remove Enemy Favour
             _require(cur == enemy, "not_enemy_favour",
@@ -334,23 +354,25 @@ def _robins_rebellion(state, side, d):                       # L31
     return {"changes": done}
 
 
-def _tudor_banners(state, side, d):                          # L32
-    from plantagenet.commands import _adjacency
+# L32
+def _tudor_banners(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    from plantagenet.actions import _adjacency
     ht = state.lords.get("henry_tudor")
     if not (ht is not None and ht.status == LordStatus.MUSTERED
             and ht.location in state.locales
             and state.locales[ht.location].favour == "lancastrian"):
         return {"no_effect": "Henry Tudor not at a Friendly Stronghold (L32)"}
     york = {ls.location for _lid, ls in _on_map(state, "yorkist")}
-    marked = []
+    marked: list[str] = []
     for n, _t in _adjacency().get(ht.location, []):
         if n not in york:
-            state.locales[n].favour = "lancastrian"
+            state.locales[n].favour = cast(Favour, "lancastrian")
             marked.append(n)
     return {"marked": marked}
 
 
-def _tax_collectors(state, side, d):                         # Y10
+# Y10
+def _tax_collectors(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     """Each Yorkist Lord may immediately Tax (full 4.6.3 procedure: Influence check,
     a qualifying Stronghold reached by Route, Deplete) for DOUBLE the Coin.
     Decisions: ``lords`` (electing Lords) and ``tax_targets`` ({lord: Stronghold})."""
@@ -358,7 +380,7 @@ def _tax_collectors(state, side, d):                         # Y10
     statics = static_data.load_lords()
     regular = static_data.load_vassals()["regular"]
     targets = d.get("tax_targets", {})
-    out = {}
+    out: dict[str, Any] = {}
     for lid in d.get("lords", []):
         ls = state.lords.get(lid)
         if ls is None or ls.side != "yorkist" or ls.status != LordStatus.MUSTERED:
@@ -393,7 +415,7 @@ def _tax_collectors(state, side, d):                         # Y10
     return {"taxes": out}
 
 
-_IMMEDIATE = {
+_IMMEDIATE: dict[str, Callable[[GameState, str, dict[str, Any]], dict[str, Any]]] = {
     "Y10": _tax_collectors, "Y15": _london_for_york, "Y17": _she_wolf,
     "Y21": _sir_richard_leigh, "Y23": _charles_the_bold, "Y26": _dubious_clarence,
     "Y27": _yorkist_north, "Y31": _earl_rivers,
@@ -405,7 +427,7 @@ _IMMEDIATE = {
 }
 
 
-def _held_card(state, side, title):
+def _held_card(state: GameState, side: str, title: str) -> str | None:
     cards = static_data.load_cards()
     for cid in state.decks.get(side, {}).get("held", []):
         if cards[cid]["event"]["title"] == title:
@@ -413,21 +435,21 @@ def _held_card(state, side, title):
     return None
 
 
-def _use_held(state, side, cid):
+def _use_held(state: GameState, side: str, cid: str) -> None:
     held = state.decks.get(side, {}).get("held", [])
     if cid in held:
         held.remove(cid)
     state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
 
 
-def expire_scope(state, scope: str) -> list:
+def expire_scope(state: GameState, scope: str) -> list[str]:
     """Remove active Events of ``scope`` ("this_levy"/"this_campaign") and
     DISCARD any whose card is not already in a pile. A drawn This-Levy/This-
     Campaign Event lives only in ``active_events``; without this it would vanish
     from the game when the scope ends, silently shrinking the side's deck."""
     expired = [e for e in state.active_events if e.get("scope") == scope]
     state.active_events = [e for e in state.active_events if e.get("scope") != scope]
-    discarded = []
+    discarded: list[str] = []
     for e in expired:
         cid = e.get("card")
         sd = e.get("side")
@@ -440,7 +462,8 @@ def expire_scope(state, scope: str) -> list:
     return discarded
 
 
-def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a Port
+# L28: after own March/Sail to a Port
+def _hp_rebel_supply_depot(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     # Timing (1.9.1): only just after a qualifying March/Sail to a Port -- the
     # Hold-event window names the mover(s). The named Lord(s) must be those movers.
     win = state.hold_window
@@ -448,6 +471,7 @@ def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a
              and win.get("action") in ("march", "sail"),
              "no_move_window",
              "Rebel Supply Depot is played just after a March or Sail to a Port (L28)")
+    assert win is not None
     movers = set(win.get("lords", []))
     lids = d.get("lords", [])
     _require(lids, "no_lords", "name the Lord(s) that just reached the Port (L28)")
@@ -463,8 +487,10 @@ def _hp_rebel_supply_depot(state, side, d):     # L28: after own March/Sail to a
     return {"lords": lids, "provender_each": 4, "ignore_next_feed": True}
 
 
-def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, free March
+# L33: after Sailing to a Port, free March
+def _hp_surprise_landing(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     _require(state.campaign is not None, "not_campaign", "Surprise Landing is a Campaign play")
+    assert state.campaign is not None
     # Timing (1.9.1): only just after a Sail that ends at a Port -- the Hold-event
     # window must record a Sail for this side. (The free action should be a
     # non-Path March -- the consumer is responsible for that constraint.)
@@ -482,16 +508,18 @@ def _hp_surprise_landing(state, side, d):       # L33: after Sailing to a Port, 
     return {"free_action": True}
 
 
-def _hp_sun_in_splendour(state, side, d):       # Y24: Muster Edward IV in Levy, free
+# Y24: Muster Edward IV in Levy, free
+def _hp_sun_in_splendour(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     from plantagenet.actions import enemy_lord_at
     _require(state.phase == "levy", "not_levy", "Sun in Splendour is played in the Levy (Y24)")
     ed = state.lords.get("edward_iv")
     _require(ed is not None and ed.status in (LordStatus.CALENDAR, LordStatus.EXILE),
              "edward_unavailable", "Edward IV must be on the Calendar/Exile (Y24)")
+    assert ed is not None
     target = d.get("target")
     in_box = target in static_data.load_exile_boxes()
     if in_box:                                          # a Yorkist-aligned Exile box
-        _require(state.exile_alignment.get(target) == "yorkist", "bad_target",
+        _require(state.exile_alignment.get(cast(str, target)) == "yorkist", "bad_target",
                  "Muster Edward IV at a Yorkist Exile box (Y24)")
     else:                                               # a Friendly Stronghold, Enemy-free
         _require(target in state.locales and state.locales[target].favour == "yorkist"
@@ -508,7 +536,8 @@ def _hp_sun_in_splendour(state, side, d):       # Y24: Muster Edward IV in Levy,
     return {"mustered": "edward_iv", "at": target}
 
 
-def _hp_yorkist_parade(state, side, d):         # Y20: this Levy Yorkist Influence +2
+# Y20: this Levy Yorkist Influence +2
+def _hp_yorkist_parade(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     _require(state.locales["london"].favour == "yorkist", "london_not_friendly",
              "Yorkist Parade needs London Friendly (Y20)")
     here = {ls.location for lid, ls in state.lords.items()
@@ -519,13 +548,14 @@ def _hp_yorkist_parade(state, side, d):         # Y20: this Levy Yorkist Influen
     return {"active": "Y20"}
 
 
-def _hp_aspielles(state, side, d):              # Y13/L13: inspect Enemy Held cards (info)
+# Y13/L13: inspect Enemy Held cards (info)
+def _hp_aspielles(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     foe = "lancastrian" if side == "yorkist" else "yorkist"
     held = list(state.decks.get(foe, {}).get("held", []))
     return {"peek": {"enemy_side": foe, "enemy_held": held, "hidden_mat": d.get("mat")}}
 
 
-_HELD_PLAYS = {
+_HELD_PLAYS: dict[str, Callable[[GameState, str, dict[str, Any]], dict[str, Any]]] = {
     "L28": _hp_rebel_supply_depot, "L33": _hp_surprise_landing,
     "Y24": _hp_sun_in_splendour, "Y20": _hp_yorkist_parade,
     "Y13": _hp_aspielles, "L13": _hp_aspielles,
@@ -536,8 +566,8 @@ def play_held_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Play a Held Event in one of its own-timing windows (1.9.1):
     Rebel Supply Depot (L28), Surprise Landing (L33), Sun in Splendour (Y24),
     Yorkist Parade (Y20)."""
-    cid = action.get("card")
-    side = action.get("side")
+    cid = cast(str, action.get("card"))
+    side = cast(str, action.get("side"))
     _require(cid in _HELD_PLAYS, "not_held_play", f"{cid} is not a coded Held-play Event")
     held = _held_card(state, side, static_data.load_cards()[cid]["event"]["title"])
     _require(held == cid, "not_held", f"{side} is not holding {cid}")
@@ -557,8 +587,8 @@ def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     the Arts of War sequence advances. An Event whose precondition is unmet
     resolves to no effect (the card text's "No effect if ..."). Standalone calls
     (not from a draw) just apply the effect, leaving deck membership untouched."""
-    cid = action.get("card")
-    side = action.get("side")
+    cid = cast(str, action.get("card"))
+    side = cast(str, action.get("side"))
     cards = static_data.load_cards()
     in_pending = any(pe.get("card") == cid and pe.get("side") == side
                      for pe in state.pending_events)

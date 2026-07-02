@@ -11,7 +11,8 @@ Blockade reaction checkpoints.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.actions import (
@@ -23,12 +24,12 @@ from plantagenet.actions import (
     other_side,
 )
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus
+from plantagenet.state import CampaignState, Favour, GameState, LordState, LordStatus
 
 _SHAKY_PAIR = {"margaret": "warwick_lancastrian", "warwick_lancastrian": "margaret"}
 
 
-def _shaky_allies_block(state: GameState, mover_ids, dest: str) -> bool:
+def _shaky_allies_block(state: GameState, mover_ids: list[str], dest: str) -> bool:
     """Shaky Allies (IIY / Warwick's Rebellion): Margaret and Warwick may never
     enter the same Stronghold. True if this move would co-locate them at dest."""
     if "Shaky Allies" not in campaign._active_special_rules(state):
@@ -62,14 +63,15 @@ def _live_blockade_seas(state: GameState) -> set[str]:
     for lid, ls in state.lords.items():
         if (ls.side == "yorkist" and ls.status == LordStatus.MUSTERED
                 and ratings.has_capability(state, lid, _NAVAL_BLOCKADE)
-                and locs.get(ls.location, {}).get("port")):
-            sea = psea.get(ls.location)
+                and locs.get(ls.location or "", {}).get("port")):
+            sea = psea.get(ls.location or "")
             if sea:
                 out.add(sea)
     return out
 
 
-def _route_used_seas(base_cost, recompute, candidates) -> list[str]:
+def _route_used_seas(base_cost: int, recompute: Callable[[str], int | None],
+                     candidates: set[str]) -> list[str]:
     """Among ``candidates`` Seas, those whose Ship sea-hops are load-bearing for
     a Route -- i.e. blocking that Sea raises the Way cost (or makes the target
     unreachable). Per Naval Blockade (Y15) the action only "uses a Port on that
@@ -104,7 +106,7 @@ def _effective_title(state: GameState, lord_id: str) -> str | None:
     Capability is a Marshal at any Locale with no other Friendly Marshal or
     Lieutenant (4.3.1 / 1.9.1)."""
     statics = static_data.load_lords()
-    title = statics[lord_id].get("title")
+    title: str | None = statics[lord_id].get("title")
     if title in ("marshal", "lieutenant"):
         return title
     lord = state.lords[lord_id]
@@ -120,16 +122,18 @@ def _effective_title(state: GameState, lord_id: str) -> str | None:
     return title
 
 
-def _shared_lords(state: GameState, lord, share_ids):
+def _shared_lords(state: GameState, lord: LordState,
+                  share_ids: list[str] | None) -> list[LordState]:
     """Co-located, same-side, Mustered Lords whose Assets may be Shared (1.5.3).
     Lords Share Assets (Carts, Ships, Provender, Coin) -- never Retinues,
     Vassals, Troops, or Valour -- and only while at the same Locale."""
-    out = []
+    out: list[LordState] = []
     for sid in share_ids or []:
         ally = state.lords.get(sid)
         _require(ally is not None and ally.lord_id != lord.lord_id and ally.side == lord.side
                  and ally.status == LordStatus.MUSTERED, "bad_share",
                  f"{sid!r} is not a Friendly Mustered Lord to Share with (1.5.3)")
+        assert ally is not None
         same = ((ally.location is not None and ally.location == lord.location)
                 or (ally.exile_box is not None and ally.exile_box == lord.exile_box)
                 or (ally.at_sea is not None and ally.at_sea == lord.at_sea))
@@ -139,7 +143,8 @@ def _shared_lords(state: GameState, lord, share_ids):
     return out
 
 
-def _shared_asset(state: GameState, lord, asset: str, share_ids) -> int:
+def _shared_asset(state: GameState, lord: LordState, asset: str,
+                  share_ids: list[str] | None) -> int:
     """The active Lord's ``asset`` plus the same total Shared by co-located
     allies (1.5.3); used for capacity requirements (Ships, Carts)."""
     return (lord.assets.get(asset, 0)
@@ -148,10 +153,12 @@ def _shared_asset(state: GameState, lord, asset: str, share_ids) -> int:
 
 def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     loc = lord_location(lord)
     _require(loc is not None, "lord_not_on_locale", "the Lord must be at a Locale to March")
+    assert loc is not None
     kind, here = loc
-    dest = action.get("to")
+    dest = cast(str, action.get("to"))
     _require(dest in state.locales, "unknown_dest", f"no such Stronghold {dest!r}")
 
     # Owain Glyndwr (Y25): no Lancastrian March to a Stronghold in Wales.
@@ -170,6 +177,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     cost = _march_cost(state, here, dest, kind, roads_as_highway, side=lord.side)
     _require(cost is not None, "no_march_route",
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
+    assert cost is not None
     way_kind, whole_card = cost
     if state.flags.get("surprise_march_lord") == lord.lord_id:   # L33 Surprise Landing
         _require(way_kind != "path", "surprise_landing_no_path",
@@ -190,6 +198,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             _require(g is not None and g.status == LordStatus.MUSTERED
                      and g.location == here and g.side == lord.side,
                      "bad_group_member", f"{gid} is not a Friendly Lord co-located at {here}")
+            assert g is not None
             if title == "lieutenant":
                 _require(static_data.load_lords()[gid].get("title") != "marshal",
                          "lieutenant_cannot_lead_marshal",
@@ -201,7 +210,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
     # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
     # its owner's mat for Feed; only the group's overall excess is discarded.
-    def _carts(m):
+    def _carts(m: LordState) -> int:
         c = m.assets.get("cart", 0)
         return c * 2 if ratings.has_capability(state, m.lord_id, "HAY WAINS") else c  # L8
     if len(movers) > 1:
@@ -296,7 +305,7 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
                 m.location = data["origin"]
                 m.exile_box = None
             m.moved_fought = False
-        state.campaign.actions_remaining = 0
+        cast(CampaignState, state.campaign).actions_remaining = 0
         base["approach"] = None
         base["approach_cancelled"] = data.get("cancel_reason", True)
         return base
@@ -307,7 +316,7 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
     for mid in data["movers"]:
         _apply_burgundians(state, state.lords[mid])      # Y14/Y23 Burgundians at a Port
     base["approach"] = battle.approach(state, data["dest"], data["movers"], decisions)
-    state.campaign.actions_remaining = 0
+    cast(CampaignState, state.campaign).actions_remaining = 0
     _maybe_open_hold_window(state, "march", data["movers"], data["dest"])
     return base
 
@@ -327,6 +336,7 @@ def _try_intercept(state: GameState, dest: str, side: str,
                         for n, t in _adjacency().get(itc.location, [])))
     _require(eligible, "bad_intercept",
              f"{iid} cannot Intercept at {dest} (must be an Enemy adjacent by Road/Highway, 4.3.4)")
+    assert itc is not None
     from plantagenet import battle
     # 4.3.4: an Intercepting Marshal/Lieutenant may bring co-located Lords (Group).
     group = decisions.get("intercept_group", []) or []
@@ -340,6 +350,7 @@ def _try_intercept(state: GameState, dest: str, side: str,
             _require(g is not None and g.status == LordStatus.MUSTERED
                      and g.side == itc.side and g.location == itc.location,
                      "bad_group_member", f"{gid} is not a Friendly Lord co-located with {iid}")
+            assert g is not None
             if title == "lieutenant":
                 _require(static_data.load_lords()[gid].get("title") != "marshal",
                          "lieutenant_cannot_lead_marshal",
@@ -351,8 +362,10 @@ def _try_intercept(state: GameState, dest: str, side: str,
         cid = battle._side_held_event(state, itc.side, battle.FLANK_ATTACK)
         _require(cid is not None, "no_flank_attack",
                  f"{itc.side} has no Flank Attack Held Event to play (4.3.4)")
+        assert cid is not None
         battle._use_held_event(state, itc.side, cid)
-        roll, success = None, True
+        roll: int | None = None
+        success = True
     else:
         roller = state.dice()
         roll = roller.d6()
@@ -369,7 +382,7 @@ def _try_intercept(state: GameState, dest: str, side: str,
             "flank_attack": flank, "group": [m.lord_id for m in movers[1:]]}
 
 
-def _apply_burgundians(state: GameState, lord) -> int:
+def _apply_burgundians(state: GameState, lord: LordState) -> int:
     """Burgundians (Y14/Y23): the first time this Lord (with the Capability) is at
     any Port, add 2 Handgunners -- the only way Handgunners enter play (pool-limited)."""
     if not ratings.has_capability(state, lord.lord_id, "BURGUNDIANS"):
@@ -381,7 +394,7 @@ def _apply_burgundians(state: GameState, lord) -> int:
         return 0
     pool = static_data.load_forces()["handgunners"].get("pool", 0)
     in_play = sum(v.forces.get("handgunners", 0) for v in state.lords.values())
-    give = max(0, min(2, pool - in_play))
+    give: int = max(0, min(2, pool - in_play))
     if give:
         lord.forces["handgunners"] = lord.forces.get("handgunners", 0) + give
         state.flags[flag] = True
@@ -389,7 +402,8 @@ def _apply_burgundians(state: GameState, lord) -> int:
 
 
 def _march_cost(state: GameState, here: str, dest: str, kind: str,
-                roads_as_highway: bool = False, side: str | None = None):
+                roads_as_highway: bool = False,
+                side: str | None = None) -> tuple[str, bool] | None:
     """Return (way_kind, whole_card) for marching ``here``->``dest`` in one
     action, or None. Scotland marches by one-way Path to Carlisle/Bamburgh.
     ``roads_as_highway`` (Yorkists Never Wait Y11 / Forced Marches L8) lets a
@@ -419,7 +433,7 @@ def _march_cost(state: GameState, here: str, dest: str, kind: str,
 
 
 # --------------------------------------------------------------- 4.6.1 Sail
-def _forces_units(lord) -> int:
+def _forces_units(lord: LordState) -> int:
     forces_static = static_data.load_forces()
     troops_and_retinue = sum(
         n for f, n in lord.forces.items() if f in forces_static)
@@ -428,6 +442,7 @@ def _forces_units(lord) -> int:
 
 def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     seas = static_data.load_seas()
     zones = seas["zones"]
     port_sea = {p: z for z, zone in zones.items() for p in zone.get("ports", [])}
@@ -437,13 +452,15 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     # Origin Sea: at a Port, an Exile box, or already at Sea (4.6.1).
     origin_at_sea = lord.at_sea is not None
-    kind = here = None
+    kind: str | None = None
+    here: str | None = None
     if origin_at_sea:
         from_sea = lord.at_sea
     else:
         loc = lord_location(lord)
         _require(loc is not None, "lord_not_on_locale",
                  "the Lord must be at a Port, Exile box, or at Sea to Sail")
+        assert loc is not None
         kind, here = loc
         if kind == "exile":
             from_sea = box_sea.get(here)
@@ -476,13 +493,14 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             _require(g is not None and g.status == LordStatus.MUSTERED
                      and g.side == lord.side and same, "bad_group_member",
                      f"{gid} is not a Friendly Lord co-located with the Sailing leader (4.6.1)")
+            assert g is not None
             if title == "lieutenant":
                 _require(static_data.load_lords()[gid].get("title") != "marshal",
                          "lieutenant_cannot_lead_marshal",
                          "a Lieutenant may not lead a Marshal (4.3.1)")
             movers.append(g)
 
-    dest = action.get("to")
+    dest = cast(str, action.get("to"))
     into_sea = dest in zones
     if into_sea:                       # 4.6.1: move "into that or an adjacent Sea" -> at Sea
         dest_sea = dest
@@ -599,9 +617,10 @@ def exile_pact(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Exile Pact (Y8 Event): a Yorkist Lord may use a Command action to place
     its cylinder into a Friendly Exile box at no Influence cost (this Campaign)."""
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     _require(lord.side == "yorkist" and _active_event(state, "EXILE PACT", "yorkist"),
              "no_exile_pact", "Exile Pact is not in effect for the Yorkist side (Y8)")
-    box = action.get("box")
+    box = cast(str, action.get("box"))
     boxes = static_data.load_exile_boxes()
     _require(box in boxes, "bad_box", f"{box!r} is not an Exile box (Y8)")
     _require(state.exile_alignment.get(box) == "yorkist", "not_friendly_box",
@@ -630,14 +649,15 @@ def agitators(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Agitators (Y10 Capability): a Command action to Deplete an adjacent
     Neutral or Enemy Stronghold, or flip a Depleted one there to Exhausted."""
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     _require(ratings.has_capability(state, lord.lord_id, "AGITATORS"), "no_agitators",
              f"{lord.lord_id} lacks the Agitators Capability (Y10)")
-    here = lord_location(lord)[1]
-    target = action.get("target")
+    here = cast(tuple[str, str], lord_location(lord))[1]
+    target = cast(str, action.get("target"))
     _require(target in {n for n, _t in _adjacency().get(here, [])}, "not_adjacent",
              f"{target} is not adjacent to {here} (Y10)")
     ls = state.locales[target]
-    _require(ls.favour != lord.side, "is_friendly",
+    _require(cast(str, ls.favour) != cast(str, lord.side), "is_friendly",
              "Agitators targets a Neutral or Enemy Stronghold (Y10)")
     _require(ls.depletion != "exhausted", "already_exhausted", f"{target} is already Exhausted")
     ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
@@ -651,9 +671,10 @@ def merchants(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     Influence check removes 2 Depleted/Exhausted markers at the Lord's Locale
     and/or adjacent (Exhausted->Depleted->none)."""
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     _require(ratings.has_capability(state, lord.lord_id, "MERCHANTS"), "no_merchants",
              f"{lord.lord_id} lacks the Merchants Capability (L30)")
-    here = lord_location(lord)[1]
+    here = cast(tuple[str, str], lord_location(lord))[1]
     region = {here} | {n for n, _t in _adjacency().get(here, [])}
     targets = action.get("targets", [])
     _require(len(targets) <= 2 and all(t in region for t in targets), "bad_targets",
@@ -679,15 +700,17 @@ def heralds(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     Influence check; on success shift a Lord cylinder on the Calendar to the
     next Turn box (sooner entry)."""
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     _require(ratings.has_capability(state, lord.lord_id, "HERALDS"), "no_heralds",
              f"{lord.lord_id} lacks the Heralds Capability (L4)")
-    here = lord_location(lord)[1]
+    here = cast(tuple[str, str], lord_location(lord))[1]
     _require(bool(static_data.load_locales()[here].get("port")), "not_port",
              "Heralds is used at a Port (L4)")
-    target = action.get("target")
+    target = cast(str, action.get("target"))
     tl = state.lords.get(target)
     _require(tl is not None and tl.status == LordStatus.CALENDAR and tl.calendar_box is not None,
              "bad_target", "Heralds shifts a Lord cylinder on the Calendar (L4)")
+    assert tl is not None
     extra = int(action.get("extra_spend", 0))
     chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra)
     state.campaign.actions_remaining = 0          # full Command card (L4)
@@ -719,12 +742,12 @@ def _exeter_or_adjacent(locale: str) -> bool:
     return locale == "exeter" or "exeter" in {n for n, _t in _adjacency().get(locale, [])}
 
 
-def _is_own_vassal_seat(state: GameState, lord, locale: str) -> bool:
+def _is_own_vassal_seat(state: GameState, lord: LordState, locale: str) -> bool:
     regular = static_data.load_vassals()["regular"]
     return any(regular.get(v, {}).get("seat") == locale for v in lord.vassals)
 
 
-def _supply_bonuses(state: GameState, lord, source: str, added: int) -> int:
+def _supply_bonuses(state: GameState, lord: LordState, source: str, added: int) -> int:
     if ratings.has_capability(state, lord.lord_id, "HARBINGERS"):
         added *= 2                                       # Y7/L7: twice usual Provender
     if (ratings.has_capability(state, lord.lord_id, "STAFFORD BRANCH")
@@ -735,11 +758,12 @@ def _supply_bonuses(state: GameState, lord, source: str, added: int) -> int:
 
 def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Tax requires the acting Lord at a Friendly Locale (4.6.3)")
     loc = lord_location(lord)
-    here = loc[1]
-    target = action.get("target")
+    here = cast(tuple[str, str], loc)[1]
+    target = cast(str, action.get("target"))
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
 
     statics = static_data.load_lords()[lord.lord_id]
@@ -760,13 +784,14 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # A Route free of Enemy Lords must still connect a remote target (4.6.3), but
     # Tax pays NO per-Way Influence surcharge -- that surcharge is Parley-only
     # (1.4.2). way_cost is route distance, used only for Naval Blockade, never charged.
-    way_cost = 0
+    way_cost: int | None = 0
     if target != here:
         has_ship = lord.assets.get("ship", 0) > 0
         gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
         way_cost = _tax_route_cost(state, here, target, lord.side, has_ship, all_seas=gs)
         _require(way_cost is not None, "no_route",
                  f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
+        assert way_cost is not None
 
     extra = int(action.get("extra_spend", 0))
     _require(extra in (0, 1, 3), "bad_extra_spend",
@@ -779,7 +804,7 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             gs2 = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
             hs2 = lord.assets.get("ship", 0) > 0
             used_seas = _route_used_seas(
-                way_cost,
+                cast(int, way_cost),
                 lambda sea: _tax_route_cost(state, here, target, lord.side, hs2,
                                             all_seas=gs2, block_sea=sea),
                 blk)
@@ -825,12 +850,14 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     reach only an adjacent Stronghold (or a same-Sea Port via Ship); Parley
     at the Lord's own location succeeds automatically, free of cost."""
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     loc = lord_location(lord)
-    kind, here = loc
+    kind, here = cast(tuple[str, str], loc)
     target = action.get("target", here)
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
     fav = state.locales[target].favour
-    _require(fav != lord.side, "already_friendly", f"{target} already Favours {lord.side}")
+    _require(cast(str, fav) != cast(str, lord.side), "already_friendly",
+             f"{target} already Favours {lord.side}")
 
     new_act = ratings.event_against(state, "NEW ACT OF PARLIAMENT", lord.side)
     honest = (lord.side == "lancastrian"   # Y34 An Honest Tale: +1 each Lancastrian Parley
@@ -909,9 +936,9 @@ def _same_sea_port(a: str, b: str) -> bool:
 def _shift_favour(state: GameState, target: str, side: str) -> None:
     fav = state.locales[target].favour
     if fav == "neutral":
-        state.locales[target].favour = side
+        state.locales[target].favour = cast(Favour, side)
     elif fav == other_side(side):
-        state.locales[target].favour = "neutral"
+        state.locales[target].favour = cast(Favour, "neutral")
 
 
 def _fav_desc(target: str, before: str, side: str) -> str:
@@ -955,11 +982,12 @@ def _supply_route_cost(state: GameState, here: str, source: str, side: str,
 
 def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
+    assert state.campaign is not None
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Supply requires the acting Lord at a Friendly Locale (4.5)")
     loc = lord_location(lord)
-    kind, here = loc
-    source = action.get("source")
+    kind, here = cast(tuple[str, str], loc)
+    source = cast(str, action.get("source"))
     _require(source in state.locales, "unknown_source", f"no such Stronghold/Port {source!r}")
     _require(source not in static_data.load_exile_boxes(), "exile_not_source",
              "an Exile box is never a Supply Source (4.5.1)")
@@ -988,7 +1016,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         per_ship = 2 if gs else 1
         sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \
             and _same_sea_port_or_box(here, source)
-        ways_out = None
+        ways_out: int | None = None
         if sea_direct:
             added = ships * per_ship               # by Sea: no Carts (4.5.2)
             sea = _port_sea_map().get(source)       # Ship Supply uses the Source Port's Sea
@@ -997,6 +1025,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         else:
             ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
             _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
+            assert ways is not None
             added = ships * per_ship if ways == 0 else min(ships * per_ship, carts // ways)
             _require(added > 0, "insufficient_carts",
                      "need one Cart per Provender per intervening Way (4.5.1)")
@@ -1018,6 +1047,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"{source} is Exhausted and may not be a Supply Source (4.5.1)")
     ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
     _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
+    assert ways is not None
     base = static_data.stronghold_yields(source).get("supply", {}).get("provender", 0)
     added = base if ways == 0 else min(base, carts // ways)
     _require(added > 0, "insufficient_carts",

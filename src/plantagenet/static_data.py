@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 from functools import cache
 from importlib import resources
-from typing import Any
+from typing import Any, cast
 
 _STATIC_PKG = "plantagenet.data.static"
 _SCENARIO_PKG = "plantagenet.data.scenarios"
@@ -51,7 +51,7 @@ def load_locales() -> dict[str, Any]:
 def load_ways() -> list[dict[str, Any]]:
     """Map Ways: undirected edges tagged with way type (Road/Highway/Path/Sea)."""
     doc = _load_json(_STATIC_PKG, "ways.json")
-    return doc["ways"] if isinstance(doc, dict) else doc
+    return cast(list[dict[str, Any]], doc["ways"] if isinstance(doc, dict) else doc)
 
 
 @cache
@@ -108,8 +108,8 @@ def stronghold_yields(locale_id: str) -> dict[str, Any]:
     table = load_strongholds()
     typ = loc["type"]
     if typ == "special_stronghold":
-        return table["special"][locale_id]
-    return table["by_type"][typ]
+        return cast(dict[str, Any], table["special"][locale_id])
+    return cast(dict[str, Any], table["by_type"][typ])
 
 
 @cache
@@ -134,4 +134,4 @@ def list_scenario_ids() -> list[str]:
 @cache
 def load_scenario(scenario_id: str) -> dict[str, Any]:
     """Load a single scenario setup file by id (e.g. ``"henry_vi"``)."""
-    return _load_json(_SCENARIO_PKG, f"{scenario_id}.json")
+    return cast(dict[str, Any], _load_json(_SCENARIO_PKG, f"{scenario_id}.json"))

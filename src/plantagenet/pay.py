@@ -11,11 +11,11 @@ deterministic defaults:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus, VassalStatus
+from plantagenet.state import GameState, LordState, LordStatus, Side, VassalStatus
 
 SIDES = ("lancastrian", "yorkist")
 
@@ -25,11 +25,11 @@ def _require(cond: bool, code: str, msg: str) -> None:
         raise IllegalAction(code, msg)
 
 
-def _troop_pay_need(lord) -> int:
+def _troop_pay_need(lord: LordState) -> int:
     return -(-campaign._troop_count(lord) // 6)   # 1 Coin per 6 Troops, rounded up
 
 
-def _locale_key(lord) -> str | None:
+def _locale_key(lord: LordState) -> str | None:
     if lord.location is not None:
         return f"loc:{lord.location}"
     if lord.exile_box is not None:
@@ -38,7 +38,7 @@ def _locale_key(lord) -> str | None:
 
 
 def pay(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side in SIDES, "bad_side", "side must be a valid side")
     _require(state.phase == "levy" and state.levy_step == "pay", "wrong_step",
              "Pay runs in the Levy Pay step (3.2)")
@@ -65,19 +65,19 @@ def pay(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     rebel = [s for s, r in state.roles.items() if r == "rebel"][0]
     king = [s for s, r in state.roles.items() if r == "king"][0]
     if side == rebel:
-        state.active_side = king
+        state.active_side = cast(Side, king)
         result["next"] = "king_pay"
     else:
         returned = campaign.ready_vassals(state)   # 3.3.2 Ready Vassals
         state.levy_step = "muster"
-        state.active_side = rebel
+        state.active_side = cast(Side, rebel)
         result["ready_vassals"] = returned
         result["next"] = "muster"
     return result
 
 
 # --------------------------------------------------------- 3.2.1 Pay Troops
-def _drain_coin(lords: list, amount: int) -> None:
+def _drain_coin(lords: list[LordState], amount: int) -> None:
     """Remove ``amount`` Coin from a co-located group (Sharing, 1.5.3)."""
     for lord in lords:
         if amount <= 0:
@@ -87,13 +87,15 @@ def _drain_coin(lords: list, amount: int) -> None:
         amount -= take
 
 
-def _at_adj_friendly_ec_port(state: GameState, lord) -> bool:
-    from plantagenet.commands import _adjacency
+def _at_adj_friendly_ec_port(state: GameState, lord: LordState) -> bool:
+    from plantagenet.actions import _adjacency
     ec = set(static_data.load_seas()["zones"]["english_channel"]["ports"])
     here = lord.location
-    if here in ec and state.locales[here].favour == lord.side:
+    if here is None:
+        return False
+    if here in ec and cast(str, state.locales[here].favour) == cast(str, lord.side):
         return True
-    return any(n in ec and state.locales[n].favour == lord.side
+    return any(n in ec and cast(str, state.locales[n].favour) == cast(str, lord.side)
                for n, _t in _adjacency().get(here, []))
 
 
@@ -104,7 +106,7 @@ def _percys_power_free_north(state: GameState, side: str) -> bool:
         return False
     locales = static_data.load_locales()
     return any(lord.status == LordStatus.MUSTERED
-               and locales.get(lord.location, {}).get("region") == "north"
+               and locales.get(lord.location or "", {}).get("region") == "north"
                and ratings.has_capability(state, lid, "PERCY'S POWER")
                for lid, lord in state.lords.items() if lord.side == side)
 
@@ -114,7 +116,7 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
     # 3.2.1: on a shortfall the player chooses which Lords go unpaid; honour an
     # explicit ``unpay_lords`` list, else default to paying smallest-need first.
     choose_unpaid = set(action.get("unpay_lords", []))
-    groups: dict[str, list] = {}
+    groups: dict[str, list[LordState]] = {}
     for lord in state.lords.values():
         if lord.side == side and lord.status in (LordStatus.MUSTERED, LordStatus.EXILE):
             key = _locale_key(lord)
@@ -128,7 +130,7 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
         is_stronghold = key.startswith("loc:")
         locale_id = key.split(":", 1)[1] if is_stronghold else None
         if (free_north and is_stronghold
-                and locales_static.get(locale_id, {}).get("region") == "north"):
+                and locales_static.get(locale_id or "", {}).get("region") == "north"):
             paid_groups.append(key)             # Percy's Power: Pay is free here (L14)
             continue
         need = {lord.lord_id: _troop_pay_need(lord) for lord in lords}
@@ -141,7 +143,8 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
             continue
 
         # Shortfall: Pillage an Unexhausted Stronghold (3.2.1), then re-Pay.
-        if (is_stronghold and state.locales[locale_id].depletion != "exhausted"):
+        if (is_stronghold and state.locales[cast(str, locale_id)].depletion != "exhausted"):
+            assert locale_id is not None                # is_stronghold guarantees it
             chooser = pillage_by.get(locale_id)
             pillager = next((lord for lord in lords if lord.lord_id == chooser), None)
             if pillager is None:   # default: the Lord with the most Troops
@@ -179,6 +182,7 @@ def _pay_lords(state: GameState, side: str, action: dict[str, Any]) -> dict[str,
         lord = state.lords.get(lid)
         _require(lord is not None and lord.side == side and lord.status == LordStatus.MUSTERED,
                  "bad_disband", f"{lid} is not a Mustered {side} Lord")
+        assert lord is not None                         # _require raised otherwise
         campaign._disband_lord(state, lord, from_exile=lord.exile_box is not None)
         disbanded.append(lid)
     # Pay 1 Influence per Lord at a Stronghold, 2 per Lord in an Exile box (3.2.2).
@@ -207,7 +211,7 @@ def _pay_vassals(state: GameState, side: str, action: dict[str, Any]) -> dict[st
     for vid, vs in state.vassals.items():
         if vs.status != VassalStatus.MUSTERED or vs.service_box != state.turn_box:
             continue
-        lord = state.lords.get(vs.on_lord)
+        lord = state.lords.get(vs.on_lord or "")
         if lord is None or lord.side != side:
             continue
         if vid in unpay:

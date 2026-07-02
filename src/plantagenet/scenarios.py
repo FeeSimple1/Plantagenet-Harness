@@ -18,7 +18,7 @@ Muster) proceeds "Rebel then King's" each Turn (3.1-3.4).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import static_data
 from plantagenet.errors import DataError
@@ -66,12 +66,13 @@ def _rebel_side(scn: dict[str, Any]) -> str:
     raise DataError(f"scenario {scn.get('id')} has no Rebel side")
 
 
-def _placement_index(setup: dict[str, Any]) -> tuple[dict, dict]:
+def _placement_index(
+        setup: dict[str, Any]) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     """Return (on_map_by_lord, calendar_by_lord) from a setup block."""
     on_map = {e["lord"]: e for e in setup.get("on_map", [])
               if not str(e.get("lord", "")).isupper()  # skip tokens like "KING"
               and "_per_succession" not in str(e.get("lord", ""))}
-    calendar: dict[str, dict] = {}
+    calendar: dict[str, dict[str, Any]] = {}
     for entry in setup.get("calendar", []):
         box = entry.get("box")
         for lord in entry.get("lords", []):
@@ -87,12 +88,12 @@ def _vassal_service_boxes(setup: dict[str, Any]) -> dict[str, int]:
     return boxes
 
 
-def _setup_special_rule_names(scn: dict) -> set:
+def _setup_special_rule_names(scn: dict[str, Any]) -> set[str]:
     rules = scn.get("setup", {}).get("special_rules") or scn.get("special_rules") or []
     return {r["name"] for r in rules if isinstance(r, dict) and "name" in r}
 
 
-def _apply_setup_special_rules(state: GameState, scn: dict) -> None:
+def _apply_setup_special_rules(state: GameState, scn: dict[str, Any]) -> None:
     """Apply setup-time scenario special rules that the generic builder does not
     express in data (e.g. a Capability + Special Vassal assigned at setup)."""
     names = _setup_special_rule_names(scn)
@@ -107,7 +108,8 @@ def _apply_setup_special_rules(state: GameState, scn: dict) -> None:
                 wk.special_vassals.append("montagu")
 
 
-def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> GameState:
+def _build_standalone(scn: dict[str, Any], seed: int, scenario_id: str,
+                      title: str) -> GameState:
     lords_static = static_data.load_lords()
     vassals_static = static_data.load_vassals()
     locales_static = static_data.load_locales()
@@ -204,8 +206,9 @@ def _build_standalone(scn: dict, seed: int, scenario_id: str, title: str) -> Gam
     return state
 
 
-def _lord_state(lord_id, side, static, on_map_entry, cal_entry,
-                is_mustered_hint, battle_only) -> LordState:
+def _lord_state(lord_id: str, side: str, static: dict[str, Any],
+                on_map_entry: dict[str, Any] | None, cal_entry: dict[str, Any] | None,
+                is_mustered_hint: bool, battle_only: bool) -> LordState:
     forces: dict[str, int] = {}
     assets: dict[str, int] = {}
     caps: list[str] = []
@@ -250,7 +253,8 @@ def _lord_state(lord_id, side, static, on_map_entry, cal_entry,
     )
 
 
-def _build_vassals(setup: dict, vassals_static: dict) -> dict[str, VassalState]:
+def _build_vassals(setup: dict[str, Any],
+                   vassals_static: dict[str, Any]) -> dict[str, VassalState]:
     regular = vassals_static.get("regular", {})
     vmode = setup.get("vassals_on_map", {})
     mode = vmode.get("mode", "all")
@@ -271,14 +275,14 @@ def _build_vassals(setup: dict, vassals_static: dict) -> dict[str, VassalState]:
     return out
 
 
-def _influence_state(inf: dict) -> InfluenceState:
+def _influence_state(inf: dict[str, Any]) -> InfluenceState:
     markers = {k: StrongholdMarker(side=Side(v["side"]), at=v["at"])
                for k, v in inf.get("stronghold_markers", {}).items()}
     return InfluenceState(marker_at=inf["marker_at"], marker_side=Side(inf["marker_side"]),
                           stronghold_markers=markers, victory_check=inf.get("victory_check"))
 
 
-def _build_grand(scn: dict, seed: int) -> GameState:
+def _build_grand(scn: dict[str, Any], seed: int) -> GameState:
     wars = {w["war_id"]: w for w in scn["wars"]}
     war1 = wars["war_i"]
     base_id = war1["base_scenario"]   # "henry_vi"
@@ -314,7 +318,7 @@ def _build_grand(scn: dict, seed: int) -> GameState:
 # War's structured setup, carry forward removed Heirs (and their -8 Influence),
 # resolve the King via Succession, then run setup-time Succession.
 # ---------------------------------------------------------------------------
-def _war_deck(war: dict, side: str) -> list[str]:
+def _war_deck(war: dict[str, Any], side: str) -> list[str]:
     """A side's base Arts of War deck for a War (all no-rose + adds - excepts).
     Succession then layers further cards on top (deck_sources)."""
     spec = war.get("arts_of_war_spec", {}).get(side, {})
@@ -324,7 +328,7 @@ def _war_deck(war: dict, side: str) -> list[str]:
     return sorted((base | set(spec.get("add", []))) - set(spec.get("except", [])))
 
 
-def _war_as_scenario(war: dict) -> dict:
+def _war_as_scenario(war: dict[str, Any]) -> dict[str, Any]:
     return {
         "title": war["title"],
         "sides": {s: {"role": war["sides"][s]["role"],
@@ -335,7 +339,8 @@ def _war_as_scenario(war: dict) -> dict:
     }
 
 
-def _resolve_kings(state: GameState, war: dict, removed: set) -> dict[str, str]:
+def _resolve_kings(state: GameState, war: dict[str, Any],
+                   removed: set[str]) -> dict[str, str]:
     """Seat the King token(s) in a War's setup.on_map as the highest surviving
     Heir of that side (6.2); fire its Muster Succession trigger."""
     from plantagenet import succession
@@ -363,7 +368,7 @@ def _resolve_kings(state: GameState, war: dict, removed: set) -> dict[str, str]:
     return seated
 
 
-def _apply_lost_heir_influence(state: GameState, removed: set) -> int:
+def _apply_lost_heir_influence(state: GameState, removed: set[str]) -> int:
     """Each Heir (not Warwick) removed in an earlier War costs that side -8
     Influence (E2 / 6.x). Returns total points spent."""
     from plantagenet import influence, succession
@@ -452,7 +457,7 @@ def _recompute_stronghold_markers(state: GameState) -> None:
         track.stronghold_markers[typ] = StrongholdMarker(side=Side(leader), at=abs(diff))
 
 
-def apply_iiy_setup(state: GameState, removed: set) -> dict:
+def apply_iiy_setup(state: GameState, removed: set[str]) -> dict[str, Any]:
     """War IIY succession-driven roster (Scenario Reference E4 / Rules 6.2.2).
 
     The base build is standalone Scenario II ("Warwick's Rebellion"), whose
@@ -486,7 +491,8 @@ def apply_iiy_setup(state: GameState, removed: set) -> dict:
     if len(present) <= 2:                         # Pembroke joins (heir_count<=2)
         _place_lord(state, "pembroke", "yorkist", location="pembroke")
         log["pembroke"] = True
-    state.locales["canterbury"].favour = Favour.YORKIST.value   # Yorkist Favour at Canterbury
+    # Yorkist Favour at Canterbury
+    state.locales["canterbury"].favour = cast(Favour, Favour.YORKIST.value)
 
     if "henry_vi" not in removed:                 # Henry VI leads from box 9 Exile
         _place_lord(state, "henry_vi", "lancastrian", calendar_box=9, calendar_exile=True)
@@ -563,18 +569,18 @@ def _apply_succession_favour(state: GameState, king_side: str) -> None:
     """E6/E7 Map: suppress base Favour; London to the King's side, and each
     in-play Lord's (other) marked Seat to that Lord's side."""
     for lid in state.locales:
-        state.locales[lid].favour = Favour.NEUTRAL.value
+        state.locales[lid].favour = cast(Favour, Favour.NEUTRAL.value)
     statics = static_data.load_lords()
     in_play = (LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE)
     for lid, ls in state.lords.items():
         if ls.status in in_play:
             seat = statics.get(lid, {}).get("seat")
             if seat and seat != "london" and seat in state.locales:
-                state.locales[seat].favour = ls.side
-    state.locales["london"].favour = Favour(king_side).value
+                state.locales[seat].favour = cast(Favour, ls.side)
+    state.locales["london"].favour = cast(Favour, Favour(king_side).value)
 
 
-def apply_iiiy_setup(state: GameState, removed: set) -> dict:
+def apply_iiiy_setup(state: GameState, removed: set[str]) -> dict[str, Any]:
     """War IIIY succession-driven roster (Scenario Reference E6 / 6.2.2). The
     base build (Scenario III) supplies only board structure; all Lords, Seats
     and Favour are placed here per surviving Heirs. All set-up Lords are
@@ -664,7 +670,7 @@ _IIIL_YORKIST_SLOTS = {
 _IIIL_SLOT_ORDER = ["york", "march", "rutland", "gloucester"]
 
 
-def apply_iiil_setup(state: GameState, removed: set) -> dict:
+def apply_iiil_setup(state: GameState, removed: set[str]) -> dict[str, Any]:
     """War IIIL succession-driven roster (Scenario Reference E7 / 6.2.2). The
     Lancastrians are King (highest surviving L Heir at London; Somerset (2)
     yields to Somerset (1)), with Oxford and Jasper Tudor (2). The Yorkist
@@ -695,7 +701,7 @@ def apply_iiil_setup(state: GameState, removed: set) -> dict:
     present = [slot for slot in _IIIL_SLOT_ORDER
                if not any(lid in removed for lid in _IIIL_YORKIST_SLOTS[slot])]
     glos_set_aside = bool((state.grand_scenario or {}).get("gloucester_as_heir_played"))
-    heirs: list[tuple] = []        # (lord_id, [cards])
+    heirs: list[tuple[str, list[str]]] = []        # (lord_id, [cards])
     warwick_heir = False
     if present and ((glos_set_aside and "gloucester" in present) or present[0] == "gloucester"):
         heirs = [("gloucester_2", ["Y35"])]             # Gloucester (2) the sole Heir
@@ -716,7 +722,8 @@ def apply_iiil_setup(state: GameState, removed: set) -> dict:
     salisbury = len(heirs) == 1                          # exactly one Heir -> Salisbury + Y17/Y22
 
     # Placement: Burgundy Exile box, or Calais if the Yorkist Warwick is Heir.
-    y_at = {"location": "calais"} if warwick_heir else {"exile_box": "burgundy"}
+    y_at: dict[str, Any] = ({"location": "calais"} if warwick_heir
+                            else {"exile_box": "burgundy"})
     for lord_id, cards in heirs:
         _place_lord(state, lord_id, "yorkist", **y_at)
         for c in cards:
@@ -734,7 +741,7 @@ def apply_iiil_setup(state: GameState, removed: set) -> dict:
     return log
 
 
-def apply_natural_causes(state: GameState) -> dict:
+def apply_natural_causes(state: GameState) -> dict[str, Any]:
     """Natural Causes (E4/E5 special rule): after victory in a second War (IIY
     or IIL), roll for aging Heirs still present. Henry VI and York: roll two
     dice -- a roll (sum) less than the last Turn box played removes that Heir.
@@ -770,7 +777,7 @@ def apply_natural_causes(state: GameState) -> dict:
     return {"applied": True, "last_turn": last_turn, "rolls": rolls, "removed": removed}
 
 
-def next_war_id(scn_grand: dict, current_war: str, winner: str) -> str | None:
+def next_war_id(scn_grand: dict[str, Any], current_war: str, winner: str) -> str | None:
     wars = {w["war_id"]: w for w in scn_grand["wars"]}
     order = wars[current_war]["order"]
     rw = scn_grand["respite_and_war"]["renewed_war"]

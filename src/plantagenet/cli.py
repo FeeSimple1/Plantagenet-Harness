@@ -10,6 +10,7 @@ The action grammar for ``do`` is documented in ACTIONS.md.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import typer
 
@@ -145,7 +146,7 @@ def pending(file: str) -> None:
     from plantagenet.state import GameState
 
     gs = GameState.load(file)
-    out: dict = {"pending": gs.pending}
+    out: dict[str, Any] = {"pending": gs.pending}
     if gs.pending:
         inter = gs.pending[0]
         offers = inter.get("offers", [])

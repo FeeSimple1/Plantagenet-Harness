@@ -1279,3 +1279,35 @@ test comment, not a citation; comment reworded.
 
 Coverage: battle.py 93.2 -> 96.9, succession.py 95.6 -> 97.8.
 Suite 639 -> 656; ruff clean; suite verified under multiple hash seeds.
+
+## Round (2026-07-01c): mypy --strict clean (626 -> 0) + CI type gate
+
+The handoff triaged the 626 mypy --strict complaints as cosmetic (missing
+annotations, not bugs). Now closed: all 27 source modules type-check clean
+under mypy --strict, and CI gained a `typecheck` job so it stays that way.
+
+Edit discipline (annotation-only, zero behavior): parameter/return/variable
+annotations; `cast()` (runtime no-op) for the Side/Favour str-enum pattern
+(pydantic use_enum_values keeps runtime values plain str -- enum members were
+never assigned, which WOULD have changed runtime); `assert x is not None`
+only immediately after an existing `_require`/raise guard that already
+guarantees it; `.get(key or "", default)` only where key=None already
+produced that default. Two `from plantagenet.commands import _adjacency`
+sites now import from `plantagenet.actions` (its defining module; same
+object) to satisfy strict no-implicit-reexport.
+
+Behavioral-equivalence check, stronger than the suite: full seeded random-
+policy games (henry_vi, towton, wars_of_the_roses x 3 seeds) played on the
+annotated tree vs a pristine pre-annotation worktree produce byte-identical
+final-state JSON under pinned PYTHONHASHSEED (verified at hash seeds 0 and 1).
+Plus: 656 tests pass, ruff clean.
+
+OBSERVATION (pre-existing, logged not fixed): full-game TRAJECTORIES from
+(scenario, seed) still vary with PYTHONHASHSEED on both trees -- some
+hash-ordered iteration still influences move-enumeration order (the random
+policy indexes into the legal-moves list). Distinct from the fixed battle
+dice-order bug: it does not affect rules correctness or replay of recorded
+action sequences, only seed-trajectory reproducibility across processes.
+Candidate hunt: set iteration in legal_moves/events enumeration.
+
+Suite unchanged at 656; ruff clean; mypy --strict clean.

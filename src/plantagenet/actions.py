@@ -15,8 +15,9 @@ actions live in `commands.py`; this module also hosts `apply_action`, the
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from functools import lru_cache
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
@@ -92,20 +93,20 @@ def lord_at_friendly_locale(state: GameState, lord: LordState) -> bool:
 
 
 # --------------------------------------------------------------- validation
-def _require(cond: bool, code: str, msg: str) -> None:
+def _require(cond: object, code: str, msg: str) -> None:
     if not cond:
         raise IllegalAction(code, msg)
 
 
 def _active_lord(state: GameState, action: dict[str, Any],
                  require_lordship: bool = True) -> LordState:
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side in SIDES, "bad_side", "side must be 'lancastrian' or 'yorkist'")
     _require(state.levy_step == "muster", "wrong_step",
              f"Muster actions require the Muster step (3.4); step is {state.levy_step!r}")
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Muster (3.4: Rebel then King)")
-    lord_id = action.get("by_lord")
+    lord_id = cast(str, action.get("by_lord"))
     _require(lord_id in state.lords, "unknown_lord", f"no such Lord {lord_id!r}")
     lord = state.lords[lord_id]
     _require(lord.side == side, "wrong_side_lord", f"{lord_id} is not a {side} Lord")
@@ -123,12 +124,12 @@ def _active_lord(state: GameState, action: dict[str, Any],
 
 
 def _lordship(lord_id: str) -> int:
-    return static_data.load_lords()[lord_id]["ratings"]["lordship"]
+    return cast(int, static_data.load_lords()[lord_id]["ratings"]["lordship"])
 
 
 # ----------------------------------------------------------------- dispatch
 def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    atype = action.get("type")
+    atype = cast(str, action.get("type"))
     # While a reaction is pending, only "react" is legal (the acting side waits).
     if state.pending and atype != "react":
         raise IllegalAction("reaction_pending",
@@ -206,7 +207,8 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
     return None
 
 
-def _snap(state, lords=(), locales=(), vassals=(), decks=()):
+def _snap(state: GameState, lords: Iterable[str] = (), locales: Iterable[str] = (),
+          vassals: Iterable[str] = (), decks: Iterable[str] = ()) -> dict[str, Any]:
     return {
         "lords": {x: state.lords[x].model_dump() for x in lords if x in state.lords},
         "locales": {x: state.locales[x].model_dump() for x in locales if x in state.locales},
@@ -215,7 +217,7 @@ def _snap(state, lords=(), locales=(), vassals=(), decks=()):
     }
 
 
-def _restore(state, snap):
+def _restore(state: GameState, snap: dict[str, Any]) -> None:
     from plantagenet.state import LocaleState, LordState, VassalState
     for x, d in snap.get("lords", {}).items():
         state.lords[x] = LordState.model_validate(d)
@@ -227,7 +229,8 @@ def _restore(state, snap):
         state.decks[s] = {p: list(v) for p, v in piles.items()}
 
 
-def _gate_levy_cancel(state, actor_side, undo, result):
+def _gate_levy_cancel(state: GameState, actor_side: str, undo: dict[str, Any],
+                      result: dict[str, Any]) -> dict[str, Any]:
     """Open The King's Name (Y32) reaction window after a successful Lancastrian
     Levy action; on cancel, ``levy_cancel_finish`` restores the snapshot."""
     from plantagenet import reactions
@@ -237,11 +240,12 @@ def _gate_levy_cancel(state, actor_side, undo, result):
                           {"undo": undo, "result": result})
 
 
-def levy_cancel_finish(state, data, *, cancelled):
+def levy_cancel_finish(state: GameState, data: dict[str, Any], *,
+                       cancelled: bool) -> dict[str, Any]:
     if cancelled:
         _restore(state, data["undo"])
         return {**data["result"], "cancelled": True}
-    return data["result"]
+    return cast(dict[str, Any], data["result"])
 
 
 def _parley_event_mods(state: GameState, lord_id: str, side: str,
@@ -251,13 +255,13 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str,
     Gloucester as Heir (Y28), Dorset (Y29), An Honest Tale (Y34). Returns
     {auto, discount, free_lordship} and records per-Lord usage on the event."""
     cards = static_data.load_cards()
-    mod = {"auto": False, "discount": 0, "free_lordship": False, "used": []}
+    mod: dict[str, Any] = {"auto": False, "discount": 0, "free_lordship": False, "used": []}
 
-    def matches(title):
+    def matches(title: str) -> list[dict[str, Any]]:
         return [e for e in state.active_events
                 if cards[e["card"]]["event"]["title"] == title]
 
-    def use(ev, lid, limit):
+    def use(ev: dict[str, Any], lid: str, limit: int) -> bool:
         used = ev.setdefault("used", {})
         if used.get(lid, 0) >= limit:
             return False
@@ -299,7 +303,7 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str,
     return mod
 
 
-def _jack_cade_eligible(state: GameState, lord) -> bool:
+def _jack_cade_eligible(state: GameState, lord: LordState) -> bool:
     locs = static_data.load_locales()
     here = lord.location
     region = locs.get(here, {}).get("region") if here else None
@@ -317,19 +321,21 @@ def _jack_cade_eligible(state: GameState, lord) -> bool:
 
 
 def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    peek = state.lords.get(action.get("by_lord"))
+    peek = state.lords.get(cast(str, action.get("by_lord")))
     mods = (_parley_event_mods(state, peek.lord_id, peek.side)
             if peek is not None else {"auto": False, "discount": 0, "free_lordship": False})
     lord = _active_lord(state, action, require_lordship=not mods["free_lordship"])
     loc = lord_location(lord)
+    assert loc is not None  # _active_lord guarantees a Locale (3.4)
     kind, here = loc
-    target = action.get("target", here)
+    target = cast(str, action.get("target", here))
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
     extra = int(action.get("extra_spend", 0))
     has_ship = lord.assets.get("ship", 0) > 0
 
     own_unfriendly_here = (target == here and kind == "stronghold"
                            and not is_friendly_stronghold(state, here, lord.side))
+    way_cost: int | None
     if own_unfriendly_here:
         way_cost = 0  # Parley at a not-yet-Friendly current location targets it only
     else:
@@ -337,9 +343,10 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         way_cost = _parley_route_cost(state, loc, target, lord.side, has_ship, all_seas=gs)
         _require(way_cost is not None, "no_route",
                  f"no Route free of Enemy Lords (Friendly except target) to {target} (3.4.1)")
+        assert way_cost is not None
 
     fav = state.locales[target].favour
-    _require(fav != lord.side, "already_friendly",
+    _require(cast(str, fav) != cast(str, lord.side), "already_friendly",
              f"{target} already Favours {lord.side} (3.4.1)")
 
     chk = influence.check_influence(state, lord.lord_id, lord.side,
@@ -353,10 +360,10 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     undo = _snap(state, locales=[target])
     if chk["success"]:
         if fav == Favour.NEUTRAL.value:
-            state.locales[target].favour = lord.side
+            state.locales[target].favour = cast(Favour, lord.side)
             changed = f"{target}: neutral -> {lord.side}"
         else:  # Enemy favour -> Neutral
-            state.locales[target].favour = Favour.NEUTRAL.value
+            state.locales[target].favour = cast(Favour, Favour.NEUTRAL.value)
             changed = f"{target}: {fav} -> neutral"
     result = {"type": "parley", "by_lord": lord.lord_id, "target": target,
               "way_cost": way_cost, **chk, "favour_change": changed}
@@ -388,7 +395,7 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = _active_lord(state, action)
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Levy Lord requires the acting Lord at a Friendly Locale (3.4.2)")
-    target_id = action.get("target")
+    target_id = cast(str, action.get("target"))
     _require(target_id in state.lords, "unknown_target", f"no such Lord {target_id!r}")
     target = state.lords[target_id]
     _require(target.side == lord.side, "target_wrong_side",
@@ -428,8 +435,8 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         target.forces = dict(statics.get("forces", {}))
         target.assets = dict(statics.get("assets", {}))
         target.mustered_this_segment = True
-        if seat_free and state.locales[seat].favour != lord.side:
-            state.locales[seat].favour = lord.side
+        if seat_free and cast(str, state.locales[seat].favour) != cast(str, lord.side):
+            state.locales[seat].favour = cast(Favour, lord.side)
     if chk["success"] and state.grand_scenario:
         from plantagenet import succession
         succession.on_muster_lord(state, target_id)        # e.g. L26 EDWARD -> Margaret
@@ -445,7 +452,7 @@ def _loyalty_mod(vid: str, side: str) -> int:
     if not loy:
         return 0
     colour_side = {"red": "lancastrian", "white": "yorkist"}[loy["color"]]
-    return loy["value"] if colour_side == side else -loy["value"]
+    return cast(int, loy["value"] if colour_side == side else -loy["value"])
 
 
 def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -463,7 +470,7 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                          and bool(ratings.event_active(state, "MARGARET BEAUFORT")))
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Levy Vassal requires the acting Lord at a Friendly Locale (3.4.3)")
-    vid = action.get("target")
+    vid = cast(str, action.get("target"))
     regular = static_data.load_vassals()["regular"]
     _require(vid in regular, "unknown_vassal", f"no such regular Vassal {vid!r}")
     vstate = state.vassals.get(vid)
@@ -526,6 +533,7 @@ def _h_levy_transport(state: GameState, action: dict[str, Any]) -> dict[str, Any
         return _gate_levy_cancel(state, lord.side, undo, result)   # The King's Name (Y32)
     # Ship requirements (3.4.5)
     loc = lord_location(lord)
+    assert loc is not None  # _active_lord guarantees a Locale (3.4)
     at_port_or_exile = loc[0] == "exile" or static_data.load_locales()[loc[1]].get("port")
     _require(at_port_or_exile, "not_port",
              "Ship Levy requires a Friendly Port or Exile box (3.4.5)")
@@ -545,7 +553,7 @@ def _troops_in_play(state: GameState, force_id: str) -> int:
     return sum(v.forces.get(force_id, 0) for v in state.lords.values())
 
 
-def _is_own_vassal_seat(state: GameState, lord, locale: str) -> bool:
+def _is_own_vassal_seat(state: GameState, lord: LordState, locale: str) -> bool:
     regular = static_data.load_vassals()["regular"]
     return any(regular.get(v, {}).get("seat") == locale for v in lord.vassals)
 
@@ -553,11 +561,12 @@ def _is_own_vassal_seat(state: GameState, lord, locale: str) -> bool:
 def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Levy Troops (3.4.4): add the Stronghold's listed Troops, then Deplete
     (or Exhaust if already Depleted). No Influence check. Pool-limited (1.6)."""
-    pre = state.lords.get(action.get("by_lord"))
+    pre = state.lords.get(cast(str, action.get("by_lord")))
     stanley_free = (pre is not None and "thomas_stanley" in pre.special_vassals
                     and not pre.free_troops_used)
     lord = _active_lord(state, action, require_lordship=not stanley_free)
     loc = lord_location(lord)
+    assert loc is not None  # _active_lord guarantees a Locale (3.4)
     # Irishmen (Y18): Levy 5 Militia in the Ireland Exile box or at an Irish-Sea Port,
     # with no Depletion/Exhaustion (FAQ: Great Ships does not relax the Irish-Sea need).
     irish_here = ratings.has_capability(state, lord.lord_id, "IRISHMEN") and (
@@ -584,6 +593,7 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if not irish_here:
         _require(is_friendly_stronghold(state, here, lord.side), "not_friendly_locale",
                  "Levy Troops requires a Friendly Stronghold (3.4.4)")
+        assert ls is not None  # is_friendly_stronghold above guarantees the Locale
         _require(ls.depletion != "exhausted", "exhausted",
                  f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
     rising_wages = ratings.event_against(state, "RISING WAGES", lord.side)
@@ -686,7 +696,7 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
     lord = _active_lord(state, action)
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Levy Capability requires the acting Lord at a Friendly Locale (3.4.6)")
-    card_id = action.get("card")
+    card_id = cast(str, action.get("card"))
     cards = static_data.load_cards()
     _require(card_id in cards and cards[card_id]["side"] == lord.side, "unknown_card",
              f"{card_id!r} is not a {lord.side} Arts of War card")
@@ -723,7 +733,7 @@ def _h_levy_capability(state: GameState, action: dict[str, Any]) -> dict[str, An
     return _gate_levy_cancel(state, lord.side, undo, result)       # The King's Name (Y32)
 
 
-def _muster_special_vassal(state: GameState, lord, card_id: str) -> str | None:
+def _muster_special_vassal(state: GameState, lord: LordState, card_id: str) -> str | None:
     """If ``card_id`` is a Special-Vassal Capability, Muster the Vassal free to
     this Lord (1.5.4, 3.4.6) and apply any one-time Force addition (e.g.
     Hastings adds 2 Men-at-Arms, pool-limited)."""
@@ -740,17 +750,18 @@ def _muster_special_vassal(state: GameState, lord, card_id: str) -> str | None:
                 give = max(0, min(amount, free))
                 if give:
                     lord.forces[unit] = lord.forces.get(unit, 0) + give
-            return vid
+            return cast(str, vid)
     return None
 
 
 # ----------------------------------------------------- 3.3.1 Muster Exiles
-def _allied_networks(state: GameState) -> dict:
+def _allied_networks(state: GameState) -> dict[str, Any]:
     """Exile-box assignments per Lord (6.0). A fixed game property: defined at
     War I / Scenario Ia and carried across Wars."""
     if state.grand_scenario:
-        return state.grand_scenario.get("allied_networks") or {}
-    return static_data.load_scenario(state.scenario).get("allied_networks", {})
+        return cast(dict[str, Any], state.grand_scenario.get("allied_networks") or {})
+    return cast(dict[str, Any],
+                static_data.load_scenario(state.scenario).get("allied_networks", {}))
 
 
 def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -758,7 +769,7 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     cylinders marked Exile on the Calendar (current or earlier box) into its
     scenario-designated Exile box, with no Influence check or cost; mats are set
     up. Such Lords may still act in the Muster (3.4) segment that follows."""
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side in SIDES, "bad_side", "side must be 'lancastrian' or 'yorkist'")
     _require(state.levy_step == "muster", "wrong_step",
              f"Muster Exiles is part of the Muster window (3.3.1); step is {state.levy_step!r}")
@@ -775,6 +786,7 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     targets = action.get("lords")
     _require(isinstance(targets, list) and targets, "no_lords",
              "muster_exiles requires a non-empty 'lords' list (3.3.1)")
+    assert targets is not None
     statics = static_data.load_lords()
     mustered = []
     for lid in targets:
@@ -807,6 +819,7 @@ def _h_crown_richard(state: GameState, action: dict[str, Any]) -> dict[str, Any]
                 and state.lords[g].location == "london"), None)
     _require(gid is not None, "no_gloucester_at_london",
              "King Richard requires Gloucester Mustered at London")
+    assert gid is not None
     succession._apply_replace_in_place(state, "yorkist", gid, "richard_iii")
     return {"type": "crown_richard", "replaced": gid, "with": "richard_iii"}
 
@@ -818,10 +831,11 @@ def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     loser, setting the War's victory so the consumer proceeds to Renewed War
     (6.1). (Timing -- "just before the last Heir's Death roll" -- is the
     consumer's to choose; the harness exposes the action.)"""
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side in SIDES, "bad_side", "side must be 'lancastrian' or 'yorkist'")
     _require(state.grand_scenario is not None, "not_grand",
              "Surrender applies only to the grand scenario (6.1.1)")
+    assert state.grand_scenario is not None
     wars = {w["war_id"]: w for w in static_data.load_scenario("wars_of_the_roses")["wars"]}
     order = wars.get(state.grand_scenario.get("current_war"), {}).get("order")
     _require(order in (1, 2), "no_surrender",
@@ -840,7 +854,7 @@ def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 # ------------------------------------------------------------- end_muster
 def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Muster")
     _require(state.levy_step == "muster", "wrong_step", "not in the Muster step")
@@ -851,7 +865,7 @@ def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     rebel = [s for s, r in state.roles.items() if r == "rebel"][0]
     king = [s for s, r in state.roles.items() if r == "king"][0]
     if side == rebel:
-        state.active_side = king
+        state.active_side = cast(Side, king)
         return {"type": "end_muster", "next": "king_muster"}
     state.levy_step = "done"
     from plantagenet.events import expire_scope
@@ -889,18 +903,20 @@ def _h_resolve_battle(state: GameState, action: dict[str, Any]) -> dict[str, Any
     return {"type": "resolve_battle", "winner": winner, **res}
 
 
-def _campaign_handler(name):
+def _campaign_handler(name: str) -> Callable[[GameState, dict[str, Any]], dict[str, Any]]:
     # Imported lazily to avoid a circular import (campaign imports actions).
     from plantagenet import campaign
-    return getattr(campaign, name)
+    return cast(Callable[[GameState, dict[str, Any]], dict[str, Any]],
+                getattr(campaign, name))
 
 
-def _command_handler(name):
+def _command_handler(name: str) -> Callable[[GameState, dict[str, Any]], dict[str, Any]]:
     from plantagenet import commands
-    return getattr(commands, name)
+    return cast(Callable[[GameState, dict[str, Any]], dict[str, Any]],
+                getattr(commands, name))
 
 
-def _parley_dispatch(state, action):
+def _parley_dispatch(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # "Parley" exists in both phases (3.4.1 Levy / 4.6.4 Campaign).
     if state.phase == "campaign":
         from plantagenet import commands
@@ -908,7 +924,7 @@ def _parley_dispatch(state, action):
     return _h_parley(state, action)
 
 
-_HANDLERS = {
+_HANDLERS: dict[str, Callable[[GameState, dict[str, Any]], dict[str, Any]]] = {
     "begin_campaign": lambda st, a: _campaign_handler("begin_campaign")(st, a),
     "build_plan": lambda st, a: _campaign_handler("build_plan")(st, a),
     "forage": lambda st, a: _campaign_handler("forage")(st, a),

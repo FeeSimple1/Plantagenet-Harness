@@ -15,11 +15,11 @@ Mustered Lord.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus
+from plantagenet.state import GameState, LordState, LordStatus, Side
 
 SIDES = ("lancastrian", "yorkist")
 
@@ -29,7 +29,7 @@ def _require(cond: bool, code: str, msg: str) -> None:
         raise IllegalAction(code, msg)
 
 
-def _first_eligible_lord(state: GameState, side: str, card_id: str):
+def _first_eligible_lord(state: GameState, side: str, card_id: str) -> LordState | None:
     from plantagenet.actions import _capabilities_in_play, _capability_eligible
     cards = static_data.load_cards()
     title = cards[card_id]["capability"]["title"]
@@ -45,7 +45,7 @@ def _first_eligible_lord(state: GameState, side: str, card_id: str):
 
 
 def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side in SIDES, "bad_side", "side must be a valid side")
     _require(state.phase == "levy" and state.levy_step == "arts_of_war", "wrong_step",
              "the Arts of War draw runs in the Levy's first step (3.1)")
@@ -104,8 +104,8 @@ def advance_after_draw(state: GameState, side: str, first_levy: bool) -> str:
     rebel = [s for s, r in state.roles.items() if r == "rebel"][0]
     king = [s for s, r in state.roles.items() if r == "king"][0]
     if side == rebel:
-        state.active_side = king
+        state.active_side = cast(Side, king)
         return "king_draw"
     state.levy_step = "muster" if first_levy else "pay"
-    state.active_side = rebel
+    state.active_side = cast(Side, rebel)
     return state.levy_step

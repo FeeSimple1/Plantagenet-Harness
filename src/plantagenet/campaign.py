@@ -16,11 +16,19 @@ Combat (Approach/Battle) lives in `battle.py`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import GameState, LordStatus, Side
+from plantagenet.state import (
+    CampaignState,
+    Favour,
+    GameState,
+    LocaleState,
+    LordState,
+    LordStatus,
+    Side,
+)
 
 SIDES = ("lancastrian", "yorkist")
 AREAS = ("north", "south", "wales")
@@ -56,7 +64,7 @@ def _king(state: GameState) -> str:
 
 
 def _command_rating(lord_id: str) -> int:
-    return static_data.load_lords()[lord_id]["ratings"]["command"]
+    return cast(int, static_data.load_lords()[lord_id]["ratings"]["command"])
 
 
 # --------------------------------------------------------------- begin
@@ -83,12 +91,13 @@ def begin_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- 4.1 Plan
 def build_plan(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     _require(side in SIDES, "bad_side", "side must be a valid side")
     c = state.campaign
     _require(c is not None and c.step == "plan", "wrong_step", "not in the Plan step (4.1)")
+    assert c is not None
     _require(not c.plan_built.get(side), "plan_already_built", f"{side} already built its Plan")
-    plan = action.get("plan")
+    plan: Any = action.get("plan")
     _require(isinstance(plan, list), "bad_plan", "plan must be a list of entries")
     _require(len(plan) == c.cards_required, "wrong_plan_size",
              f"Plan must use exactly {c.cards_required} cards this season (4.1)")
@@ -111,7 +120,7 @@ def build_plan(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     c.plan_built[side] = True
     if all(c.plan_built.get(s) for s in SIDES):
         c.step = "activation"
-        state.active_side = _rebel(state)   # Rebels flip first (4.2)
+        state.active_side = cast(Side, _rebel(state))   # Rebels flip first (4.2)
         _reveal(state)
     return {"type": "build_plan", "side": side, "built": c.plan_built,
             "step": c.step}
@@ -120,7 +129,7 @@ def build_plan(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 # ------------------------------------------------------------ 4.2 Activation
 def _reveal(state: GameState) -> None:
     """Reveal the active side's current top card and set up its Activation."""
-    c = state.campaign
+    c = cast(CampaignState, state.campaign)
     side = state.active_side
     entry = c.plans[side][c.plan_index[side]]
     lid = entry.get("lord")
@@ -131,18 +140,20 @@ def _reveal(state: GameState) -> None:
         c.actions_remaining = 0
     else:
         c.active_lord = lid
-        c.actions_remaining = ratings.rating(state, lid, "command")
+        c.actions_remaining = ratings.rating(state, cast(str, lid), "command")
 
 
-def _active_command_lord(state: GameState, action: dict[str, Any]):
-    side = action.get("side")
+def _active_command_lord(state: GameState, action: dict[str, Any]) -> LordState:
+    side = cast(str, action.get("side"))
     c = state.campaign
     _require(c is not None and c.step == "activation", "wrong_step",
              "Command actions require the Activation step (4.2)")
+    assert c is not None
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Activation")
     _require(c.active_lord is not None, "no_active_lord",
              "no Lord is Activated (Pass card or off-map); end the Activation")
+    assert c.active_lord is not None
     _require(c.actions_remaining > 0, "no_actions_left",
              "the Active Lord has no Command actions remaining (4.2.1)")
     by = action.get("by_lord", c.active_lord)
@@ -151,9 +162,10 @@ def _active_command_lord(state: GameState, action: dict[str, Any]):
 
 
 def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    side = action.get("side")
+    side = cast(str, action.get("side"))
     c = state.campaign
     _require(c is not None and c.step == "activation", "wrong_step", "not Activating")
+    assert c is not None
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Activation")
     state.flags.pop("surprise_march_lord", None)   # L33 grant does not carry over
@@ -164,7 +176,7 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     c.actions_remaining = 0
     other = _other(side)
     if c.plan_index[other] < c.cards_required:
-        state.active_side = other
+        state.active_side = cast(Side, other)
         _reveal(state)
     elif c.plan_index[side] < c.cards_required:
         _reveal(state)                        # other exhausted; continue this side
@@ -183,6 +195,7 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = _active_command_lord(state, action)
     loc = _lord_locale(lord)
     _require(loc is not None, "lord_not_on_locale", "the Lord must be at a Locale to Forage")
+    assert loc is not None
     kind, here = loc
     if kind == "exile":
         ls = None  # Exile-box Depletion is tracked in state.exile_depletion, not LocaleState
@@ -192,8 +205,11 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         ls = state.locales[here]
         _require(ls.depletion != "exhausted", "exhausted",
                  f"{here} is Exhausted and may not be Foraged (4.6.2)")
-    fav = "friendly" if (kind == "exile" or ls.favour == lord.side) else (
-        "enemy" if (kind == "stronghold" and ls.favour == _other(lord.side)) else "neutral")
+    fav = "friendly" if (
+        kind == "exile" or cast(LocaleState, ls).favour == cast(str, lord.side)
+    ) else ("enemy" if (kind == "stronghold"
+                        and cast(LocaleState, ls).favour == _other(lord.side))
+            else "neutral")
     enemy_adjacent = _enemy_lord_adjacent(state, here, lord.side) if kind == "stronghold" else False
 
     roll = None
@@ -205,7 +221,7 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.store_dice(roller)
         threshold = 3 if (fav == "enemy" or enemy_adjacent) else 4
         success = roll <= threshold
-    state.campaign.actions_remaining -= 1
+    cast(CampaignState, state.campaign).actions_remaining -= 1
     added = 0
     if success:
         gain = 1 + (1 if ratings.has_capability(state, lord.lord_id, "SCOURERS") else 0)
@@ -223,12 +239,12 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 def pass_command(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = _active_command_lord(state, action)
-    state.campaign.actions_remaining -= 1
+    cast(CampaignState, state.campaign).actions_remaining -= 1
     return {"type": "pass", "by_lord": lord.lord_id}
 
 
 # --------------------------------------------------------------- helpers
-def _lord_locale(lord):
+def _lord_locale(lord: LordState) -> tuple[str, str] | None:
     if lord.location is not None:
         return ("stronghold", lord.location)
     if lord.exile_box is not None:
@@ -245,7 +261,7 @@ def _enemy_lord_adjacent(state: GameState, locale_id: str, side: str) -> bool:
 
 
 # ------------------------------------------------------- 3.2.1 Pillage
-def _pillage(state: GameState, lord, locale_id: str) -> dict[str, Any]:
+def _pillage(state: GameState, lord: LordState, locale_id: str) -> dict[str, Any]:
     """A Lord Pillages an Unexhausted Stronghold (3.2.1): gain Coin+Provender
     per the Strongholds table; the side loses 2x the Assets gained; Exhaust
     and set Enemy Favour; shift each Way-adjacent Stronghold one level toward
@@ -259,13 +275,13 @@ def _pillage(state: GameState, lord, locale_id: str) -> dict[str, Any]:
     foe = _other(lord.side)
     influence.spend_influence(state, lord.side, 2 * gained)   # lose 2x Assets (toward foe)
     state.locales[locale_id].depletion = "exhausted"
-    state.locales[locale_id].favour = foe
+    state.locales[locale_id].favour = cast(Favour, foe)
     for nbr, _t in _adjacency().get(locale_id, []):
         nb = state.locales[nbr]
-        if nb.favour == lord.side:
-            nb.favour = "neutral"
+        if nb.favour == cast(str, lord.side):
+            nb.favour = cast(Favour, "neutral")
         elif nb.favour == "neutral":
-            nb.favour = foe
+            nb.favour = cast(Favour, foe)
     return {"locale": locale_id, "assets_gained": gained, "influence_lost": 2 * gained}
 
 
@@ -285,7 +301,7 @@ def _release_captive(state: GameState, holder_id: str) -> None:
             influence.gain_influence(state, "lancastrian", 10)
 
 
-def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
+def _disband_lord(state: GameState, lord: LordState, *, from_exile: bool = False) -> None:
     """Disband a Lord (3.2.4): Disband its Vassals, return Forces/Assets, and
     place the cylinder on the Calendar 6-minus-Influence boxes right of the
     current Turn (Exile-marked if Disbanding from an Exile box)."""
@@ -316,7 +332,7 @@ def _disband_lord(state: GameState, lord, *, from_exile: bool = False) -> None:
     lord.calendar_exile = from_exile
 
 
-def _disband_special_vassal(state: GameState, lord, vid: str) -> None:
+def _disband_special_vassal(state: GameState, lord: LordState, vid: str) -> None:
     """Disband a Special Vassal (3.2.4): remove it from the Lord's mat. Special
     Vassals have no Seat/Service/Calendar, so they simply leave play; the
     Capability that Mustered it (e.g. Y24 Hastings) is discarded (1.5.4). The
@@ -360,7 +376,7 @@ def ready_vassals(state: GameState) -> list[str]:
 
 
 # ----------------------------------------------------------------- 4.7 Feed
-def _co_located_group(state: GameState, lord) -> list:
+def _co_located_group(state: GameState, lord: LordState) -> list[LordState]:
     """Friendly Mustered Lords sharing ``lord``'s position (same Locale or Exile
     box), the Lord itself first -- the Sharing group for Assets (1.5.3)."""
     pos = (lord.location, lord.exile_box)
@@ -374,7 +390,7 @@ def _co_located_group(state: GameState, lord) -> list:
     return group
 
 
-def _drain_provender(group: list, amount: int) -> None:
+def _drain_provender(group: list[LordState], amount: int) -> None:
     """Remove ``amount`` Provender from a co-located group (Sharing, 1.5.3),
     drawing from the first Lord's mat before its allies'."""
     for m in group:
@@ -424,7 +440,7 @@ def _feed(state: GameState, side: str) -> dict[str, Any]:
     return {"fed": fed, "disbanded": disbanded}
 
 
-def _troop_count(lord) -> int:
+def _troop_count(lord: LordState) -> int:
     forces_static = static_data.load_forces()
     return sum(n for f, n in lord.forces.items()
               if f != "retinue" and f in forces_static)  # Troops only (not Retinue/Vassal)
@@ -473,7 +489,7 @@ def _foreign_haven_shift(state: GameState) -> None:
                 ls.calendar_box = cur + 1
 
 
-def _active_special_rules(state: GameState) -> set:
+def _active_special_rules(state: GameState) -> set[str]:
     """Names of the special rules in force for the current scenario or, in the
     grand scenario, the current War (read from the scenario data)."""
     if state.grand_scenario:
@@ -783,7 +799,7 @@ def _reset_to_next_levy(state: GameState) -> None:
     # then the Muster window (Muster Exiles 3.3.1 + Muster 3.4).
     state.levy_step = "arts_of_war"
     state.campaign = None
-    state.active_side = _rebel(state)
+    state.active_side = cast(Side, _rebel(state))
     for lord in state.lords.values():
         lord.lordship_spent = 0
         lord.mustered_this_segment = False

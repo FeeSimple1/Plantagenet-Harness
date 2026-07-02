@@ -22,7 +22,8 @@ tokens, so a paused game round-trips through save/load.
 from __future__ import annotations
 
 import importlib
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import Any, cast
 
 from plantagenet import static_data
 from plantagenet.errors import IllegalAction
@@ -31,18 +32,18 @@ from plantagenet.state import GameState, LordStatus
 _MUSTERED = LordStatus.MUSTERED
 
 
-def _require(cond, code, msg):
+def _require(cond: object, code: str, msg: str) -> None:
     if not cond:
         raise IllegalAction(code, msg)
 
 
-def _has_cap(state, lord_id, title):
+def _has_cap(state: GameState, lord_id: str, title: str) -> bool:
     cards = static_data.load_cards()
     return any(cards[c]["capability"]["title"] == title
                for c in state.lords[lord_id].capabilities)
 
 
-def _held(state, side, title):
+def _held(state: GameState, side: str, title: str) -> str | None:
     cards = static_data.load_cards()
     for cid in state.decks.get(side, {}).get("held", []):
         if cards[cid]["event"]["title"] == title:
@@ -50,39 +51,39 @@ def _held(state, side, title):
     return None
 
 
-def _port_sea():
+def _port_sea() -> dict[str, str]:
     seas = static_data.load_seas()
     return {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
 
 
 # --------------------------------------------------------------- offer finders
-def _naval_blockade_offers(state, ctx):
+def _naval_blockade_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str, Any]]:
     """Naval Blockade (Y15 Capability, Warwick at a Port): cancels Lancastrian
     actions using Ports on that Sea unless a roll of 1-2 (per-action, persistent)."""
     if ctx.get("side") != "lancastrian":
         return []
     locs = static_data.load_locales()
     psea = _port_sea()
-    offers = []
+    offers: list[dict[str, Any]] = []
     for lid, ls in state.lords.items():
         if ls.side == "yorkist" and ls.status == _MUSTERED \
                 and _has_cap(state, lid, "NAVAL BLOCKADE") \
-                and locs.get(ls.location, {}).get("port") \
-                and psea.get(ls.location) in set(ctx.get("seas", [])):
+                and locs.get(ls.location or "", {}).get("port") \
+                and psea.get(ls.location or "") in set(ctx.get("seas", [])):
             offers.append({"side": "yorkist", "card": "Y15", "lord": lid,
                            "kind": "capability", "priority": 20, "effect": "naval_blockade"})
     return offers
 
 
-def _other(side):
+def _other(side: str) -> str:
     return "lancastrian" if side == "yorkist" else "yorkist"
 
 
-def _on_approach_offers(state, ctx):
+def _on_approach_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str, Any]]:
     """Reactions to an Approach (4.3.5): King's Parley (L15, Henry VI) and
     Parliament's Truce cancel it; Blocked Ford forces Battle (no Exile).
     Priority is canonical: King's Parley forecloses Blocked Ford (errata)."""
-    offers = []
+    offers: list[dict[str, Any]] = []
     appside = ctx["approaching_side"]
     if appside == "yorkist" and "henry_vi" in ctx.get("target_lords", []) \
             and _has_cap(state, "henry_vi", "KING'S PARLEY"):
@@ -101,7 +102,7 @@ def _on_approach_offers(state, ctx):
     return offers
 
 
-def _kings_name_offers(state, ctx):
+def _kings_name_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str, Any]]:
     """The King's Name (Y32 Event): after a successful Lancastrian Levy action,
     Gloucester (not Richard III) may pay 1 Influence to cancel it."""
     cards = static_data.load_cards()
@@ -118,15 +119,15 @@ def _kings_name_offers(state, ctx):
              "kind": "event", "priority": 10, "effect": "kings_name"}]
 
 
-_TRIGGER_OFFERS = {
+_TRIGGER_OFFERS: dict[str, list[Callable[[GameState, dict[str, Any]], list[dict[str, Any]]]]] = {
     "uses_port_on_sea": [_naval_blockade_offers],
     "on_approach": [_on_approach_offers],
     "after_successful_levy_action": [_kings_name_offers],
 }
 
 
-def _offers(state, trigger, ctx):
-    out = []
+def _offers(state: GameState, trigger: str, ctx: dict[str, Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     for finder in _TRIGGER_OFFERS.get(trigger, []):
         out.extend(finder(state, ctx))
     out.sort(key=lambda o: o.get("priority", 50))   # published priority order
@@ -134,7 +135,8 @@ def _offers(state, trigger, ctx):
 
 
 # --------------------------------------------------------------- reactions
-def _react_naval_blockade(state, inter, offer, action):
+def _react_naval_blockade(state: GameState, inter: dict[str, Any], offer: dict[str, Any],
+                          action: dict[str, Any]) -> dict[str, Any]:
     roller = state.dice()
     roll = roller.d6()
     state.store_dice(roller)
@@ -144,14 +146,16 @@ def _react_naval_blockade(state, inter, offer, action):
     return {"card": "Y15", "lord": offer["lord"], "roll": roll, "blocked": blocked}
 
 
-def _discard_held(state, side, cid):
+def _discard_held(state: GameState, side: str, cid: str) -> None:
     held = state.decks.get(side, {}).get("held", [])
     if cid in held:
         held.remove(cid)
     state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
 
 
-def _react_kings_parley(state, inter, offer, action):   # L15 (cap, discarded)
+# L15 (cap, discarded)
+def _react_kings_parley(state: GameState, inter: dict[str, Any], offer: dict[str, Any],
+                        action: dict[str, Any]) -> dict[str, Any]:
     hv = state.lords["henry_vi"]
     if offer["card"] in hv.capabilities:
         hv.capabilities.remove(offer["card"])
@@ -161,7 +165,10 @@ def _react_kings_parley(state, inter, offer, action):   # L15 (cap, discarded)
     return {"card": offer["card"], "effect": "kings_parley", "cancels_approach": True}
 
 
-def _react_parliaments_truce(state, inter, offer, action):   # Y12/L20 (held)
+# Y12/L20 (held)
+def _react_parliaments_truce(state: GameState, inter: dict[str, Any],
+                             offer: dict[str, Any],
+                             action: dict[str, Any]) -> dict[str, Any]:
     _discard_held(state, offer["side"], offer["card"])
     state.active_events.append({"card": offer["card"], "side": offer["side"],
                                 "scope": "this_campaign"})       # prohibits further A/I
@@ -170,14 +177,18 @@ def _react_parliaments_truce(state, inter, offer, action):   # Y12/L20 (held)
     return {"card": offer["card"], "effect": "parliaments_truce", "cancels_approach": True}
 
 
-def _react_blocked_ford(state, inter, offer, action):   # Y11/L11 (held) -- forces Battle
+# Y11/L11 (held) -- forces Battle
+def _react_blocked_ford(state: GameState, inter: dict[str, Any], offer: dict[str, Any],
+                        action: dict[str, Any]) -> dict[str, Any]:
     # Signal only; the (tested) approach path consumes the Held Event and applies
     # the no-Exile effect. 5a-iii unifies this consumption into the registry.
     inter["finish_data"].setdefault("blocked_ford", []).append(offer["side"])
     return {"card": offer["card"], "effect": "blocked_ford", "forces_battle": True}
 
 
-def _react_kings_name(state, inter, offer, action):     # Y32 (Event stays active)
+# Y32 (Event stays active)
+def _react_kings_name(state: GameState, inter: dict[str, Any], offer: dict[str, Any],
+                      action: dict[str, Any]) -> dict[str, Any]:
     from plantagenet import influence
     influence.spend_influence(state, "yorkist", 1)       # Yorkist pays 1 Influence
     inter["cancelled"] = True
@@ -185,7 +196,8 @@ def _react_kings_name(state, inter, offer, action):     # Y32 (Event stays activ
             "cancels_levy": True}
 
 
-_EFFECT_REACTORS = {
+_EFFECT_REACTORS: dict[str, Callable[
+    [GameState, dict[str, Any], dict[str, Any], dict[str, Any]], dict[str, Any]]] = {
     "naval_blockade": _react_naval_blockade,
     "kings_parley": _react_kings_parley,
     "parliaments_truce": _react_parliaments_truce,
@@ -195,10 +207,10 @@ _EFFECT_REACTORS = {
 
 
 # --------------------------------------------------------------- resume plumbing
-def _resolve_resume(resume_key):
+def _resolve_resume(resume_key: str) -> Callable[..., dict[str, Any]]:
     mod_name, fn_name = resume_key.split(":")
     mod = importlib.import_module(f"plantagenet.{mod_name}")
-    return getattr(mod, fn_name)
+    return cast(Callable[..., dict[str, Any]], getattr(mod, fn_name))
 
 
 def gate(state: GameState, trigger: str, ctx: dict[str, Any],
@@ -257,7 +269,7 @@ def resolve(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 #           "death"  (4.4.3 Death-check step)
 #           "intercept" (4.3.4, before the Battle)
 # ---------------------------------------------------------------------------
-BATTLE_REACTIONS = {
+BATTLE_REACTIONS: dict[str, dict[str, Any]] = {
     "Y1": {"effect": "leeward", "window": "event", "kind": "held", "priority": 10},
     "L1": {"effect": "leeward", "window": "event", "kind": "held", "priority": 10},
     "Y2": {"effect": "flank_attack", "window": "intercept", "kind": "held", "priority": 10},
@@ -279,11 +291,13 @@ BATTLE_REACTIONS = {
 }
 
 # Capability-based battle window (Culverins) keyed by its title (any holder).
-_BATTLE_CAPS = {"CULVERINS AND FALCONETS": {"effect": "culverins", "window": "event",
-                                            "priority": 15}}
+_BATTLE_CAPS: dict[str, dict[str, Any]] = {
+    "CULVERINS AND FALCONETS": {"effect": "culverins", "window": "event", "priority": 15}}
 
 
-def _battle_reaction_applicable(state, effect, side, attackers, defenders, locale) -> bool:
+def _battle_reaction_applicable(state: GameState, effect: str, side: str,
+                                attackers: Sequence[str], defenders: Sequence[str],
+                                locale: str | None) -> bool:
     """Condition-gate a declared battle reaction so the catalog never advertises a
     card that could not take effect: Warden of the Marches (L16) only at a Battle
     in the North; Patrick de la Mote (Y37) only with a Yorkist Culverins and
@@ -291,7 +305,9 @@ def _battle_reaction_applicable(state, effect, side, attackers, defenders, local
     if effect == "warden":
         if locale is None:
             return False                        # location unknown -> cannot confirm North
-        return static_data.load_locales().get(locale, {}).get("region") == "north"
+        in_north: bool = (
+            static_data.load_locales().get(locale, {}).get("region") == "north")
+        return in_north
     if effect == "patrick":
         from plantagenet import battle
         return any(battle._lord_has_capability(state, lid, battle.CULVERINS)
@@ -300,7 +316,9 @@ def _battle_reaction_applicable(state, effect, side, attackers, defenders, local
     return True
 
 
-def available_battle_reactions(state, attackers, defenders, locale=None):
+def available_battle_reactions(state: GameState, attackers: Sequence[str],
+                               defenders: Sequence[str],
+                               locale: str | None = None) -> list[dict[str, Any]]:
     """List the in-Battle reaction windows currently playable (1.9.1): Held
     Events in each participating side's held pile and battle Capabilities on the
     participating Lords' mats, ordered by window then priority. Declarative --
@@ -308,7 +326,8 @@ def available_battle_reactions(state, attackers, defenders, locale=None):
     ``locale`` enables location-gated windows (e.g. Warden of the Marches)."""
     cards = static_data.load_cards()
     sides = {state.lords[a].side for a in attackers} | {state.lords[d].side for d in defenders}
-    out = []
+    out: list[dict[str, Any]] = []
+    meta: dict[str, Any] | None
     for side in sides:
         for cid in state.decks.get(side, {}).get("held", []):
             title = cards[cid]["event"]["title"]

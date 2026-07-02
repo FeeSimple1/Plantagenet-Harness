@@ -21,10 +21,10 @@ the source ``"__permanent__"``.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import static_data
-from plantagenet.state import GameState, LordState, LordStatus
+from plantagenet.state import GameState, LordState, LordStatus, Side
 
 _PERMANENT = "__permanent__"
 _DECK_PILES = ("draw", "discard", "held")
@@ -37,13 +37,13 @@ def _current_war(state: GameState) -> dict[str, Any] | None:
     scn = static_data.load_scenario("wars_of_the_roses")
     for w in scn.get("wars", []):
         if w["war_id"] == wid:
-            return w
+            return cast(dict[str, Any], w)
     return None
 
 
 def _succ(state: GameState, side: str) -> dict[str, Any]:
     war = _current_war(state) or {}
-    return war.get("successions", {}).get(side, {})
+    return cast(dict[str, Any], war.get("successions", {}).get(side, {}))
 
 
 def _heir_table(state: GameState, side: str) -> list[dict[str, Any]]:
@@ -53,13 +53,14 @@ def _heir_table(state: GameState, side: str) -> list[dict[str, Any]]:
     if heirs:
         return [{"rank": i + 1, "lord_ids": h if isinstance(h, list) else [h]}
                 for i, h in enumerate(heirs)]
-    return static_data.load_scenario("wars_of_the_roses").get("heirs", {}).get(side, [])
+    return cast(list[dict[str, Any]],
+                static_data.load_scenario("wars_of_the_roses").get("heirs", {}).get(side, []))
 
 
 def heir_rank(state: GameState, side: str, lord_id: str) -> int | None:
     for entry in _heir_table(state, side):
         if lord_id in entry.get("lord_ids", []):
-            return entry["rank"]
+            return cast(int, entry["rank"])
     return None
 
 
@@ -73,8 +74,8 @@ def is_global_heir(side: str, lord_id: str) -> bool:
 
 # --------------------------------------------------------------- deck sources
 def _sources(state: GameState) -> dict[str, dict[str, list[str]]]:
-    gs = state.grand_scenario
-    return gs.setdefault("deck_sources", {})
+    gs = cast("dict[str, Any]", state.grand_scenario)
+    return cast("dict[str, dict[str, list[str]]]", gs.setdefault("deck_sources", {}))
 
 
 def _deck_has(state: GameState, side: str, card: str) -> bool:
@@ -202,13 +203,13 @@ def _highest_present_heir(state: GameState, side: str) -> str | None:
     return heirs[0] if heirs else None
 
 
-def _fired(state: GameState) -> set:
-    gs = state.grand_scenario
+def _fired(state: GameState) -> set[str]:
+    gs = cast("dict[str, Any]", state.grand_scenario)
     return set(gs.setdefault("succession_fired", []))
 
 
 def _mark_fired(state: GameState, key: str) -> None:
-    gs = state.grand_scenario
+    gs = cast("dict[str, Any]", state.grand_scenario)
     f = gs.setdefault("succession_fired", [])
     if key not in f:
         f.append(key)
@@ -239,7 +240,7 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     o = state.lords.get(old)
     if o is None or new not in statics:
         return
-    nstate = LordState(lord_id=new, side=side, status=o.status, location=o.location,
+    nstate = LordState(lord_id=new, side=cast(Side, side), status=o.status, location=o.location,
                        exile_box=o.exile_box, calendar_box=o.calendar_box,
                        calendar_exile=o.calendar_exile, at_sea=o.at_sea,
                        captured_by=o.captured_by, ring=o.ring,
@@ -272,20 +273,20 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     o.assets = {}
 
 
-def _seat_in_place(state: GameState, side: str, new: str, at: dict) -> bool:
+def _seat_in_place(state: GameState, side: str, new: str, at: dict[str, Any]) -> bool:
     """Seat ``new`` Mustered at a captured board position (6.2 REPLACE in place)."""
     statics = static_data.load_lords()
     if new not in statics:
         return False
     ns = statics[new]
     state.lords[new] = LordState(
-        lord_id=new, side=side, status=LordStatus.MUSTERED,
+        lord_id=new, side=cast(Side, side), status=LordStatus.MUSTERED,
         location=at.get("location"), exile_box=at.get("exile_box"), ring=at.get("ring"),
         forces=dict(ns.get("forces", {})), assets=dict(ns.get("assets", {})))
     return True
 
 
-def _add_cards(state: GameState, side: str, cards, source: str) -> None:
+def _add_cards(state: GameState, side: str, cards: list[str], source: str) -> None:
     for c in cards:
         _register_source(state, side, c, source)
 
@@ -311,7 +312,8 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
                 _mark_fired(state, key)
 
     king = _highest_present_heir(state, side)
-    prev_king = (state.grand_scenario.get("current_king", {}) or {}).get(side)
+    prev_king = (cast("dict[str, Any]", state.grand_scenario)
+                 .get("current_king", {}) or {}).get(side)
     if king != prev_king:
         # on_becomes_highest_heir FIRST: replace_lord_in_place / permanent ADDs
         # (once). Applied before we record the King so current_king names the
@@ -342,14 +344,14 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
             for trig in triggers:
                 if trig.get("on") == "while_king" and trig.get("lord") == king:
                     _add_cards(state, side, trig.get("cards", []), f"king:{king}")
-        state.grand_scenario.setdefault("current_king", {})[side] = king
+        cast("dict[str, Any]", state.grand_scenario).setdefault("current_king", {})[side] = king
         out["king"] = king
     return out
 
 
 # --------------------------------------------------------------- removal
 def on_heir_removed(state: GameState, lord_id: str,
-                    removed_at: dict | None = None) -> dict[str, Any] | None:
+                    removed_at: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Apply Succession when ``lord_id`` is removed by Death/Shipwreck (6.2.2).
     Runs the War's structured ``on: remove`` triggers (to_calendar, deck adds),
     drops the Lord's continuous deck contributions, then falls back to the
@@ -385,7 +387,7 @@ def on_heir_removed(state: GameState, lord_id: str,
                     # so seating the replacement there would illegally co-locate
                     # opposing Lords. In that case -- and whenever there is no board
                     # position -- the replacement enters the Calendar (E5/REPLACE).
-                    seat_ok = bool(loc) and not enemy_lord_at(state, loc, side)
+                    seat_ok = bool(loc) and not enemy_lord_at(state, cast(str, loc), side)
                     if (seat_ok or at.get("exile_box")) and \
                             _seat_in_place(state, side, rep["new"], at):
                         result["succession"] = rep["new"]
@@ -427,7 +429,7 @@ def _enter_calendar(state: GameState, side: str, lord_id: str) -> None:
     if ls is None:
         statics = static_data.load_lords()
         if lord_id in statics:
-            state.lords[lord_id] = LordState(lord_id=lord_id, side=side,
+            state.lords[lord_id] = LordState(lord_id=lord_id, side=cast(Side, side),
                                              status=LordStatus.CALENDAR,
                                              calendar_box=state.turn_box + 1)
         return
@@ -466,7 +468,7 @@ def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, A
                 ls.calendar_box = state.turn_box + 1
                 return {"succession": cand, "to_box": ls.calendar_box}
             if cand in lords_static:                 # not yet instantiated
-                state.lords[cand] = LordState(lord_id=cand, side=side,
+                state.lords[cand] = LordState(lord_id=cand, side=cast(Side, side),
                                               status=LordStatus.CALENDAR,
                                               calendar_box=state.turn_box + 1)
                 return {"succession": cand, "to_box": state.turn_box + 1, "added": True}
@@ -479,7 +481,7 @@ def _automatic_victory(state: GameState) -> dict[str, Any] | None:
         return None
     rules = war.get("successions", {}).get("automatic_victory", [])
 
-    def gone(lid):
+    def gone(lid: str) -> bool:
         ls = state.lords.get(lid)
         return ls is None or ls.status == LordStatus.REMOVED
     for rule in rules:                                   # scripted War-I automatic victories
@@ -500,14 +502,14 @@ def set_aside_cards(state: GameState, lord_id: str) -> list[str]:
     return list(gs.get("set_aside_on_disband", {}).get(lord_id, []))
 
 
-def highest_heir_for_setup(state: GameState, side: str, removed: set) -> str | None:
+def highest_heir_for_setup(state: GameState, side: str, removed: set[str]) -> str | None:
     """The lord to seat as King at War setup: the highest-ranked Heir slot whose
     members are not removed (resolving a group to its surviving member, e.g.
     somerset_1 else somerset_2). Uses the current War's heir ranking."""
     for entry in sorted(_heir_table(state, side), key=lambda e: e["rank"]):
         for lid in entry["lord_ids"]:
             if lid not in removed:
-                return lid
+                return cast(str, lid)
     return None
 
 

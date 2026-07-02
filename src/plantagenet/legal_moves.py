@@ -22,7 +22,7 @@ moment (see ACTIONS.md).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import actions, ratings, static_data
 from plantagenet.errors import IllegalAction
@@ -102,7 +102,7 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     return out
 
 
-def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
+def _moves_for_lord(state: GameState, lord_id: str, lord: LordState, side: str,
                     free_only: bool = False) -> list[dict[str, Any]]:
     """Enumerate a Lord's Muster moves. ``free_only`` (set when the Lord has spent
     all Lordship) restricts output to actions that cost 0 Lordship: free-Lordship
@@ -124,7 +124,7 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
     if free_only:
         # Lordship exhausted: only Thomas Stanley's free Levy Troops remains (L35).
         try:
-            loc = actions.lord_location(lord)
+            loc = cast(tuple[str, str], actions.lord_location(lord))
             stanley_free = ("thomas_stanley" in lord.special_vassals
                             and not lord.free_troops_used)
             rising_wages = ratings.event_against(state, "RISING WAGES", side)
@@ -169,7 +169,7 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
     # --- Levy Troops (3.4.4): at a Friendly Stronghold (not Exile box), not Exhausted ---
     # Rising Wages (L9): this side pays 1 Coin per Levy Troops -- need the Coin.
     try:
-        loc = actions.lord_location(lord)
+        loc = cast(tuple[str, str], actions.lord_location(lord))
         rising_wages = ratings.event_against(state, "RISING WAGES", side)
         if (loc[0] == "stronghold" and state.locales[loc[1]].depletion != "exhausted"
                 and not (rising_wages and lord.assets.get("coin", 0) < 1)):
@@ -200,7 +200,7 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
     # --- Levy Transport (3.4.5) ---
     moves.append({"type": "levy_transport", "side": side, "by_lord": lord_id, "transport": "cart"})
     try:
-        loc = actions.lord_location(lord)
+        loc = cast(tuple[str, str], actions.lord_location(lord))
         at_port_or_exile = loc[0] == "exile" or static_data.load_locales()[loc[1]].get("port")
         if (at_port_or_exile and lord.assets.get("ship", 0) < 2
                 and (lord.assets.get("ship", 0) > 0 or actions._ships_in_play(state) < 9)):
@@ -211,12 +211,13 @@ def _moves_for_lord(state: GameState, lord_id: str, lord, side: str,
     return moves
 
 
-def _parley_moves(state, lord_id, lord, side, friendly_here,
+def _parley_moves(state: GameState, lord_id: str, lord: LordState, side: str,
+                  friendly_here: bool,
                   free_only: bool = False) -> list[dict[str, Any]]:
     if free_only:                       # only free-Lordship Parleys survive (peek, no consume)
         if not actions._parley_event_mods(state, lord_id, side, commit=False)["free_lordship"]:
             return []
-    loc = actions.lord_location(lord)
+    loc = cast(tuple[str, str], actions.lord_location(lord))
     kind, here = loc
     moves: list[dict[str, Any]] = []
     has_ship = lord.assets.get("ship", 0) > 0
@@ -258,7 +259,9 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
     return []
 
 
-def _sail_moves(state, lord_id, lord, side, from_sea, *, here, origin_at_sea):
+def _sail_moves(state: GameState, lord_id: str, lord: LordState, side: str,
+                from_sea: str | None, *, here: str | None,
+                origin_at_sea: bool) -> list[dict[str, Any]]:
     """Enumerate Sail destinations (4.6.1) for a Lord on ``from_sea``. A Lord at
     a Port/Exile box may Sail Port-to-Port only WITHIN a Sea; a Lord at Sea may
     also reach a Port on an adjacent Sea (FAQ #1: no direct cross-Sea Port hop).

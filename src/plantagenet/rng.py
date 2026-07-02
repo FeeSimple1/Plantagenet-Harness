@@ -13,6 +13,7 @@ CPython versions for a given seed.
 from __future__ import annotations
 
 import random
+from typing import Any
 
 
 class DiceRoller:
@@ -30,7 +31,7 @@ class DiceRoller:
         """Roll a single six-sided die (1-6)."""
         return self._rng.randint(1, 6)
 
-    def shuffle(self, seq: list) -> None:
+    def shuffle(self, seq: list[Any]) -> None:
         """Shuffle a list in place (used to order Arts of War draw piles)."""
         self._rng.shuffle(seq)
 
@@ -41,13 +42,13 @@ class DiceRoller:
         return [self.d6() for _ in range(n)]
 
     # -- serialization: getstate/setstate round-trips the full MT state --
-    def get_state(self) -> list:
+    def get_state(self) -> list[Any]:
         # Fully list-ify (the MT internal is a tuple) so a JSON round-trip
         # is an identity: json load yields lists, and so do we.
         version, internal, gauss = self._rng.getstate()
         return [version, list(internal), gauss]
 
-    def set_state(self, state: list) -> None:
+    def set_state(self, state: list[Any]) -> None:
         # random.setstate expects a tuple whose middle element is a tuple.
         version, internal, gauss = state
         self._rng.setstate((version, tuple(internal), gauss))

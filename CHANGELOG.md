@@ -7,6 +7,10 @@ internal milestones.
 ## [Unreleased]
 
 ### Added
+- CI `typecheck` job: the codebase is now `mypy --strict` clean (626
+  annotation errors -> 0; annotation-only edits, behavioral equivalence
+  verified by byte-identical full-game final states vs the pre-annotation
+  tree under pinned hash seeds).
 - Forward traceability: `scripts/extract_clause_index.py` extracts the
   authoritative clause index from the Rules of Play PDF into
   `source/plantagenet_clause_index.tsv` (101 clauses); the traceability matrix

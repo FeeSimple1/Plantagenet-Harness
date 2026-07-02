@@ -15,7 +15,7 @@ succeeding and a "6" always failing.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import ratings, static_data
 from plantagenet.errors import IllegalAction
@@ -40,10 +40,10 @@ def _net_lanc(track: InfluenceState) -> int:
 def _write_net(track: InfluenceState, net: int) -> None:
     net = max(-INFLUENCE_CAP, min(INFLUENCE_CAP, net))   # 1.4.1: never exceed 45
     if net >= 0:
-        track.marker_side = Side.LANCASTRIAN.value
+        track.marker_side = cast(Side, Side.LANCASTRIAN.value)
         track.marker_at = net
     else:
-        track.marker_side = Side.YORKIST.value
+        track.marker_side = cast(Side, Side.YORKIST.value)
         track.marker_at = -net
 
 
@@ -66,7 +66,7 @@ def gain_influence(state: GameState, side: str, points: int) -> None:
 
 
 def lord_influence_rating(lord_id: str) -> int:
-    return static_data.load_lords()[lord_id]["ratings"]["influence"]
+    return cast(int, static_data.load_lords()[lord_id]["ratings"]["influence"])
 
 
 def check_influence(

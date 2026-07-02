@@ -20,11 +20,13 @@ defaults: ``flee`` (lord ids, fleeing at the start of Round 1) and
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from math import ceil
-from typing import Any
+from typing import Any, cast
 
 from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.errors import IllegalAction
+from plantagenet.rng import DiceRoller
 from plantagenet.state import GameState, LordStatus, VassalState, VassalStatus
 
 _ABSORB_DEFAULT = ["militia", "mercenaries", "longbow", "handgunners",
@@ -119,7 +121,7 @@ def _escape_route(state: GameState, locale: str, side: str) -> bool:
     return False
 
 
-def _apply_special_vassal_armour(state, forces):
+def _apply_special_vassal_armour(state: GameState, forces: dict[str, _Force]) -> None:
     """Special-Vassal Armour mods (e.g. Montagu gives Warwick's Retinue
     Armour 1-5, 1.5.4)."""
     special = static_data.load_vassals()["special"]
@@ -130,14 +132,14 @@ def _apply_special_vassal_armour(state, forces):
                 f.prof["retinue"]["prot"] = list(ra)
 
 
-def _apply_barricades(state, forces, locale):
+def _apply_barricades(state: GameState, forces: dict[str, _Force], locale: str) -> None:
     """Barricades (Y9 Capability): at a Friendly Stronghold, this Lord's
     Men-at-Arms gain Armour 1-4 and Longbowmen/Militia Armour 1-2 (4.4.2).
     Does not apply to Losses rolls (handled in _losses)."""
     fav = state.locales[locale].favour
     for f in forces.values():
         lord = state.lords[f.lord_id]
-        if fav == lord.side and any(
+        if fav == cast(str, lord.side) and any(
                 static_data.load_cards()[c]["capability"]["title"] == BARRICADES
                 for c in lord.capabilities):
             if "men_at_arms" in f.prof:
@@ -152,26 +154,26 @@ def _english_channel_ports() -> set[str]:
     return set(static_data.load_seas()["zones"]["english_channel"]["ports"])
 
 
-def _at_friendly_stronghold(state, lid, locale):
-    return state.locales[locale].favour == state.lords[lid].side
+def _at_friendly_stronghold(state: GameState, lid: str, locale: str) -> bool:
+    return cast(str, state.locales[locale].favour) == cast(str, state.lords[lid].side)
 
 
-def _in_region_fn(*regions):
-    def f(state, lid, locale):
+def _in_region_fn(*regions: str) -> Callable[[GameState, str, str], bool]:
+    def f(state: GameState, lid: str, locale: str) -> bool:
         return static_data.load_locales().get(locale, {}).get("region") in regions
     return f
 
 
-def _route_to_carlisle(state, lid, locale):
+def _route_to_carlisle(state: GameState, lid: str, locale: str) -> bool:
     from plantagenet import commands
     side = state.lords[lid].side
     return locale == "carlisle" or \
         commands._supply_route_cost(state, locale, "carlisle", side) is not None
 
 
-def _adj_friendly_ec_port(state, lid, locale):
-    from plantagenet.commands import _adjacency
-    side = state.lords[lid].side
+def _adj_friendly_ec_port(state: GameState, lid: str, locale: str) -> bool:
+    from plantagenet.actions import _adjacency
+    side: str = state.lords[lid].side
     ec = _english_channel_ports()
     if locale in ec and state.locales[locale].favour == side:
         return True
@@ -195,7 +197,8 @@ _BATTLE_TROOP_CAPS = {
 }
 
 
-def _apply_battle_troop_caps(state, forces, locale):
+def _apply_battle_troop_caps(state: GameState, forces: dict[str, _Force],
+                             locale: str) -> None:
     for lid, f in forces.items():
         for cid in state.lords[lid].capabilities:
             spec = _BATTLE_TROOP_CAPS.get(cid)
@@ -205,7 +208,7 @@ def _apply_battle_troop_caps(state, forces, locale):
                     f.routed.setdefault(t, 0)
 
 
-def _apply_armour_caps(state, forces):
+def _apply_armour_caps(state: GameState, forces: dict[str, _Force]) -> None:
     """Uniform (all-phase) Armour Capabilities. Church Blessing (L5): this
     Lord's Men-at-Arms have Armour 1-4 (1.9.1)."""
     for f in forces.values():
@@ -213,7 +216,8 @@ def _apply_armour_caps(state, forces):
             f.prof["men_at_arms"]["prot"] = [1, 4]
 
 
-def _apply_phase_caps(state, forces, decisions):
+def _apply_phase_caps(state: GameState, forces: dict[str, _Force],
+                      decisions: dict[str, Any]) -> None:
     """Phase-dependent Armour and Melee-Strike Capabilities (1.9.1):
     Barded Horse (L27), Chevaliers (L36), Piquiers (L34), Yeomen of the Crown
     (L31, opt-in via decisions['yeomen'])."""
@@ -266,7 +270,7 @@ class _Force:
             total += self.prof[t][kind] * self.avail(t) * mult
         return total
 
-    def prot_range(self, t: str, phase: str):
+    def prot_range(self, t: str, phase: str) -> list[int]:
         """Protection range for unit ``t`` in the given Strike ``phase``,
         honouring phase-specific overrides (Barded Horse, Chevaliers) and the
         dynamic Piquiers (L34) Armour 1-4 until 3 Men-at-Arms/Militia Rout."""
@@ -274,7 +278,7 @@ class _Force:
             routed_pm = self.routed.get("men_at_arms", 0) + self.routed.get("militia", 0)
             if routed_pm < 3:
                 return [1, 4]
-        return self.prof[t].get(f"prot_{phase}", self.prof[t]["prot"])
+        return cast(list[int], self.prof[t].get(f"prot_{phase}", self.prof[t]["prot"]))
 
     def hits(self, kind: str) -> int:
         return ceil(self.raw_hits(kind))
@@ -286,9 +290,10 @@ class _Force:
         return bool(troops) and all(self.avail(t) == 0 for t in troops)
 
 
-def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
-                 valour_lords, log: list, phase: str = "melee",
-                 lord_order: list | None = None, plan: list | None = None) -> None:
+def _absorb_side(side_forces: list[_Force], n_hits: int, dice: DiceRoller, order: list[str],
+                 valour_lords: set[str] | bool | None, log: list[dict[str, Any]],
+                 phase: str = "melee", lord_order: list[str] | None = None,
+                 plan: list[Any] | None = None) -> None:
     """Apply ``n_hits`` to a side's Forces in an Engagement: each Hit -> a
     unit (owner's choice, 4.4.2 "Hit by Hit") -> Protection roll (Valour reroll)
     -> Rout on failure. ``plan`` is the owner's per-Hit queue of {lord, unit}
@@ -329,7 +334,7 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
                     break
         if hit_force is None:
             break
-        lo, hi = hit_force.prot_range(hit_type, phase)
+        lo, hi = hit_force.prot_range(cast(str, hit_type), phase)
         roll = dice.d6()
         saved = lo <= roll <= hi
         entry = {"lord": hit_force.lord_id, "unit": hit_type, "roll": roll}
@@ -349,12 +354,12 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice, order: list[str],
                 hit_force.routed["men_at_arms"] += 1
                 entry["yeomen_redirect"] = "men_at_arms"
             else:
-                hit_force.routed[hit_type] += 1
+                hit_force.routed[cast(str, hit_type)] += 1
 
 
 # ----------------------------------------------------------------- 4.4.1 Array
 def _initial_array(attackers: list[str], defenders: list[str],
-                   decisions: dict[str, Any]) -> tuple[dict, dict]:
+                   decisions: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     if "defender_positions" in decisions:
         dpos = dict(decisions["defender_positions"])
         res_def = [d for d in defenders if d not in dpos.values()]
@@ -372,8 +377,9 @@ def _initial_array(attackers: list[str], defenders: list[str],
             {"attacker": res_atk, "defender": res_def})
 
 
-def _reposition(positions: dict, reserves: dict, forces: dict, held=frozenset(),
-                repo=None) -> None:
+def _reposition(positions: dict[str, Any], reserves: dict[str, Any],
+                forces: dict[str, _Force], held: frozenset[str] = frozenset(),
+                repo: dict[str, Any] | None = None) -> None:
     # 4.4.2 REPOSITION: Defender then Attacker. ``repo`` carries this Round's
     # per-side choices: {"advance": {front_idx: reserve_lord}, "center_from": 0|2}.
     repo = repo or {}
@@ -404,7 +410,8 @@ def _reposition(positions: dict, reserves: dict, forces: dict, held=frozenset(),
                     break
 
 
-def _engagements(positions: dict, forces: dict, flank_choice: dict | None = None) -> list[dict]:
+def _engagements(positions: dict[str, Any], forces: dict[str, _Force],
+                 flank_choice: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     flank_choice = flank_choice or {}
     atk = {i: lid for i, lid in positions["attacker"].items()
            if lid and not forces[lid].lord_routed}
@@ -412,16 +419,16 @@ def _engagements(positions: dict, forces: dict, flank_choice: dict | None = None
            if lid and not forces[lid].lord_routed}
     parent = {lid: lid for lid in list(atk.values()) + list(dfn.values())}
 
-    def find(x):
+    def find(x: str) -> str:
         while parent[x] != x:
             parent[x] = parent[parent[x]]
             x = parent[x]
         return x
 
-    def union(a, b):
+    def union(a: str, b: str) -> None:
         parent[find(a)] = find(b)
 
-    def target(i, enemy, chooser=None):
+    def target(i: int, enemy: dict[int, str], chooser: str | None = None) -> str | None:
         if not enemy:
             return None
         if i in enemy:
@@ -448,7 +455,7 @@ def _engagements(positions: dict, forces: dict, flank_choice: dict | None = None
     comps: dict[str, list[str]] = {}
     for lid in parent:
         comps.setdefault(find(lid), []).append(lid)
-    engs = []
+    engs: list[dict[str, Any]] = []
     for members in comps.values():
         a = [m for m in members if m in aset]
         d = [m for m in members if m not in aset]
@@ -458,7 +465,9 @@ def _engagements(positions: dict, forces: dict, flank_choice: dict | None = None
 
 
 # ----------------------------------------------------------------- resolve
-def _resolve_suspicion(state, locale, attackers, defenders, forces, decisions):
+def _resolve_suspicion(state: GameState, locale: str, attackers: list[str],
+                       defenders: list[str], forces: dict[str, _Force],
+                       decisions: dict[str, Any]) -> dict[str, Any] | None:
     """Suspicion (Y5/L5): a participating Lord checks Influence; on success
     Disband one Enemy Lord at the Battle with a lower PRINTED Influence (no
     Influence-point loss). The Disbanded Lord leaves the Battle (4.4.1)."""
@@ -472,6 +481,7 @@ def _resolve_suspicion(state, locale, attackers, defenders, forces, decisions):
     _require(state.lords[target].side != bside, "bad_suspicion", "target must be an Enemy Lord")
     cid = _side_held_event(state, bside, SUSPICION)
     _require(cid is not None, "no_suspicion", f"{bside} has no Suspicion Held Event (4.4.1)")
+    assert cid is not None
     lords_static = static_data.load_lords()
     _require(lords_static[by]["ratings"]["influence"]
              > lords_static[target]["ratings"]["influence"], "suspicion_influence",
@@ -493,10 +503,12 @@ def _vassal_loyalty_mod(vid: str, side: str) -> int:
     if not loy:
         return 0
     colour_side = {"red": "lancastrian", "white": "yorkist"}[loy["color"]]
-    return loy["value"] if colour_side == side else -loy["value"]
+    return cast(int, loy["value"] if colour_side == side else -loy["value"])
 
 
-def _resolve_for_trust(state, attackers, defenders, forces, decisions):
+def _resolve_for_trust(state: GameState, attackers: list[str], defenders: list[str],
+                       forces: dict[str, _Force],
+                       decisions: dict[str, Any]) -> dict[str, Any] | None:
     """For Trust Not Him (L7): at the Event step a participating Lord attempts
     to Levy (3.4.3) a regular Enemy Vassal in the Battle onto its own mat,
     ignoring Routes and the Vassal Seat's Favour; Influence cost is only the
@@ -514,6 +526,7 @@ def _resolve_for_trust(state, attackers, defenders, forces, decisions):
     cid = _side_held_event(state, bside, FOR_TRUST)
     _require(cid is not None, "no_for_trust",
              f"{bside} has no For Trust Not Him Held Event to play (L7)")
+    assert cid is not None
     regular = static_data.load_vassals()["regular"]
     _require(vid in regular, "bad_for_trust",
              f"{vid!r} is not a regular Vassal (L7 cannot take Special Vassals)")
@@ -522,6 +535,7 @@ def _resolve_for_trust(state, attackers, defenders, forces, decisions):
     _require(vstate is not None and vstate.status == VassalStatus.MUSTERED
              and old in forces, "for_trust_not_in_battle",
              f"{vid} must be a Vassal on a participating Lord's mat in the Battle (L7)")
+    assert old is not None
     _require(state.lords[old].side != bside, "for_trust_own_vassal",
              "For Trust Not Him targets an Enemy Vassal (L7)")
     _require(not ratings.has_capability(state, old, ALICE_MONTAGU), "for_trust_immune",
@@ -546,7 +560,8 @@ def _resolve_for_trust(state, attackers, defenders, forces, decisions):
     return {"by": by, "target": vid, "from_lord": old, **chk}
 
 
-def resolve_battle(state: GameState, locale: str, attacker, defender,
+def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
+                   defender: str | list[str],
                    decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     decisions = decisions or {}
     attackers = [attacker] if isinstance(attacker, str) else list(attacker)
@@ -585,13 +600,15 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
     # Culverins and Falconets (Capability discarded at Round 1).
     culverins = set(decisions.get("culverins", []))
     for lid in culverins:
-        _require(lid in attackers + defenders and _lord_has_capability(state, lid, CULVERINS),
+        _require(cast(bool, lid in attackers + defenders
+                      and _lord_has_capability(state, lid, CULVERINS)),
                  "no_culverins", f"{lid} has no Culverins and Falconets Capability (4.4.1)")
     leeward = set()
     for sd in decisions.get("leeward", []):
         cid = _side_held_event(state, sd, LEEWARD)
         _require(sd in (aside, dside) and cid is not None, "no_leeward",
                  f"{sd} has no Leeward Battle Line Held Event to play (4.4.1)")
+        assert cid is not None
         _use_held_event(state, sd, cid)
         leeward.add(sd)
     both_leeward = {aside, dside} <= leeward    # both played -> neither has effect
@@ -601,6 +618,7 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         cid = _side_held_event(state, sd, CALTROPS)
         _require(sd in (aside, dside) and cid is not None, "no_caltrops",
                  f"{sd} has no Caltrops Held Event to play (4.4.1)")
+        assert cid is not None
         _use_held_event(state, sd, cid)
         caltrops.add(sd)
     ravine_target = decisions.get("ravine")     # Ravine (L12): ignore an enemy Lord Round 1
@@ -611,12 +629,13 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         cid = _side_held_event(state, player_side, RAVINE)
         _require(cid is not None, "no_ravine",
                  f"{player_side} has no Ravine Held Event to play (4.4.1)")
+        assert cid is not None
         _use_held_event(state, player_side, cid)
 
     regroup_lord = regroup_round = None
     rg = decisions.get("regroup")
     if rg:
-        _require(isinstance(rg, dict) and rg.get("lord"), "bad_regroup",
+        _require(cast(bool, isinstance(rg, dict) and rg.get("lord")), "bad_regroup",
                  "Regroup decision must be a mapping {'lord': <id>, 'round': <n>} (4.4.2)")
         regroup_lord = rg["lord"]
         regroup_round = rg.get("round", 2)
@@ -626,12 +645,13 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         cid = _side_held_event(state, rside, REGROUP)
         _require(cid is not None, "no_regroup",
                  f"{rside} has no Regroup Held Event to play (4.4.2)")
+        assert cid is not None
         _use_held_event(state, rside, cid)
 
     vanguard_lord = decisions.get("vanguard")
     if vanguard_lord is not None:
-        _require(vanguard_lord in attackers + defenders
-                 and _lord_has_capability(state, vanguard_lord, VANGUARD), "no_vanguard",
+        _require(cast(bool, vanguard_lord in attackers + defenders
+                      and _lord_has_capability(state, vanguard_lord, VANGUARD)), "no_vanguard",
                  f"{vanguard_lord} has no Vanguard Capability in this Battle (Y36)")
     swift = None
     sm_side = decisions.get("swift_maneuver")
@@ -639,20 +659,22 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
         cid = _side_held_event(state, sm_side, SWIFT_MANEUVER)
         _require(cid is not None, "no_swift",
                  f"{sm_side} has no Swift Maneuver Held Event to play (Y36)")
+        assert cid is not None
         _use_held_event(state, sm_side, cid)
         swift = sm_side
     _fc_raw = decisions.get("final_charge", [])
     final_charge = {lid: None for lid in _fc_raw} if isinstance(_fc_raw, (list, tuple, set)) \
         else {lid: set(rs) for lid, rs in _fc_raw.items()}   # None = every Round
     for lid in final_charge:
-        _require(lid in attackers + defenders and lid == "richard_iii"
-                 and _lord_has_capability(state, lid, FINAL_CHARGE), "no_final_charge",
+        _require(cast(bool, lid in attackers + defenders and lid == "richard_iii"
+                      and _lord_has_capability(state, lid, FINAL_CHARGE)), "no_final_charge",
                  f"{lid} cannot use Final Charge (Richard III only, Y32)")
     patrick = False
     if decisions.get("patrick"):                # Y37 Event: Yorkist Culverins add 2 dice
         cid = _side_held_event(state, "yorkist", PATRICK)
         _require(cid is not None, "no_patrick",
                  "Yorkist has no Patrick de la Mote Held Event to play (Y37)")
+        assert cid is not None
         _require(any(_lord_has_capability(state, lid, CULVERINS)
                      for lid in attackers + defenders
                      if state.lords[lid].side == "yorkist"),
@@ -710,7 +732,7 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                         reserves[side].append("norfolk")
     rounds: list[dict[str, Any]] = []
 
-    def side_alive(ids):
+    def side_alive(ids: list[str]) -> bool:
         return any(not forces[x].lord_routed for x in ids)
 
     n = 0
@@ -805,23 +827,25 @@ def resolve_battle(state: GameState, locale: str, attacker, defender,
                             if lid in culverins:
                                 dn = 2 if (patrick and aside == "yorkist") else 1
                                 a_hits += sum(dice.d6() for _ in range(dn))
-                                _discard_capability(state, lid,
-                                                    _lord_has_capability(state, lid, CULVERINS))
+                                _discard_capability(
+                                    state, lid,
+                                    cast(str, _lord_has_capability(state, lid, CULVERINS)))
                                 culverins.discard(lid)
                         for lid in eng["defender"]:
                             if lid in culverins:
                                 dn = 2 if (patrick and dside == "yorkist") else 1
                                 d_hits += sum(dice.d6() for _ in range(dn))
-                                _discard_capability(state, lid,
-                                                    _lord_has_capability(state, lid, CULVERINS))
+                                _discard_capability(
+                                    state, lid,
+                                    cast(str, _lord_has_capability(state, lid, CULVERINS)))
                                 culverins.discard(lid)
                     if not both_leeward:            # Leeward: halve incoming Missile Hits
                         if dside in leeward:
                             a_hits = ceil(a_hits / 2)
                         if aside in leeward:
                             d_hits = ceil(d_hits / 2)
-                dlog: list = []
-                alog: list = []
+                dlog: list[dict[str, Any]] = []
+                alog: list[dict[str, Any]] = []
                 _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase,
                              absorb_lords, plan_def)
                 _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase,
@@ -863,11 +887,11 @@ def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> 
     return None
 
 
-def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
-            defenders: list[str], rounds: list, escape_ship: list[str],
+def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers: list[str],
+            defenders: list[str], rounds: list[dict[str, Any]], escape_ship: list[str],
             *, warden: bool = False, talbot: bool = False,
             warden_cid: str | None = None, talbot_cid: str | None = None,
-            spoils_to: dict | None = None) -> dict[str, Any]:
+            spoils_to: dict[str, Any] | None = None) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -1029,11 +1053,11 @@ def _ending(state: GameState, locale: str, forces: dict, attackers: list[str],
 
 
 def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list[str],
-            result: dict, spoils_to: dict | None = None) -> None:
+            result: dict[str, Any], spoils_to: dict[str, Any] | None = None) -> None:
     if not winners:
         return
     fav = state.locales[locale].favour
-    wside = state.lords[winners[0].lord_id].side
+    wside: str = state.lords[winners[0].lord_id].side
     frac = 1.0 if fav == wside else (0.5 if fav == "neutral" else 0.0)
     if frac == 0.0:
         return
@@ -1073,7 +1097,8 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
     result["spoils"] = taken
 
 
-def _losses(state: GameState, winner: _Force, dice, result: dict) -> None:
+def _losses(state: GameState, winner: _Force, dice: DiceRoller,
+            result: dict[str, Any]) -> None:
     lord = state.lords[winner.lord_id]
     recovered = lost = 0
     base_prot = {fid: f["protection"] for fid, f in static_data.load_forces().items()
@@ -1113,7 +1138,7 @@ def _kill_lord(state: GameState, lord_id: str) -> None:
 
 
 # --------------------------------------------------------------- 4.3.5 Approach
-def _foreign_haven_active(state) -> bool:
+def _foreign_haven_active(state: GameState) -> bool:
     return "Foreign Haven" in campaign._active_special_rules(state)
 
 
@@ -1136,6 +1161,7 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
         cid = _side_held_event(state, sd, BLOCKED_FORD)
         _require(sd in (aside, dside) and cid is not None, "no_blocked_ford",
                  f"{sd} has no Blocked Ford Held Event to play (4.3.5)")
+        assert cid is not None
         _use_held_event(state, sd, cid)
         blocked_ford = True
     result: dict[str, Any] = {"locale": locale, "exiles": [], "battle": None,
@@ -1165,7 +1191,7 @@ def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str) -> Non
     inf = static_data.load_lords()[lord_id]["ratings"]["influence"]
     influence.spend_influence(state, lord.side, inf + len(lord.vassals))
     fav = state.locales[locale].favour
-    aside = state.lords[attacker_id].side
+    aside: str = state.lords[attacker_id].side
     frac = 1.0 if fav == aside else (0.5 if fav == "neutral" else 0.0)
     if frac > 0.0:
         wmat = state.lords[attacker_id].assets

@@ -12,7 +12,7 @@ describe state only (BRIEF: "No Agent in the Harness").
 from __future__ import annotations
 
 from plantagenet import static_data
-from plantagenet.state import GameState, LordStatus
+from plantagenet.state import GameState, LordState, LordStatus
 
 SIDE_LABEL = {"lancastrian": "Lancastrian", "yorkist": "Yorkist"}
 
@@ -58,7 +58,7 @@ def render_summary(state: GameState) -> str:
     return "\n".join(lines)
 
 
-def _lord_line(v) -> str:
+def _lord_line(v: LordState) -> str:
     where = ""
     if v.status == LordStatus.MUSTERED:
         where = f"@ {v.location}" if v.location else "(mat)"

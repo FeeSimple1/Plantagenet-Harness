@@ -75,7 +75,7 @@ def lord_status_violations(state: GameState) -> list[dict[str, Any]]:
     keep Lords Mustered with no map position -- they sit in a Battle Array.)"""
     from plantagenet import static_data
     battle_only = bool(static_data.load_scenario(state.scenario).get("battle_only"))
-    out = []
+    out: list[dict[str, Any]] = []
     for lid, ls in state.lords.items():
         st = ls.status
         if (st == LordStatus.MUSTERED and not battle_only
@@ -139,8 +139,8 @@ def vassal_book_violations(state: GameState) -> list[dict[str, Any]]:
                 out.append({"kind": "vassal_orphan", "vassal": vid, "on_lord": vs.on_lord})
     for lid, ls in state.lords.items():
         for vid in ls.vassals:
-            vs = state.vassals.get(vid)
-            if vs is None or vs.on_lord != lid:
+            vv = state.vassals.get(vid)
+            if vv is None or vv.on_lord != lid:
                 out.append({"kind": "vassal_book_mismatch", "lord": lid, "vassal": vid})
     return out
 
