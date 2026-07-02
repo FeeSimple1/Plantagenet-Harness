@@ -444,13 +444,28 @@ def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, A
             continue
         if entry.get("third_war_only") and not _is_third_war(state):
             continue
-        for cand in entry["lord_ids"]:
-            ls = state.lords.get(cand)
-            if ls is not None and ls.status == LordStatus.AVAILABLE:
+        members = {cand: state.lords.get(cand) for cand in entry["lord_ids"]}
+        # An Heir REMOVED by Death/Shipwreck is permanently dead (6.2.2
+        # REMOVE); the role passes to the next rank. Entries with several ids
+        # (e.g. March or Edward IV) are the same person under different cards.
+        if any(ls is not None and ls.status == LordStatus.REMOVED
+               for ls in members.values()):
+            continue
+        # 6.2.1 KING / 6.2.2: the Heir role passes to the next-ranked LIVING
+        # Heir. If that Heir is already in the game (Mustered, on the
+        # Calendar, in Exile, or Captured), NO new Lord enters play. Only a
+        # next Heir who is not yet in the game goes to the next Calendar box.
+        # (War I: Margaret's removal brings in nobody while Somerset (1) is
+        # in play -- only Somerset (1)'s own removal adds Somerset (2).)
+        if any(ls is not None and ls.status != LordStatus.AVAILABLE
+               for ls in members.values()):
+            return None
+        for cand, ls in members.items():
+            if ls is not None:                       # AVAILABLE -> Calendar
                 ls.status = LordStatus.CALENDAR
                 ls.calendar_box = state.turn_box + 1
                 return {"succession": cand, "to_box": ls.calendar_box}
-            if ls is None and cand in lords_static:
+            if cand in lords_static:                 # not yet instantiated
                 state.lords[cand] = LordState(lord_id=cand, side=side,
                                               status=LordStatus.CALENDAR,
                                               calendar_box=state.turn_box + 1)

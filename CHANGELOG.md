@@ -11,9 +11,21 @@ internal milestones.
   authoritative clause index from the Rules of Play PDF into
   `source/plantagenet_clause_index.tsv` (101 clauses); the traceability matrix
   now lists rulebook clauses with no code citation (9/101, all triaged benign
-  in `SMOKE_TEST_FINDINGS.md`).
+  in `SMOKE_TEST_FINDINGS.md`), shows each cited clause's rulebook title, and
+  flags cited clause numbers absent from the rulebook (annotation typos).
+- Deterministic tests for the niche battle branches (Regroup recovery,
+  Patrick+Leeward, Norfolk is Late, Swift Maneuver, Warden, Talbot, Vanguard)
+  and the general Succession rule; suite 639 -> 656.
 
 ### Fixed
+- General Succession (6.2) no longer skips in-play Heirs: the Heir role passes
+  to the next-ranked living Heir, and a new Lord enters play only if that Heir
+  is not already in the game (War I: Margaret's removal wrongly instantiated
+  Somerset (2) while Somerset (1) was Mustered).
+- Battle dice application no longer depends on `PYTHONHASHSEED`: `_TROOP_TYPES`
+  is now an ordered tuple, making the Regroup recovery loop (4.4.2) and the
+  Aftermath Loss rolls (4.4.3) reproducible across processes (save/replay and
+  future ground-truth replays).
 - Corrected the false claim (in the traceability generator, matrix, and
   findings log) that the repo's Rules PDF was the Seljuk rulebook -- it is the
   Plantagenet Rules of Play (Levy & Campaign Series Vol. IV).

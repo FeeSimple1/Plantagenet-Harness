@@ -29,7 +29,11 @@ from plantagenet.state import GameState, LordStatus, VassalState, VassalStatus
 
 _ABSORB_DEFAULT = ["militia", "mercenaries", "longbow", "handgunners",
                    "men_at_arms", "vassal", "retinue"]
-_TROOP_TYPES = {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners"}
+# Ordered (NOT a set): _Force.count insertion order follows this tuple, and two
+# dice loops iterate it (Regroup recovery 4.4.2, Loss rolls 4.4.3). A set here
+# made the dice-to-troop assignment follow PYTHONHASHSEED -- battles replayed
+# in another process could resolve differently despite the state-held RNG.
+_TROOP_TYPES = ("militia", "mercenaries", "longbow", "handgunners", "men_at_arms")
 _FILL_ORDER = [1, 0, 2]   # center, left, right (4.4.1)
 
 

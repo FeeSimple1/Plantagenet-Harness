@@ -162,7 +162,7 @@ def test_waste_halves_transport_and_resets_coin():
     york.assets["coin"] = 9
     york.forces["militia"] = 10
     campaign._waste(s)
-    assert york.assets["cart"] == 3                       # 5 -> ceil(2.5)=3
+    assert york.assets["cart"] == 3                       # 5 halved, rounded up -> 3
     assert york.assets["coin"] == 2                       # reset to setup (York start 2 Coin)
     assert york.forces["militia"] == 2                    # reset to setup (York start 2 Militia)
 

@@ -1232,3 +1232,50 @@ warranted.
 
 Scripts and docs only -- no engine or test changes. Suite unchanged at 639;
 ruff clean.
+
+## Round (2026-07-01b): niche-branch closure finds two real bugs
+
+Set out to close the niche branches logged in the coverage-triage round
+(Regroup recovery, Patrick+Leeward, Norfolk reserve, Succession triggers).
+Writing the deterministic setups surfaced two real bugs:
+
+1. RULES BUG -- general Succession skipped in-play Heirs (succession.py).
+   `_general_next_heir` looked for the next-ranked Heir with status AVAILABLE
+   or no LordState, SKIPPING Heirs already in play, and so instantiated the
+   first lower-ranked ABSENT Heir instead. War I: Margaret's removal with
+   Somerset (1) Mustered wrongly created Somerset (2) on the Calendar. The
+   War I sheet scripts nothing for Margaret's removal -- Somerset (2) enters
+   only on Somerset (1)'s own removal ("whether or not highest Heir"). Fixed:
+   the Heir role passes to the next-ranked LIVING Heir; if he is already in
+   the game (Mustered/Calendar/Exile/Captured) NO new Lord enters; only an
+   AVAILABLE or never-instantiated next Heir goes to the next Calendar box;
+   REMOVED entries (incl. multi-id entries, March-or-Edward-IV) are skipped as
+   dead. tests/test_succession_general_rule.py (7).
+
+2. ROBUSTNESS BUG -- battle dice order depended on PYTHONHASHSEED (battle.py).
+   `_TROOP_TYPES` was a set; `_Force.count` insertion order followed set
+   iteration, and two dice loops iterate that order: the Regroup troop-recovery
+   loop (4.4.2) and the Aftermath Loss rolls (4.4.3, EVERY battle). Same seed,
+   same state -> different battle outcomes in different processes. In-process
+   forks stayed consistent (why the fuzz oracle and suite never saw it), but
+   save/replay across processes -- including the planned VASSAL ground-truth
+   replay -- would diverge. Fixed: `_TROOP_TYPES` is an ordered tuple. Verified
+   seed-stable across PYTHONHASHSEED=0/1/2 before and after.
+
+Niche branches closed (tests/test_battle_niche_branches.py, 10): Regroup
+recovery via fork-oracle (identical Round 1, higher Round-2 strike total with
+recovered Troops); Patrick de la Mote doubling Culverins dice with Leeward
+halving them exactly (ceil(p/2) on the same dice); Norfolk is Late holding
+Norfolk in Reserve Round 1 (incl. popping him from a declared front position)
+and firing only once; Swift Maneuver play; Warden of the Marches moving a
+Routed Lancastrian to a Friendly North Stronghold instead of the Death roll,
+NOT burning L16 when no window opens, and illegal outside the North; Talbot
+disband-instead-of-death; Vanguard validation; engagement-order declaration.
+
+Also: the rule-clause table in RULES_TRACEABILITY.md now shows each clause's
+rulebook title and flags cited numbers absent from the clause index (catches
+annotation typos). First run flagged one: "2.5" -- a ceil(2.5) decimal in a
+test comment, not a citation; comment reworded.
+
+Coverage: battle.py 93.2 -> 96.9, succession.py 95.6 -> 97.8.
+Suite 639 -> 656; ruff clean; suite verified under multiple hash seeds.

@@ -172,11 +172,25 @@ def main():
         tcell = ", ".join(t.replace("test_", "").replace(".py", "") for t in tests) \
             if tests else "**UNTESTED**"
         out.append(f"| {cid} | {side[:4]} | {ev} | {ei} | {cap} | {ci} | {tcell} |")
-    out += ["", "## Rule clauses cited in code", "",
-            "| Clause | Implemented in | Tests citing clause |",
-            "|--------|----------------|---------------------|"]
+    def _title(c):
+        if c in idx:
+            return idx[c]
+        parts = c.split(".")                     # nearest ancestor's title
+        for k in range(len(parts) - 1, 0, -1):
+            anc = ".".join(parts[:k])
+            if anc in idx:
+                return f"{idx[anc]} (under {anc})"
+        return "**not in rulebook index**"
+    bogus = [r for r, _, _ in rules if idx and _title(r).startswith("**")]
+    out += ["", "## Rule clauses cited in code", ""]
+    if bogus:
+        out += [f"> ⚠ cited clause number(s) not found in the rulebook index "
+                f"(typo in an annotation?): {', '.join(bogus)}", ""]
+    out += ["| Clause | Title | Implemented in | Tests citing clause |",
+            "|--------|-------|----------------|---------------------|"]
     for r, s, t in rules:
-        out.append(f"| {r} | {', '.join(x.replace('.py','') for x in s) or '-'} "
+        out.append(f"| {r} | {_title(r) if idx else ''} "
+                   f"| {', '.join(x.replace('.py','') for x in s) or '-'} "
                    f"| {', '.join(x.replace('test_','').replace('.py','') for x in t) or '—'} |")
     out += ["", "## Rulebook clauses with no code citation (forward traceability)",
             "",
