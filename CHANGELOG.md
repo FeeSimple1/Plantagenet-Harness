@@ -4,6 +4,20 @@ All notable changes to the Plantagenet harness are recorded here. Dates are the
 date of the change; the project is not formally released, so versions are
 internal milestones.
 
+## [Unreleased]
+
+### Added
+- Forward traceability: `scripts/extract_clause_index.py` extracts the
+  authoritative clause index from the Rules of Play PDF into
+  `source/plantagenet_clause_index.tsv` (101 clauses); the traceability matrix
+  now lists rulebook clauses with no code citation (9/101, all triaged benign
+  in `SMOKE_TEST_FINDINGS.md`).
+
+### Fixed
+- Corrected the false claim (in the traceability generator, matrix, and
+  findings log) that the repo's Rules PDF was the Seljuk rulebook -- it is the
+  Plantagenet Rules of Play (Levy & Campaign Series Vol. IV).
+
 ## [0.3.0] - 2026-06-21
 
 Marks the engine as feature-complete: Levy, full Campaign, Combat (4.x), all 74

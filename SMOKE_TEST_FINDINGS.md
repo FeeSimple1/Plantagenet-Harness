@@ -1196,3 +1196,39 @@ recognition, L37 Madame La Grande trigger condition. Matrix now reports 0
 untested cards.
 
 Suite 633 -> 639; ruff clean.
+
+## Round (2026-07-01): correction -- the Rules PDF IS Plantagenet; forward traceability added
+
+Correction of the 2026-06-22c round's "repo data issue": the claim that
+source/Plantagenet_Rules_Final_web.pdf is the Seljuk series rulebook was WRONG.
+Extracting the PDF text (pdftotext, 32 pages) shows it is the Plantagenet Rules
+of Play, Levy & Campaign Series Volume IV: "Plantagenet" x77, "Seljuk" x0,
+"Lancast-" x100, "York" x153; clause 1.4 is Influence (not Loyalty); sections
+run 1.0 INTRODUCTION through 6.0 SCENARIOS with Parley / Levy Lord / Battle
+Array / Tides of War / Heirs and Succession subheads. (Flagged by Eric;
+verified against the file at HEAD cd91f9e. How the earlier session concluded
+otherwise is unknown -- possibly a bad text extraction.)
+
+Consequence: the stated premise that no authoritative Plantagenet clause list
+exists in-repo was false, so forward traceability was never blocked. Added in
+this round:
+
+- scripts/extract_clause_index.py -- extracts the clause index from the Rules
+  PDF (both pdftotext modes unioned; handles the ornament glyph U+F075 that
+  precedes some headings and the rulebook's own "3.4.1. Parley" numbering typo;
+  warns on numbering holes and conflicting titles). Output committed as
+  source/plantagenet_clause_index.tsv: 101 clauses, 1.0-6.3, no holes.
+- scripts/build_traceability.py -- now loads the index and reports rulebook
+  clauses with no code citation in their chain (self, ancestor, or descendant);
+  the false Seljuk note is removed from the docstring and the generated matrix.
+
+Forward-traceability result: 9/101 clauses uncited, all triaged benign:
+1.1, 1.2, 1.8 (descriptive component/intro text); 2.1, 2.1.1, 2.1.2 (physical
+table setup; scenario selection is implemented under 6.x citations); 1.7.1
+Accounting (making change is inherent to integer asset counters); 1.7.2 Greed
+for Assets (trivially enforced -- the engine exposes no voluntary asset-discard
+move); 1.9.2 Command Cards (implemented, cited as 4.1-4.2). No code changes
+warranted.
+
+Scripts and docs only -- no engine or test changes. Suite unchanged at 639;
+ruff clean.
