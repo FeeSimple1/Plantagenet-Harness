@@ -10,6 +10,8 @@ on:
         description: "src/plantagenet module to mutate (e.g. battle.py)"
         required: true
         default: "influence.py"
+  push:
+    paths: ["mutation-requests/run.txt"]   # git-based dispatch: file content = module
 
 permissions:
   contents: write   # the job commits its results to mutation-results/
@@ -27,20 +29,29 @@ jobs:
           pip install -e ".[dev]"
       - name: Per-test coverage
         run: pytest -q -p no:cacheprovider --cov=plantagenet --cov-context=test --cov-report=
-      - name: Mutate ${{ inputs.module }}
+      - name: Resolve module
+        id: mod
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "module=${{ inputs.module }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "module=$(head -1 mutation-requests/run.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Mutate ${{ steps.mod.outputs.module }}
         run: |
           mkdir -p mutation-results
           python scripts/mutation_cov.py \
-            --target "src/plantagenet/${{ inputs.module }}" \
-            --out "mutation-results/${{ inputs.module }}.jsonl" \
-            | tee "mutation-results/${{ inputs.module }}.summary.txt"
+            --target "src/plantagenet/${{ steps.mod.outputs.module }}" \
+            --out "mutation-results/${{ steps.mod.outputs.module }}.jsonl" \
+            --resume --max-seconds 18000 \
+            | tee "mutation-results/${{ steps.mod.outputs.module }}.summary.txt"
       - name: Commit results
         # GITHUB_TOKEN pushes do not retrigger workflows, so no recursion.
         run: |
           git config user.name "mutation-ci"
           git config user.email "actions@github.com"
           git add mutation-results/
-          git commit -m "Mutation results: ${{ inputs.module }} (run ${{ github.run_id }})"
+          git commit -m "Mutation results: ${{ steps.mod.outputs.module }} (run ${{ github.run_id }})"
           for i in 1 2 3 4 5; do
             git push && exit 0
             git pull --rebase && sleep $((i * 3))
