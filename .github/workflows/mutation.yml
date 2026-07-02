@@ -11,6 +11,9 @@ on:
         required: true
         default: "influence.py"
 
+permissions:
+  contents: write   # the job commits its results to mutation-results/
+
 jobs:
   mutate:
     runs-on: ubuntu-latest
@@ -26,6 +29,20 @@ jobs:
         run: pytest -q -p no:cacheprovider --cov=plantagenet --cov-context=test --cov-report=
       - name: Mutate ${{ inputs.module }}
         run: |
+          mkdir -p mutation-results
           python scripts/mutation_cov.py \
             --target "src/plantagenet/${{ inputs.module }}" \
-            --out "mutation-${{ inputs.module }}.jsonl"
+            --out "mutation-results/${{ inputs.module }}.jsonl" \
+            | tee "mutation-results/${{ inputs.module }}.summary.txt"
+      - name: Commit results
+        # GITHUB_TOKEN pushes do not retrigger workflows, so no recursion.
+        run: |
+          git config user.name "mutation-ci"
+          git config user.email "actions@github.com"
+          git add mutation-results/
+          git commit -m "Mutation results: ${{ inputs.module }} (run ${{ github.run_id }})"
+          for i in 1 2 3 4 5; do
+            git push && exit 0
+            git pull --rebase && sleep $((i * 3))
+          done
+          exit 1
