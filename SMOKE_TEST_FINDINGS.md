@@ -1339,3 +1339,43 @@ of bug in-process tests cannot see.
 With this and 2026-07-01b, (scenario, seed) fully determines a game across
 processes: seed-based repro reports and recorded-trajectory replays are now
 exact. Suite 656 -> 657; ruff clean; mypy --strict clean.
+
+## Round (2026-07-01e): recorded-game replay — the dice/draw paths validated
+
+Eric supplied a recorded playthrough: the 347-action grand-scenario self-play
+(seed 181; Wars I -> IIL -> IIIL, all Lancastrian by 5.1; Battles at Pembroke
+and Wells; 20 Arts of War draws). Built scripts/replay_log.py: parses the
+LLM-readable log, reconstructs each action by matching parsed intent against
+legal_moves() at the recorded state, applies it, and compares the engine's
+live results against the recorded Result lines (draws, battle winner/deaths/
+disbands, Levy Lord rolls, Pay outcomes, Tides, War victories). Numbering
+gaps are War transitions (renew_war).
+
+RESULT: full replay, 347/347 actions, 0 divergences — every dice- and
+draw-dependent oracle in the log matches the current engine exactly — with
+two waived steps and one accommodation, all three of which are findings
+about the RECORDED engine's vintage, not the current engine:
+
+1. Step 117 (waived): Somerset (1) levied L4 HERALDS in War IIL. The War IIL
+   sheet says "all no-rose EXCEPT L4". Current _war_deck honours the except;
+   the old levy-capability pool evidently did not. The harness asserts the
+   action is still not offered.
+2. Step 279 (waived): Jasper Tudor (2) levied L37 (rose 3) in War IIIL,
+   whose deck adds only L25/L34/L36. Same vintage enumeration bug.
+3. Culverins auto-fire (accommodation): the recorded engine fired the
+   Culverins Capability for every holder in a Battle unconditionally; the
+   current engine makes it an explicit decision (4.4.1 "may"). Replaying
+   with --auto-culverins reproduces the recorded battles die-for-die
+   (discriminated empirically: attacker-only / defender-only / both
+   policies give different Death-check outcomes and downstream rolls; only
+   "both" matches the log at steps 132, 138, and the roll anchor at 156).
+
+Also validated in passing: renew_war reproduces both recorded War
+transitions and all subsequent draws exactly (deck composition + shuffle
+against the state RNG), which is the strongest end-to-end evidence yet that
+deck/succession carry-over is stable.
+
+The harness is reusable for any log in this format, including a future
+human/VASSAL session. Pinned as tests/test_ground_truth_replay_seed181.py
+(log committed under tests/data/, runs in ~0.7 s). Suite 657 -> 658;
+ruff clean; mypy --strict clean.

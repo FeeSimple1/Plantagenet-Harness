@@ -7,6 +7,10 @@ internal milestones.
 ## [Unreleased]
 
 ### Added
+- Ground-truth replay: `scripts/replay_log.py` replays a recorded playthrough
+  log against the current engine, comparing every dice/draw-dependent result;
+  the 347-action seed-181 grand-scenario recording replays with 0 divergences
+  (two waived vintage bugs, documented) and is pinned as a test.
 - CI `typecheck` job: the codebase is now `mypy --strict` clean (626
   annotation errors -> 0; annotation-only edits, behavioral equivalence
   verified by byte-identical full-game final states vs the pre-annotation
