@@ -1379,3 +1379,46 @@ The harness is reusable for any log in this format, including a future
 human/VASSAL session. Pinned as tests/test_ground_truth_replay_seed181.py
 (log committed under tests/data/, runs in ~0.7 s). Suite 657 -> 658;
 ruff clean; mypy --strict clean.
+
+## Round (2026-07-02): exhaustive mutation sweep of the eight large modules
+
+Ran the git-dispatched mutation CI over battle, commands, actions, campaign,
+events, legal_moves, scenarios, succession: 2,535 mutation sites, initial
+scores 56.5-77.0%. All 777 surviving mutants triaged (per-module tables in
+mutation-results/*.triage.md, one verdict + reason per site):
+
+- 565 KILLED by 138 new tests (tests/test_mutation_kills_*.py). Every kill
+  verified both directions: test passes on clean code, fails with the
+  mutation hand-applied, source reverted.
+- 89 EQUIVALENT (proven no-behavior-change; e.g. redundant clauses, dead
+  stores, .get defaults on always-present keys, the Montagu block that
+  somersets_return.json setup already makes a no-op).
+- 69 LOW (logging/cosmetic result detail only).
+- 54 GAP-OPEN, classified with the setup each needs (mostly capability- and
+  event-gated paths: Naval Blockade, Burgundians, Dorset, Honest Tale,
+  Heralds, Chamberlains, intercept-group leadership, Regroup per-Round
+  detail, Foreign Haven shift conditions, battle decision-plumbing defaults).
+
+The June prediction ("expect the exact-numeric-value class") was right and
+then some. The strongest finds the suite had never pinned: the 4.4.3 Death
+check (threshold, Flee -2, Talbot/Warden defaults), Spoils/Exile asset
+arithmetic (Sub->Add could credit losers; Exile halving could double), lone-
+Lord Road 2-for-1 chains (the Y11/Forced-Marches gate), cross-Sea Ship
+Supply, _active_event title matching (any active event answered for every
+title), Test of Arms firing at every Campaign end, supply/parley BFS route
+math, ship-pool counting (3.4.5), Welsh Rebellion effect amounts, first-levy
+sequencing after pending Events, enumeration that consumed Jack Cade uses on
+a peek (commit=False), and War-deck composition (decks could be empty or
+deal enemy cards without failing anything).
+
+OPEN ITEMS flagged for a future round (observations, not yet adjudicated):
+1. After IIY's in-place March -> Edward IV replacement, `march` carries
+   REMOVED status, so a later IIIY setup may drop the March/Edward-IV Heir
+   slot and charge the -8 lost-Heir penalty even though Edward IV lives.
+   Needs a rules read (E6) and a test either way.
+2. A used Culverins Capability may not be removed from the firing Lord in
+   one path (masked when the loser Disbands and re-discards); the new exact
+   dice tests pin current behaviour — worth a dedicated look.
+
+Suite 658 -> 796; ruff clean; mypy --strict clean; src/ untouched (tests and
+triage reports only).

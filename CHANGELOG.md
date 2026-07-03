@@ -7,6 +7,9 @@ internal milestones.
 ## [Unreleased]
 
 ### Added
+- Mutation sweep of the eight large modules (2,535 sites): all 777 surviving
+  mutants triaged (mutation-results/*.triage.md), 565 killed by 138 new tests;
+  89 proven equivalent, 69 low-value, 54 classified open. Suite 658 -> 796.
 - Ground-truth replay: `scripts/replay_log.py` replays a recorded playthrough
   log against the current engine, comparing every dice/draw-dependent result;
   the 347-action seed-181 grand-scenario recording replays with 0 divergences
