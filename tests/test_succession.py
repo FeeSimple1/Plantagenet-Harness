@@ -240,17 +240,26 @@ def test_war_i_lancastrian_win_transitions_to_iil():
     assert "L15" in deck and "L17" in deck                     # Henry VI while_king (Succession)
 
 
-def test_renew_carries_removed_heirs_and_minus_eight_influence():
+def test_renew_carries_removed_heirs_and_charges_minus_eight_at_third_war():
+    # The -8 lost-Heir charge is a THIRD-War setup rule: IIIY/IIIL Influence
+    # Tracks read "each Heir (6.2.1, not Warwick) removed in an earlier War by
+    # Death, Shipwreck, or Natural Causes costs that side -8 Influence"; the
+    # second Wars' setups carry no such line (IIL: "Influence marker at 0").
     from plantagenet import influence
     from plantagenet.scenarios import build_initial_state, renew_war
     s = build_initial_state("wars_of_the_roses")
     s.lords["somerset_1"].status = LordStatus.REMOVED.value    # lost in War I
     s.victory = {"result": "lancastrian"}
-    before = influence._net_lanc(s.influence["track"])
-    n = renew_war(s)
-    assert n.lords["somerset_1"].status == LordStatus.REMOVED  # stays out
-    after = influence._net_lanc(n.influence["track"])
-    assert before - after == 8                                 # -8 Lancastrian Influence
+    n = renew_war(s)                                           # IIL
+    assert n.lords["somerset_1"].status == LordStatus.REMOVED  # stays out (6.2.2)
+    assert influence._net_lanc(n.influence["track"]) == 0      # no -8 at War II
+    n.victory = {"result": "lancastrian"}
+    nn = renew_war(n)                                          # IIIL
+    assert nn.lords.get("somerset_1") is None or \
+        nn.lords["somerset_1"].status == LordStatus.REMOVED
+    # IIIL starts at 0, then Somerset (1) costs the Lancastrians -8 -- once,
+    # even though he has been REMOVED since War I (no double-billing).
+    assert influence._net_lanc(nn.influence["track"]) == -8
 
 
 def test_renew_requires_a_decisive_winner():

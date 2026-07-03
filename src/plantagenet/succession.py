@@ -271,6 +271,13 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     o.special_vassals = []
     o.forces = {}
     o.assets = {}
+    # 6.2.2 REPLACE "swap[s] Lord cards" of a LIVING Lord -- it is not a
+    # removal (REMOVE covers Death/Shipwreck only; the IIIY/IIIL Influence
+    # Tracks charge -8 only for "Death, Shipwreck, or Natural Causes").
+    # Record the swap so carry-over logic can tell a retired card from a
+    # dead Heir: the person lives on as ``new``.
+    if state.grand_scenario is not None:
+        state.grand_scenario.setdefault("replaced_cards", {})[old] = new
 
 
 def _seat_in_place(state: GameState, side: str, new: str, at: dict[str, Any]) -> bool:
@@ -441,12 +448,16 @@ def _enter_calendar(state: GameState, side: str, lord_id: str) -> None:
 def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, Any] | None:
     rank = heir_rank(state, side, lord_id)
     lords_static = static_data.load_lords()
+    # Cards retired alive by a 6.2.2 REPLACE (e.g. march -> edward_iv) are not
+    # dead Heirs; the person continues as the replacement card. Skip them.
+    replaced = set((state.grand_scenario or {}).get("replaced_cards", {}))
     for entry in sorted(_heir_table(state, side), key=lambda e: e["rank"]):
         if entry["rank"] <= rank:
             continue
         if entry.get("third_war_only") and not _is_third_war(state):
             continue
-        members = {cand: state.lords.get(cand) for cand in entry["lord_ids"]}
+        members = {cand: state.lords.get(cand) for cand in entry["lord_ids"]
+                   if cand not in replaced}
         # An Heir REMOVED by Death/Shipwreck is permanently dead (6.2.2
         # REMOVE); the role passes to the next rank. Entries with several ids
         # (e.g. March or Edward IV) are the same person under different cards.

@@ -181,3 +181,24 @@ def test_vanguard_requires_the_capability_and_battle_resolves_with_it():
     s2.lords["york"].capabilities = ["Y36"]                 # VANGUARD
     r = battle.resolve_battle(s2, "cambridge", "york", "henry_vi", {"vanguard": "york"})
     assert r["rounds"]                                      # Round 1 restricted to his Engagement
+
+
+# ------------------------------------------- Culverins one-zone (adjudication)
+def test_culverins_discarded_exactly_once_when_firing_lord_disbands():
+    # Card text (Y1/L1): "this Lord may discard this card to add 1 die roll of
+    # Missile Hits ... then discard." The 2026-07-02 mutation triage flagged a
+    # possible double-discard masked by the loser's Disband re-discarding the
+    # mat; adjudicated clean -- the firing discard removes the card from the
+    # mat, so the Disband has nothing to re-discard. Seed 32: Henry VI fires
+    # Culverins, Routs, and Disbands; exactly one L1 ends in the discard pile.
+    from plantagenet import invariants
+    s = _duel(32)
+    s.decks["lancastrian"]["draw"].remove("L1")     # deploy from the deck, one zone
+    s.lords["henry_vi"].capabilities = ["L1"]
+    r = battle.resolve_battle(s, "cambridge", "york", "henry_vi",
+                              {"culverins": ["henry_vi"]})
+    assert "henry_vi" in r["disbands"]
+    assert s.decks["lancastrian"]["discard"].count("L1") == 1
+    assert "L1" not in s.lords["henry_vi"].capabilities
+    assert not [v for v in invariants.board_invariant_violations(s)
+                if "card" in v.get("kind", "")]

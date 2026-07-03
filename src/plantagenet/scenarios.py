@@ -369,8 +369,9 @@ def _resolve_kings(state: GameState, war: dict[str, Any],
 
 
 def _apply_lost_heir_influence(state: GameState, removed: set[str]) -> int:
-    """Each Heir (not Warwick) removed in an earlier War costs that side -8
-    Influence (E2 / 6.x). Returns total points spent."""
+    """Each Heir (not Warwick) removed in an earlier War by Death, Shipwreck,
+    or Natural Causes costs that side -8 Influence -- a third-War setup rule
+    (IIIY/IIIL Influence Tracks). Returns total points spent."""
     from plantagenet import influence, succession
     total = 0
     statics = static_data.load_lords()
@@ -807,8 +808,19 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
     war = {w["war_id"]: w for w in scn_grand["wars"]}[nxt]
 
     apply_natural_causes(state)          # E4/E5: aging-Heir removals before carry-over
-    removed_prior = {lid for lid, ls in state.lords.items()
-                     if ls.status == LordStatus.REMOVED}
+    # A card retired by a living REPLACE (6.2.2, e.g. march -> edward_iv) is
+    # not a removed Heir: the person continues under the replacement card.
+    replaced_cards = dict(gs.get("replaced_cards", {}))
+    # Dead HEIRS persist across Wars via a ledger, not lord statuses: a Heir
+    # who died in an earlier War may be entirely absent from the current
+    # roster (e.g. York dead before IIY), and 6.1.2 says to "note which Heirs
+    # were removed". Non-Heir deaths do NOT carry -- 6.2.2 NOTE: "Lords who
+    # are not Heirs ... can Die or Shipwreck and return in a later War".
+    removed_prior = set(gs.get("removed_heirs", []))
+    for lid, prior_ls in state.lords.items():
+        if (prior_ls.status == LordStatus.REMOVED and lid not in replaced_cards
+                and succession.is_global_heir(prior_ls.side, lid)):
+            removed_prior.add(lid)
     set_aside_keep = dict(gs.get("set_aside_on_disband", {}))
     seed = state.seed if seed is None else seed
 
@@ -826,6 +838,8 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
         "deck_sources": {}, "succession_fired": [], "current_king": {},
         "set_aside_on_disband": set_aside_keep,
         "gloucester_as_heir_played": glos_flag,
+        "replaced_cards": replaced_cards,
+        "removed_heirs": sorted(removed_prior),
     }
     new.victory = None
     new.phase = "levy"
@@ -847,7 +861,14 @@ def renew_war(state: GameState, seed: int | None = None) -> GameState:
     new.store_dice(roller)
 
     _resolve_kings(new, war, removed_prior)
-    _apply_lost_heir_influence(new, removed_prior)
+    if nxt in ("war_iiiy", "war_iiil"):
+        # The -8 lost-Heir charge appears ONLY in the third Wars' Influence
+        # Tracks ("Each Heir (6.2.1, not Warwick) removed in an earlier War by
+        # Death, Shipwreck, or Natural Causes ... costs that side -8"); the
+        # second Wars' setups carry no such line. Charging per transition
+        # also double-billed first-War deaths (still REMOVED at the II->III
+        # transition) -- applying it once, here, matches the sheets.
+        _apply_lost_heir_influence(new, removed_prior)
     if nxt == "war_iiy":                                # E4: succession-driven roster
         apply_iiy_setup(new, removed_prior)
     elif nxt == "war_iiiy":                             # E6: succession-driven roster

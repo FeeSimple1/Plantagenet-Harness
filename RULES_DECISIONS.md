@@ -244,3 +244,68 @@ adjudicator to decide:
 implementation backlog in `BRIEF.md` open items and the `SMOKE_TEST_FINDINGS.md`
 round log — NOT as open rules questions. Commit: see the Q-004/Q-005 close-out
 merge.
+
+---
+
+## D-007 — REPLACE is not removal; -8 timing; Culverins discard (resolves the 2026-07-02 triage observations)
+
+**Date.** 2026-07-02.
+
+**Question 1: does a 6.2.2 REPLACE (March -> Edward IV, Gloucester -> Richard
+III, etc.) make the replaced card a "removed Heir" — dropping its Heir slot at
+a later War's setup and charging the -8 penalty?**
+
+**Determination: NO — rules are explicit, no house ruling needed.**
+- 6.2.2 REMOVE: "An Heir (6.2.1) removed by Death or Shipwreck (4.4.3, 4.8.2)
+  is permanently out of the game and may not return in future Wars." Removal
+  causes are Death and Shipwreck (plus the Natural Causes special rule).
+- 6.2.2 REPLACE: "To replace a Lord 'in place', swap Lord cards on the mat
+  currently in use, cylinders in place on the gameboard, and Command cards
+  where they are, including in that side's Plan stack." A card swap of a
+  living Lord.
+- 6.2.1 defines the slot as one person: "Heir #2: March or Edward IV (eldest
+  son of York)." IIIL even swaps the card back: "If Edward IV is present from
+  the second War, replace him with March."
+- IIIY Influence Track: "Each Heir (6.2.1, not Warwick) removed in an earlier
+  War by Death, Shipwreck, or Natural Causes special rule costs that side -8
+  Influence points." REPLACE is not among the charging causes.
+Engine: living swaps are recorded in `grand_scenario["replaced_cards"]`
+(written by `_apply_replace_in_place`); carry-over, the third-War -8, the
+IIIY/IIIL slot logic, and the in-play general-Succession rule all exclude
+ledgered cards. The IIL "on remove Somerset (1) -> Somerset (2) in place"
+replacement rides a real Death and is NOT ledgered: Somerset (1) stays a
+removed Heir. Two structural corollaries fixed in the same change: dead Heirs
+now persist across Wars via `grand_scenario["removed_heirs"]` (a Heir dead
+before IIY was absent from the IIY roster, so his status-based removal was
+lost and IIIY resurrected him as King); and non-Heir deaths no longer carry
+(6.2.2 NOTE: "Lords who are not Heirs, in contrast, can Die or Shipwreck and
+return in a later War").
+
+**Question 2: when is the -8 lost-Heir penalty charged?**
+
+**Determination: once, at a THIRD-War setup only.** The clause exists solely
+in the IIIY and IIIL Influence Tracks (IIIL: "Start Influence marker at 0.
+Then each Heir (6.2.1, not Warwick) removed in an earlier War by Death,
+Shipwreck, or Natural Causes costs that side -8"); the second Wars' setups
+have no such line (IIL: "Influence marker at 0 on Lancastrian (red) side").
+The engine previously charged at every War transition, which both penalised
+War II starts and double-billed first-War deaths at the II->III transition.
+
+**Question 3: does a fired Culverins Capability double-discard (or stay on
+the mat)?**
+
+**Determination: engine correct as-is.** Card text (Y1/L1): "this Lord may
+discard this card to add 1 die roll of Missile Hits ... rolls a die at that
+side's Missile Strike step adding 1-6 extra Missile Hits, then discard." The
+decisions-path firing removes the card from the mat and puts exactly one copy
+in the discard pile (pinned by the mutation-kill tests). The triage's
+"double-discard" described the MUTANT's behaviour (In->NotIn on the discard
+guard), masked in older coverage because the firing Lord always Disbanded.
+The masked path is now pinned directly: firing Lord Routs and Disbands ->
+exactly one copy in discard, none on the mat, no card-zone violations. The
+`battle_reactions` field on enumerated moves is an advisory catalog; actual
+plays go through battle decisions.
+
+Tests: tests/test_replace_is_not_removal.py (4);
+tests/test_succession.py::test_renew_carries_removed_heirs_and_charges_minus_eight_at_third_war;
+tests/test_battle_niche_branches.py::test_culverins_discarded_exactly_once_when_firing_lord_disbands.

@@ -1422,3 +1422,45 @@ OPEN ITEMS flagged for a future round (observations, not yet adjudicated):
 
 Suite 658 -> 796; ruff clean; mypy --strict clean; src/ untouched (tests and
 triage reports only).
+
+## Round (2026-07-02b): the two triage observations adjudicated -- three rules fixes
+
+Both open items from the mutation-triage round are settled by the rulebook
+(full citations in RULES_DECISIONS.md D-007).
+
+1. REPLACE is not removal (FIXED). 6.2.2 REMOVE covers Death/Shipwreck (plus
+   Natural Causes); REPLACE "swap[s] Lord cards" of a living Lord, and 6.2.1
+   defines "March or Edward IV" as one Heir. The engine retires a replaced
+   card with REMOVED status, so carry-over treated March as a dead Heir after
+   the IIY March->Edward IV swap: the IIIY setup dropped the slot and charged
+   -8. Fixed with a `replaced_cards` ledger written by the living-swap path
+   and consulted by carry-over, the -8, the IIIY/IIIL slot logic, and the
+   in-play general-Succession rule. The IIL death-triggered Somerset (1) ->
+   Somerset (2) replacement is not ledgered (he really died).
+
+2. Found while fixing: dead Heirs did not persist across Wars at all if
+   absent from the next roster (a York dead before IIY has no LordState in
+   the IIY state, so status-based carry lost him and IIIY set him up as King
+   again). Dead Heirs now persist via `grand_scenario["removed_heirs"]`
+   (6.1.2 "note which Heirs were removed"). Conversely, non-Heir deaths no
+   longer carry (6.2.2 NOTE: non-Heirs "can Die or Shipwreck and return in a
+   later War").
+
+3. The -8 lost-Heir charge is a third-War setup rule only (FIXED): it exists
+   solely in the IIIY/IIIL Influence Tracks; IIL's track reads "Influence
+   marker at 0" with no penalty line. The engine charged at every War
+   transition -- penalising War II starts and double-billing War-I deaths at
+   the II->III transition. Now charged once, at III setup, cumulatively.
+   (One pre-existing test asserted the old behaviour and was corrected with
+   the citation.)
+
+4. Culverins discard (NO BUG): card text "add 1 die roll ... then discard" --
+   the decisions-path firing removes the card from the mat and discards
+   exactly one copy. The triage's "double-discard" was the mutant's
+   behaviour, masked in old coverage by the firing Lord always Disbanding.
+   The masked path is now pinned (fire + Rout + Disband -> one copy in
+   discard, no card-zone violation). `battle_reactions` on enumerated moves
+   is an advisory catalog; plays go through battle decisions.
+
+The seed-181 ground-truth replay is unaffected (no Heir deaths or replaces in
+that recording). Suite 796 -> 801; ruff clean; mypy --strict clean.

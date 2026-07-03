@@ -29,6 +29,13 @@ internal milestones.
   and the general Succession rule; suite 639 -> 656.
 
 ### Fixed
+- 6.2.2 REPLACE no longer counts as Heir removal (D-007): a living card swap
+  (March -> Edward IV) kept the -8 penalty and dropped the Heir slot at third-
+  War setup; dead Heirs now also persist across Wars via a ledger even when
+  absent from a roster (York dead pre-IIY could be resurrected by IIIY), and
+  non-Heir deaths no longer carry (they may return, 6.2.2 NOTE).
+- The -8 lost-Heir Influence charge now applies once, at third-War setup
+  (IIIY/IIIL Influence Tracks), not at every War transition.
 - Command-move enumeration no longer depends on `PYTHONHASHSEED`: Tax,
   ship-borne Supply, and campaign Parley targets were emitted in set order,
   so seeded game trajectories varied across processes. Emission sites now
