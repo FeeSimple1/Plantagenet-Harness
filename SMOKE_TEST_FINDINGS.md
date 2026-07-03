@@ -1507,3 +1507,26 @@ were reimplemented from the agents' reports and re-verified mutant-by-mutant
 Lesson encoded: commit agent deliverables before any tree operation.
 
 Suite 801 -> 841; ruff clean; mypy --strict clean.
+
+## Round (2026-07-02d): fresh re-baseline — the sweep confirms the triage
+
+Fresh-mode runs for all six stale modules landed. Scores, before the triage
+rounds vs now (killed/ran):
+
+  actions      64.4% -> 94.0%     battle       63.8% -> 89.8%
+  campaign     59.1% -> 88.4%     commands     59.9% -> 86.8%
+  events       56.5% -> 93.3%     legal_moves  69.1% -> 92.7%
+  scenarios    73.5% -> 87.2%     succession   77.0% -> 81.4%
+
+Aggregate: 63.7% -> 89.7% (2,275 of 2,535 mutants killed). The remaining
+survivors are the proven-equivalent and low-value classes from the triage
+reports, id-shifted duplicates in modules whose source changed (commands
+after the Dorset/flank fixes; succession/scenarios after D-007), and the
+uncovered defensive guards.
+
+Cross-checking survivors against the triage verdicts caught one bookkeeping
+class: three same-line literal PAIRS (battle L406, L795; legal_moves L586)
+had their killed/equivalent twin ids transposed — the re-baseline shows each
+line's behavioural occurrence killed and its structural twin surviving,
+exactly as the equivalence arguments described. Triage tables corrected.
+No claimed kill is actually alive.

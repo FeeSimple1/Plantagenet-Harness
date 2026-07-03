@@ -57,9 +57,9 @@ Site-id/occurrence note: on lines where one literal occurs twice and only line-l
 | 3501 | 390 | bool Or->And L390 | GAP-killed | Routed Lords never leave the Array; killed by reposition d2-advance assert |
 | 3514 | 395 | bool And->Or L395 | GAP-killed | held (Norfolk) reserves advanceable by choice; killed by held-reserve assert |
 | 5612 | 406 | bool And->Or L406 | GAP-killed | an empty chosen wing leaves the Center unfilled; killed by fallback assert |
-| 7511 | 406 | int 0->1 L406 | EQUIVALENT | tuple occurrence: center_from=0 falls back to [0,2] which tries wing 0 first, and cf=1 cannot pass "cf in pos" because slot 1 is empty by the guard |
+| 9874 | 406 | int 0->1 L406 | EQUIVALENT | paired occurrence; survives the full suite (id transposed with 7511) |
 | 7512 | 406 | int 2->3 L406 | GAP-killed | center_from=2 falls back to the left (both 2->3 occurrences die); killed by right-wing case |
-| 9874 | 406 | int 0->1 L406 | GAP-killed | list occurrence: default Center fill skips the wing; killed by lone-wing cases (paired tuple occurrence 7511 is equivalent) |
+| 7511 | 406 | int 0->1 L406 | GAP-killed | list occurrence: default Center fill skips the wing; killed by lone-wing cases (ids were transposed; re-baseline shows 7511 killed) |
 | 3546 | 417 | bool And->Or L417 | EQUIVALENT | _reposition purges None/Routed entries from positions immediately before every _engagements call, so the filter never sees them |
 | 3551 | 419 | bool And->Or L419 | EQUIVALENT | _reposition purges None/Routed entries from positions immediately before every _engagements call, so the filter never sees them |
 | 1841 | 438 | bool And->Or L438 | GAP-killed | a unique nearest target can be overridden by flank choice; killed by 2-eng assert |
@@ -110,8 +110,8 @@ Site-id/occurrence note: on lines where one literal occurs twice and only line-l
 | 6339 | 779 | int 0->1 L779 | EQUIVALENT | "retinue" is keyed in routed for every Force from __init__ |
 | 6342 | 780 | cmp Eq->NotEq L780 | GAP-killed | Swift watches YORKIST Retinues; killed by swift break assert |
 | 9254 | 795 | cmp LtE->Lt L795 | LOW | left is never negative, so only a user-supplied NEGATIVE caltrops split diverges |
-| 10089 | 795 | int 0->1 L795 | EQUIVALENT | get-default occurrence: caltrops_left is built with both sides as keys |
-| 10580 | 795 | int 0->1 L795 | GAP-killed | comparison occurrence: a remaining Caltrops budget of 1 is skipped; killed by [1,1] split assert (paired get-default occurrence 10089 is equivalent) |
+| 10580 | 795 | int 0->1 L795 | EQUIVALENT | paired occurrence; survives the full suite (id transposed with 10089) |
+| 10089 | 795 | int 0->1 L795 | GAP-killed | comparison occurrence: Caltrops budget of 1 skipped; killed by [1,1] split assert (ids were transposed; re-baseline shows 10089 killed) |
 | 10586 | 798 | cmp Lt->LtE L798 | GAP-killed | a short caltrops_split list crashes (IndexError); killed by [1] split case |
 | 10126 | 809 | int 3->4 L809 | GAP-killed | Final Charge adds 4 Melee Hits; killed by exact ceil(3+2)+3==8 |
 | 9279 | 815 | cmp Gt->GtE L815 | LOW | needs the owner to Rout his own last Retinue via absorb_plan during Missile of the same Engagement while Troops still stand |

@@ -81,7 +81,7 @@ operators on one line) were verified against BOTH variants.
 | 2071 | 565 | cmp Eq->NotEq   | GAP-killed | Exile-box Lords cannot Sail (KeyError swallowed) |
 | 1162 | 566 | bool And->Or    | EQUIVALENT | seas.json Ports and locales.json port flags are the same set, so from_sea/on_sea are truthy together |
 | 3103 | 584 | cmp In->NotIn   | GAP-killed | Vassal Seats vanish from Tax targets |
-| 2111 | 586 | int 0->1        | GAP-killed | shipless Lord gains Sea-hop Tax routes (phantom) |
+| 3106 | 586 | int 0->1        | GAP-killed | shipless Lord gains Sea-hop Tax routes; ids transposed — re-baseline shows 3106 killed, twin 2111 is the equivalent occurrence |
 | 3110 | 588 | cmp NotIn->In   | GAP-killed | every Tax target skipped; no Tax at all |
 | 2117 | 590 | bool Or->And    | EQUIVALENT | t==here falls to the elif where _tax_route_cost(target==here) returns 0 (not None) and emits the identical move |
 | 3975 | 603 | int 0->1        | EQUIVALENT | every Stronghold in static data yields provender >= 1; the get default is dead |
