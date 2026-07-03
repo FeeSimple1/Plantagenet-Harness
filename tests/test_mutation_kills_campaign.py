@@ -394,3 +394,43 @@ def test_waste_resets_coin_to_setup():
     assert cl.assets["coin"] == 0                       # reset to setup (4.8.5)
     assert cl.assets["provender"] == 2 and cl.assets["cart"] == 2
     assert cl.assets["ship"] == 1                       # halve, round up
+
+
+def test_begin_campaign_stafford_estates_goes_to_mustered_holder_only():
+    # L84 cmp Eq->NotEq (site 2287): the L22 STAFFORD ESTATES grant at Campaign
+    # start goes to a MUSTERED holder, never to one still on the Calendar.
+    s = build_initial_state("henry_vi", seed=1)
+    to_muster(s)
+    actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
+    actions.apply_action(s, {"type": "end_muster", "side": s.active_side})
+    bk = s.lords["buckingham"]
+    bk.status = LordStatus.MUSTERED
+    bk.location = "coventry"                            # his Seat
+    bk.calendar_box = None
+    bk.capabilities = ["L22"]
+    ex = s.lords["exeter_1"]
+    assert ex.status == LordStatus.CALENDAR             # still waiting to Muster
+    ex.capabilities = ["L22"]
+    bk_before = dict(bk.assets)
+    ex_before = dict(ex.assets)
+    actions.apply_action(s, {"type": "begin_campaign"})
+    assert bk.assets.get("coin", 0) == bk_before.get("coin", 0) + 1
+    assert bk.assets.get("provender", 0) == bk_before.get("provender", 0) + 1
+    assert dict(ex.assets) == ex_before                 # Calendar holder gains nothing
+
+
+def test_queen_regent_tides_bonus_is_exactly_three():
+    # L559 int 3->4 (site 3132): Queen Regent (Warwick's Rebellion special rule)
+    # awards exactly +3 for Margaret Mustered at London.
+    def lanc_tides(location):
+        s = build_initial_state("warwicks_rebellion", seed=1)
+        mg = s.lords["margaret"]
+        mg.status = LordStatus.MUSTERED
+        mg.location = location
+        mg.calendar_box = None
+        return campaign.tides_of_war(s, None)["points"]["lancastrian"]
+
+    # Calais as the control seat: like London its region is None (no Area-presence
+    # delta), and its Favour is Lancastrian, so a friendly occupant never withholds
+    # the special-Stronghold award. Only Queen Regent separates the two runs.
+    assert lanc_tides("london") - lanc_tides("calais") == 3     # 19 vs 16

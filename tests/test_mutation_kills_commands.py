@@ -539,3 +539,376 @@ def test_merchants_targets_and_cost():
                                  "targets": ["rochester", "oxford"]})
     assert s.campaign.actions_remaining == before - 1
     assert r["spent"] == 1                             # no extra spend requested
+
+
+# ============================================================================
+# Engineered kills for classified surviving mutants (commands.py, 2026-07).
+# Not pinned here (see mutation notes): line 246 flank-attack card cost is
+# masked by a later fall-through decrement (clean code ends at -1), and the
+# line 805 Gt->GtE / default-ship mutants are behaviourally equivalent.
+# ============================================================================
+
+
+# ------------------------------------------ Capability commands (1.9.1)
+def test_agitators_consumes_exactly_one_action():
+    # Agitators (Y10) is ONE Command action, not two.
+    s = _campaign()
+    s.lords["york"].capabilities.append("Y10")
+    before = s.campaign.actions_remaining
+    r = actions.apply_action(s, {"type": "agitators", "side": "yorkist",
+                                 "by_lord": "york", "target": "cambridge"})
+    assert r["depletion"] == "depleted"
+    assert s.campaign.actions_remaining == before - 1
+
+
+def test_heralds_full_card_and_no_default_extra_spend():
+    # Heralds (L4): the whole Command card is spent and the default added
+    # Influence spend is 0 -> exactly 1 point paid (1.4.2).
+    def prep(st):
+        st.lords["henry_vi"].location = "dover"            # a Port (L4)
+        st.lords["henry_vi"].capabilities.append("L4")
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "heralds", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "target": "buckingham"})
+    assert r["spent"] == 1
+    assert s.campaign.actions_remaining == 0
+
+
+def test_heralds_rejects_a_mustered_target():
+    # Heralds shifts CALENDAR cylinders only; a Mustered Lord is no target
+    # (L4) -- even one carrying a stale calendar_box value.
+    def prep(st):
+        st.lords["henry_vi"].location = "dover"
+        st.lords["henry_vi"].capabilities.append("L4")
+        st.lords["somerset_1"].calendar_box = 4            # stale; still MUSTERED
+    s = _to_lancastrian(_campaign(prep=prep))
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "heralds", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "target": "somerset_1"})
+    assert e.value.code == "bad_target"
+
+
+def test_exile_pact_needs_the_event_even_for_a_yorkist():
+    # Exile Pact is an Event (Y8): a Yorkist Lord alone does not qualify.
+    s = _campaign()
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "exile_pact", "side": "yorkist",
+                                 "by_lord": "york", "box": "burgundy"})
+    assert e.value.code == "no_exile_pact"
+    assert s.lords["york"].exile_box is None
+
+
+# --------------------------------------------- Y14/Y23 Burgundians
+def test_burgundians_respects_the_handgunner_pool_floor():
+    # Pool is 2; with both already in play the grant is 0 -- never forced up.
+    def prep(st):
+        st.lords["york"].location = "lynn"
+        st.lords["york"].capabilities.append("Y14")
+        st.lords["york"].forces = {"retinue": 1}
+        st.lords["york"].assets = {"ship": 1}
+        st.lords["henry_vi"].forces["handgunners"] = 2
+    s = _campaign(prep=prep)
+    actions.apply_action(s, {"type": "sail", "side": "yorkist", "by_lord": "york",
+                             "to": "ravenspur"})
+    assert s.lords["york"].forces.get("handgunners", 0) == 0
+    assert not s.flags.get("burgundians_york")
+
+
+def test_burgundians_grant_is_pool_minus_in_play():
+    # Pool 2 with 1 in play elsewhere -> exactly 1 Handgunner arrives.
+    def prep(st):
+        st.lords["york"].location = "lynn"
+        st.lords["york"].capabilities.append("Y14")
+        st.lords["york"].forces = {"retinue": 1}
+        st.lords["york"].assets = {"ship": 1}
+        st.lords["henry_vi"].forces["handgunners"] = 1
+    s = _campaign(prep=prep)
+    actions.apply_action(s, {"type": "sail", "side": "yorkist", "by_lord": "york",
+                             "to": "ravenspur"})
+    assert s.lords["york"].forces.get("handgunners", 0) == 1
+
+
+def test_burgundians_fires_only_the_first_time():
+    # "The first time this Lord is at any Port" -- once granted (and later
+    # lost in Battle), a later Port visit adds nothing (Y14/Y23).
+    from plantagenet import commands
+    s = _campaign()
+    york = s.lords["york"]
+    york.capabilities.append("Y14")
+    york.location = "lynn"
+    assert commands._apply_burgundians(s, york) == 2
+    york.forces["handgunners"] = 0                         # Battle losses
+    assert commands._apply_burgundians(s, york) == 0
+    assert york.forces.get("handgunners", 0) == 0
+
+
+# --------------------------------------------------- 4.6.4 Parley extras
+def test_dorset_devon_at_exeter_parley_auto_and_free_way():
+    # DORSET (Y29): only DEVON and only AT EXETER; "cost 0 Influence and
+    # auto-succeed" -- no check, no roll, no spend (fixed 2026-07-02c).
+    from plantagenet.state import LordState, LordStatus
+    def prep(st):
+        st.lords["devon"] = LordState(lord_id="devon", side="yorkist",
+                                      status=LordStatus.MUSTERED, location="exeter")
+        st.locales["exeter"].favour = "yorkist"
+        st.active_events.append({"card": "Y29", "side": "yorkist"})
+    s = _campaign(yk=("devon",), prep=prep)
+    r = actions.apply_action(s, {"type": "parley", "side": "yorkist",
+                                 "by_lord": "devon", "target": "dorchester"})
+    assert r["success"] is True
+    assert r["spent"] == 0 and r["roll"] is None    # Y29: cost 0, no roll
+
+
+def test_new_act_of_parliament_takes_the_entire_card():
+    # NEW ACT OF PARLIAMENT (L10): a Yorkist Campaign Parley uses ALL of the
+    # Command card's actions.
+    s = _campaign()
+    s.active_events.append({"card": "L10", "side": "lancastrian"})
+    r = actions.apply_action(s, {"type": "parley", "side": "yorkist",
+                                 "by_lord": "york", "target": "cambridge"})
+    assert r["type"] == "parley"
+    assert s.campaign.actions_remaining == 0
+
+
+def test_honest_tale_own_location_parley_costs_exactly_one():
+    # AN HONEST TALE (Y34): the otherwise-free own-location Lancastrian
+    # Parley costs exactly 1 Influence.
+    def prep(st):
+        st.lords["henry_vi"].location = "rochester"
+        st.locales["rochester"].favour = "yorkist"
+        st.active_events.append({"card": "Y34", "side": "yorkist"})
+    s = _to_lancastrian(_campaign(prep=prep))
+    net0 = _net_lanc(s)
+    r = actions.apply_action(s, {"type": "parley", "side": "lancastrian",
+                                 "by_lord": "henry_vi"})
+    assert r["honest_tale_cost"] == 1
+    assert net0 - _net_lanc(s) == 1
+
+
+def test_honest_tale_remote_parley_surcharge_is_one():
+    # Y34 adds exactly +1: 1 base + 1 Way + 1 surcharge = 3.
+    def prep(st):
+        st.active_events.append({"card": "Y34", "side": "yorkist"})
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "parley", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "target": "rochester"})
+    assert r["spent"] == 3
+
+
+# ---------------------------------------------------- 4.5 Supply extras
+def test_chamberlains_supply_does_not_deplete_a_vassal_seat():
+    # Chamberlains (L10 Capability): Supply from the Lord's own Vassal's
+    # Seat adds no Depletion marker.
+    def prep(st):
+        st.lords["henry_vi"].capabilities.append("L10")
+        st.lords["henry_vi"].vassals = ["essex"]           # Seat: st_albans
+        st.lords["henry_vi"].assets = {"cart": 2}
+        st.locales["st_albans"].favour = "lancastrian"
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "supply", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "source": "st_albans"})
+    assert r["provender_added"] >= 1
+    assert s.locales["st_albans"].depletion is None
+
+
+def test_great_ships_supply_hops_start_only_at_ports():
+    # Great Ships (Y6/L6) makes all PORTS 1 Way apart; an inland Lord gains
+    # no all-port hop from a non-port node.
+    def prep(st):
+        st.lords["york"].capabilities.append("Y6")
+        st.lords["york"].assets = {"cart": 2}
+        st.locales["truro"].favour = "yorkist"
+    s = _campaign(prep=prep)                               # york at ely (inland)
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "supply", "side": "yorkist",
+                                 "by_lord": "york", "source": "truro"})
+    assert e.value.code == "no_route"
+
+
+def test_great_ships_supply_port_to_port_is_one_way():
+    # Great Ships: a Port Lord reaches any Port Source in exactly 1 Way.
+    def prep(st):
+        st.lords["york"].capabilities.append("Y6")
+        st.lords["york"].location = "lynn"
+        st.locales["lynn"].favour = "yorkist"
+        st.locales["dover"].favour = "yorkist"
+        st.lords["york"].assets = {"cart": 2}
+    s = _campaign(prep=prep)
+    r = actions.apply_action(s, {"type": "supply", "side": "yorkist",
+                                 "by_lord": "york", "source": "dover"})
+    assert r["ways"] == 1 and r["provender_added"] == 1
+
+
+def test_continental_exile_supply_requires_ship_and_port():
+    # Only the SCOTLAND box is exempt (Path); a continental Exile box must
+    # Supply via Ship from a same-Sea Port (4.5.1).
+    def prep(st):
+        st.lords["henry_vi"].location = None
+        st.lords["henry_vi"].exile_box = "france"
+    s = _to_lancastrian(_campaign(prep=prep))
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "supply", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "source": "dover"})
+    assert e.value.code == "exile_needs_ship_port"
+
+
+# ------------------------------------------------ Y15 Naval Blockade
+def test_blockade_skips_a_sea_routed_around_by_land():
+    # Y15 fires only when blocking the Sea RAISES the Route cost; here an
+    # equally short land Way to Exeter means no Blockade window opens.
+    def prep(st):
+        st.lords["henry_vi"].location = "dorchester"
+        st.locales["dorchester"].favour = "lancastrian"
+        st.lords["henry_vi"].assets = {"ship": 1}
+        st.lords["henry_vi"].vassals = ["devon"]           # Vassal Seat: exeter
+        st.lords["york"].location = "plymouth"             # Blockade the Channel
+        st.lords["york"].capabilities.append("Y15")
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "tax", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "target": "exeter"})
+    assert r["type"] == "tax"
+
+
+def test_blockade_recompute_keeps_other_sea_hops():
+    # Blocking the NORTH SEA must not strip the Channel hop of a one-Ship
+    # Lord from the recompute: the Calais Route is unaffected, so no Y15
+    # reaction window opens.
+    def prep(st):
+        st.lords["henry_vi"].location = "hastings"
+        st.locales["hastings"].favour = "lancastrian"
+        st.lords["henry_vi"].assets = {"ship": 1}          # exactly one Ship
+        st.lords["york"].location = "scarborough"          # Blockade the North Sea
+        st.lords["york"].capabilities.append("Y15")
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "tax", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "target": "calais"})
+    assert r["type"] == "tax"
+
+
+# --------------------------------------------- 4.3.4 Intercept groups
+def test_intercepting_lieutenant_cannot_bring_a_marshal():
+    def prep(st):
+        st.lords["somerset_1"].location = "bedford"        # Lieutenant
+        st.lords["henry_vi"].location = "bedford"          # Marshal
+    s = _campaign(prep=prep)
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"intercept": "somerset_1",
+                                               "intercept_group": ["henry_vi"]}})
+    assert e.value.code == "lieutenant_cannot_lead_marshal"
+
+
+def test_intercept_group_member_must_be_co_located():
+    from plantagenet.state import LordStatus
+    def prep(st):
+        st.lords["somerset_1"].location = "bedford"
+        st.lords["exeter_1"].status = LordStatus.MUSTERED  # same side, elsewhere
+        st.lords["exeter_1"].location = "london"
+        st.lords["exeter_1"].calendar_box = None
+    s = _campaign(prep=prep)
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"intercept": "somerset_1",
+                                               "intercept_group": ["exeter_1"]}})
+    assert e.value.code == "bad_group_member"
+
+
+# ------------------------------------------------- 4.6.1 Sail extras
+def test_group_sail_lieutenant_cannot_lead_a_marshal():
+    def prep(st):
+        st.lords["somerset_1"].location = "dover"          # Lieutenant
+        st.lords["henry_vi"].location = "dover"            # Marshal
+    s = _to_lancastrian(_campaign(lc=("somerset_1",), prep=prep))
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "sail", "side": "lancastrian",
+                                 "by_lord": "somerset_1", "to": "hastings",
+                                 "group": ["henry_vi"]})
+    assert e.value.code == "lieutenant_cannot_lead_marshal"
+
+
+def test_owain_glyndwr_bars_lancastrian_sail_into_wales():
+    # Y25 bars the LANCASTRIAN side (not the Yorkist) from Sailing to Wales.
+    def prep(st):
+        st.lords["henry_vi"].location = "bristol"
+        st.lords["henry_vi"].forces = {"retinue": 1}
+        st.lords["henry_vi"].assets = {"ship": 1}
+        st.active_events.append({"card": "Y25", "side": "yorkist"})
+    s = _to_lancastrian(_campaign(prep=prep))
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s, {"type": "sail", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "to": "harlech"})
+    assert e.value.code == "owain_glyndwr"
+    assert s.lords["henry_vi"].location == "bristol"
+
+
+def test_sharing_works_within_the_same_exile_box():
+    # Sharing (1.5.3) reaches an ally in the SAME Exile box; a lone exiled
+    # Lord Sails on a groupmate's Ship.
+    def prep(st):
+        st.lords["henry_vi"].location = None
+        st.lords["henry_vi"].exile_box = "france"
+        st.lords["henry_vi"].forces = {"retinue": 1}
+        st.lords["henry_vi"].assets = {}
+        st.lords["somerset_1"].location = None
+        st.lords["somerset_1"].exile_box = "france"
+        st.lords["somerset_1"].assets = {"ship": 1}
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "sail", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "to": "dover",
+                                 "share": ["somerset_1"]})
+    assert r["type"] == "sail"
+    assert s.lords["henry_vi"].location == "dover"
+
+
+def test_sharing_works_on_the_same_sea():
+    # Sharing (1.5.3) reaches an ally at the SAME Sea.
+    def prep(st):
+        st.lords["henry_vi"].location = None
+        st.lords["henry_vi"].at_sea = "english_channel"
+        st.lords["henry_vi"].forces = {"retinue": 1}
+        st.lords["henry_vi"].assets = {}
+        st.lords["somerset_1"].location = None
+        st.lords["somerset_1"].at_sea = "english_channel"
+        st.lords["somerset_1"].assets = {"ship": 1}
+    s = _to_lancastrian(_campaign(prep=prep))
+    r = actions.apply_action(s, {"type": "sail", "side": "lancastrian",
+                                 "by_lord": "henry_vi", "to": "dover",
+                                 "share": ["somerset_1"]})
+    assert r["type"] == "sail"
+    assert s.lords["henry_vi"].location == "dover"
+
+
+# ----------------------------------------------- 4.3.5 Approach window
+def test_approach_ctx_lists_only_lords_at_the_destination():
+    # King's Parley (L15) is offered only when Henry VI is a TARGET of the
+    # Approach -- not merely Mustered somewhere else on the map.
+    def prep(st):
+        st.lords["somerset_1"].location = "cambridge"
+        st.lords["henry_vi"].capabilities.append("L15")    # KING'S PARLEY
+    s = _campaign(prep=prep)
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"responses": {"somerset_1": "battle"}}})
+    assert r["type"] == "march"
+
+
+
+# ------------------------------------------ 4.3.4 Flank Attack card economy
+def test_flank_attack_march_ends_the_card_at_zero_not_minus_one():
+    # Y2/L2 Flank Attack: the Intercept Battle consumes the Marching side's
+    # command card. The march tail used to fall through to the normal
+    # decrement, ending at actions_remaining == -1 (masked: every consumer
+    # gates on > 0). Fixed 2026-07-02c.
+    def prep(st):
+        st.lords["somerset_1"].location = "bedford"
+        st.decks["lancastrian"]["held"] = ["L2"]           # FLANK ATTACK held
+    s = _campaign(prep=prep)
+    r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
+                                 "to": "cambridge",
+                                 "decisions": {"intercept": "somerset_1",
+                                               "flank_attack": True}})
+    assert r["intercept"]["success"] and r["intercept"]["flank_attack"]
+    assert r["approach"] is not None                       # the flank Battle happened
+    assert s.campaign.actions_remaining == 0

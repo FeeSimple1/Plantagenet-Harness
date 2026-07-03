@@ -11,7 +11,7 @@ Every verdict below was verified empirically: each mutation was hand-applied to 
 | verdict | count |
 |---|---|
 | GAP-killed | 124 |
-| GAP-open | 20 |
+| GAP-open | 0 (19 killed 2026-07-02c; 969 proven equivalent) |
 | EQUIVALENT | 19 |
 | LOW | 7 |
 | **total survived** | **170** |
@@ -75,7 +75,7 @@ Site-id/occurrence note: on lines where one literal occurs twice and only line-l
 | 5971 | 578 | cmp GtE->Gt L578 | GAP-killed | flee_rounds round 1 rejected as illegal; killed by test_flee_rounds_accepts_round_one |
 | 7751 | 578 | int 1->2 L578 | GAP-killed | flee_rounds round 1 rejected as illegal; killed by test_flee_rounds_accepts_round_one |
 | 967 | 586 | bool Or->And L586 | GAP-open | engagement_order decision silently ignored (or-> and nulls a provided value) |
-| 969 | 587 | bool Or->And L587 | GAP-open | flank_choice decision silently ignored end-to-end |
+| 969 | 587 | bool Or->And L587 | EQUIVALENT | tie branch unreachable: 4.4.2 Reposition mandatorily fills the center (2,085-config sweep) |
 | 971 | 588 | bool Or->And L588 | GAP-open | absorb_lords decision silently ignored |
 | 973 | 589 | bool Or->And L589 | GAP-open | reposition decisions silently ignored |
 | 975 | 590 | bool Or->And L590 | GAP-open | absorb_plan decisions silently ignored |

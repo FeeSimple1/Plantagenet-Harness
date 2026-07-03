@@ -1464,3 +1464,46 @@ Both open items from the mutation-triage round are settled by the rulebook
 
 The seed-181 ground-truth replay is unaffected (no Heir deaths or replaces in
 that recording). Suite 796 -> 801; ruff clean; mypy --strict clean.
+
+## Round (2026-07-02c): all 54 open mutation gaps closed -- two more real bugs
+
+Closed every GAP-open survivor from the triage round: 50 killed by 23 new
+tests, 4 proven equivalent on inspection (battle 969: the flank-choice tie
+branch is unreachable because 4.4.2 Reposition mandatorily fills the center
+-- verified by a 2,085-configuration sweep; commands 4710/6544: the blockade
+has_ship recompute defaults only flip at 0 Ships where sea hops never enter
+either route; commands 2884: dead code after the Dorset fix below). The
+battle decision-plumbing five now have fork-oracle proof that supplied
+engagement_order / absorb_lords / absorb_plan / reposition decisions actually
+steer resolution.
+
+Two REAL BUGS found by the closing agents, both card-text-clear, both fixed:
+
+1. Y29 Dorset undercharged... rather, OVERcharged (commands.parley_finish).
+   Card: "Devon at Exeter Parleys for no Influence cost and automatic
+   success ... cost 0 Influence and auto-succeed." The engine only waived
+   the Way surcharge and forced success -- the base 1 Influence was still
+   spent. Now: no check, no roll, no spend (spent=0, roll=None), pinned
+   exactly.
+
+2. Flank Attack march double-decrement (commands.march). The Y2/L2 Flank
+   Attack Intercept branch sets actions_remaining = 0 (card consumed) but
+   control fell through to the tail decrement, ending every Road/Highway
+   flank-attack march at actions_remaining == -1. Player-indistinguishable
+   (all consumers gate on > 0) but nonsensical state; now ends at 0, pinned.
+
+Sweep re-baseline lesson: the git-dispatched re-run was a no-op for modules
+whose source had not changed since the first sweep -- the committed jsonl
+plus --resume made every site look already-done (ran=0). Modules shifted by
+D-007 did re-run and show the triage's effect: succession 77.0 -> 81.4%,
+scenarios 73.5 -> 87.2%. The workflow now accepts "module.py fresh" in
+mutation-requests/run.txt to delete the committed results and re-baseline;
+fresh runs for the six stale modules queued after this commit.
+
+Process note for the log's honesty: mid-round, a careless `git checkout --
+tests/` during a rebase discarded 23 uncommitted agent-written tests; they
+were reimplemented from the agents' reports and re-verified mutant-by-mutant
+(the pytest-rewritten .pyc files survived but resisted decompilation).
+Lesson encoded: commit agent deliverables before any tree operation.
+
+Suite 801 -> 841; ruff clean; mypy --strict clean.

@@ -304,3 +304,20 @@ def test_sun_in_splendour_targets_and_validated_build_plan():
     vm = legal_moves.validated_legal_moves(s2)
     assert any(m["type"] == "build_plan" for m in vm["moves"])
     assert any(m["type"] == "build_plan" for m in vm["unvalidated"])
+
+
+def test_pending_immediate_event_is_kept_unprobed_by_validated_palette():
+    # L688 cmp NotIn->In (site 1298): a pending immediate Event move without
+    # ``decisions`` is templated -- kept and flagged unvalidated, never probed.
+    # L23 (Warwick's Propaganda) demands "strongholds" selections whenever any
+    # Yorkist-Favour Locale exists; probing the bare move raises bad_count and
+    # the palette would drop the agent's only legal move (a soft-lock).
+    s = build_initial_state("henry_vi", seed=1)
+    s.locales["lynn"].favour = "yorkist"       # a third Yorkist Locale (setup has two)
+    s.pending_events.append({"card": "L23", "side": "lancastrian"})
+    s.active_side = "lancastrian"
+    vm = legal_moves.validated_legal_moves(s)
+    bare = {"type": "play_event", "side": "lancastrian", "card": "L23"}
+    assert bare in vm["moves"]
+    assert bare in vm["unvalidated"]
+    assert vm["rejected"] == []

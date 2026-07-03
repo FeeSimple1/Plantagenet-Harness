@@ -33,7 +33,7 @@ Survivors triaged: 147 (plus 34 uncovered sites, not triaged beyond counting).
 | 1728 | 216 | int 1->2 L216 | GAP-killed | killed by test_group_haul_math |
 | 1737 | 226 | cmp Gt->GtE L226 | EQUIVALENT | at provender == carts the assignment provender = carts is a no-op |
 | 1760 | 238 | bool Or->And L238 | LOW | differs only for an intercept decision supplied while marching onto an enemy-held Locale - contradictory input legal_moves never emits |
-| 1772 | 246 | int 0->1 L246 | GAP-open | a Flank Attack intercept battle would leave 1 command action; needs Y2/L2 Held Event setup |
+| 1772 | 246 | int 0->1 L246 | BUG-FIXED | clean code fell through to the tail decrement ending at -1; fixed 2026-07-02c, pinned at 0 |
 | 1779 | 253 | int 0->1 L253 | LOW | actions_remaining=1 is overwritten to 0 by march_finish on every resume path; visible only while the reaction window is pending |
 | 1968 | 373 | cmp LtE->Lt L373 | GAP-killed | killed by test_intercept_rules |
 | 1995 | 389 | int 0->1 L389 | EQUIVALENT | _apply_burgundians' return value is ignored at all three call sites |
@@ -53,7 +53,7 @@ Survivors triaged: 147 (plus 34 uncovered sites, not triaged beyond counting).
 | 2774 | 837 | bool And->Or L837 | GAP-killed | killed by test_tax_own_seat_yield_exact |
 | 2879 | 890 | cmp Eq->NotEq L890 | GAP-open | Dorset auto-parley for a non-Devon Lord at Exeter; needs Y29 Event active |
 | 2880 | 890 | cmp Eq->NotEq L890 | GAP-open | Dorset auto-parley for Devon away from Exeter; needs Y29 Event active |
-| 2884 | 892 | int 0->1 L892 | GAP-open | Dorset parley would pay 1 Way instead of 0; needs Y29 Event active |
+| 2884 | 892 | int 0->1 L892 | EQUIVALENT (post-fix) | Dorset now skips check_influence entirely, so the way value is dead code on that path (verified: full suite passes under the mutant) |
 | 2885 | 892 | int 1->2 L892 | GAP-killed | killed by test_parley_remote_spend_math |
 | 2897 | 898 | bool And->Or L898 | EQUIVALENT | widened used_seas has no Y15 Lord on the extra Sea, so no reaction offers can appear (see 1527) |
 | 2902 | 901 | int 0->1 L901 | GAP-open | New Act of Parliament parley would leave 1 action instead of ending the card; needs L10 Event |
@@ -94,7 +94,7 @@ Survivors triaged: 147 (plus 34 uncovered sites, not triaged beyond counting).
 | 4646 | 772 | cmp In->NotIn L772 | GAP-killed | killed by test_tax_costs_and_extra_spend |
 | 4666 | 789 | int 0->1 L789 | GAP-killed | killed by test_tax_route_by_ship_needs_a_ship |
 | 4690 | 796 | int 0->1 L796 | GAP-killed | killed by test_tax_costs_and_extra_spend |
-| 4710 | 805 | cmp Gt->GtE L805 | GAP-open | blockade recompute has_ship boundary; observable only with Y15 in play |
+| 4710 | 805 | cmp Gt->GtE L805 | EQUIVALENT | only flips hs2 at 0 Ships, where sea hops never enter either route; used_seas identical in all reachable states |
 | 4773 | 833 | int 0->1 L833 | EQUIVALENT | strongholds.json defines tax.coin for every locale type; default dead |
 | 4863 | 867 | bin Sub->Add L867 | GAP-killed | killed by test_parley_own_location_auto |
 | 4893 | 880 | int 0->1 L880 | GAP-killed | killed by test_parley_sea_reach_needs_ship_and_same_sea_port |
@@ -130,7 +130,7 @@ Survivors triaged: 147 (plus 34 uncovered sites, not triaged beyond counting).
 | 6501 | 789 | int 0->1 L789 | GAP-killed | killed by test_tax_route_by_ship_needs_a_ship |
 | 6527 | 797 | int 1->2 L797 | GAP-killed | killed by test_tax_costs_and_extra_spend |
 | 6528 | 797 | int 3->4 L797 | GAP-killed | killed by test_tax_costs_and_extra_spend |
-| 6544 | 805 | int 0->1 L805 | GAP-open | blockade recompute default-ship; observable only with Y15 in play |
+| 6544 | 805 | int 0->1 L805 | EQUIVALENT | same argument as 4710 (default only matters at 0 Ships) |
 | 6594 | 840 | int 0->1 L840 | GAP-killed | killed by test_tax_own_seat_yield_exact |
 | 6641 | 867 | int 1->2 L867 | GAP-killed | killed by test_parley_own_location_auto |
 | 6645 | 869 | int 1->2 L869 | GAP-open | An Honest Tale own-location parley would cost 2 Influence instead of 1; needs Y34 Event |

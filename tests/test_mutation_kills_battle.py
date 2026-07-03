@@ -719,3 +719,254 @@ def test_validation_guards_and_north_stronghold():
     with pytest.raises(IllegalAction) as e4:
         battle.approach(s4, "cambridge", ["york"], {"blocked_ford": ["yorkist"]})
     assert e4.value.code == "no_blocked_ford"
+
+
+# ------------------------------------------- decision plumbing (4.4.2 "or []")
+def _muster_line(seed=1, lords=("york", "march", "henry_vi", "somerset_1")):
+    """Mustered Lords at Cambridge with Retinue + 2 Men-at-Arms (no Missiles)."""
+    s = build_initial_state("henry_vi", seed=seed)
+    for lid in lords:
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].location = "cambridge"
+        s.lords[lid].capabilities = []
+        s.lords[lid].forces = {"retinue": 1, "men_at_arms": 2}
+    return s
+
+
+def test_engagement_order_decision_reorders_engagements():
+    # 4.4.2: the Attacker declares the order Engagements resolve in. Fork
+    # oracle: the same state with and without a supplied order.
+    s = _muster_line()
+    base = battle.resolve_battle(s.model_copy(deep=True), "cambridge",
+                                 ["york", "march"], ["henry_vi", "somerset_1"], {})
+    assert base["rounds"][0]["engagements"][0]["attacker"] == ["york"]
+    ordered = battle.resolve_battle(s.model_copy(deep=True), "cambridge",
+                                    ["york", "march"], ["henry_vi", "somerset_1"],
+                                    {"engagement_order": ["march"]})
+    assert ordered["rounds"][0]["engagements"][0]["attacker"] == ["march"]
+
+
+def test_absorb_lords_decision_changes_which_lord_absorbs_first():
+    # 4.4.2: in a 1v2 Engagement the owner picks which Lord absorbs first.
+    s = _muster_line(lords=("york", "henry_vi", "somerset_1"))
+    base = battle.resolve_battle(s.model_copy(deep=True), "cambridge", "york",
+                                 ["henry_vi", "somerset_1"], {})
+    assert len(base["rounds"][0]["engagements"]) == 1
+    assert _melee(base)["defender_rolls"][0]["lord"] == "henry_vi"
+    picked = battle.resolve_battle(s.model_copy(deep=True), "cambridge", "york",
+                                   ["henry_vi", "somerset_1"],
+                                   {"absorb_lords": ["somerset_1"]})
+    assert _melee(picked)["defender_rolls"][0]["lord"] == "somerset_1"
+
+
+def test_absorb_plan_decision_directs_hits_unit_by_unit():
+    # 4.4.2 "Hit by Hit": the plan redirects the first Hit onto the Retinue.
+    s = _muster_line(lords=("york", "henry_vi"))
+    base = battle.resolve_battle(s.model_copy(deep=True), "cambridge", "york",
+                                 "henry_vi", {})
+    assert _melee(base)["defender_rolls"][0]["unit"] == "men_at_arms"
+    planned = battle.resolve_battle(
+        s.model_copy(deep=True), "cambridge", "york", "henry_vi",
+        {"absorb_plan": {"defender": [{"unit": "retinue"}]}})
+    assert _melee(planned)["defender_rolls"][0]["unit"] == "retinue"
+
+
+def test_reposition_decision_is_honoured_with_int_round_keys():
+    # 4.4.2 REPOSITION: with wings-only Arrays the default center fill (from
+    # the left) keeps two column-on-column Engagements; the attacker choosing
+    # center_from=2 skews the line into ONE merged Engagement. The int Round
+    # key must be honoured as-is, without needing the str-key fallback.
+    s = _muster_line()
+    pos = {"attacker_positions": {0: "york", 2: "march"},
+           "defender_positions": {0: "henry_vi", 2: "somerset_1"}}
+    base = battle.resolve_battle(s.model_copy(deep=True), "cambridge",
+                                 ["york", "march"], ["henry_vi", "somerset_1"],
+                                 dict(pos))
+    assert len(base["rounds"][0]["engagements"]) == 2
+    skew = battle.resolve_battle(
+        s.model_copy(deep=True), "cambridge", ["york", "march"],
+        ["henry_vi", "somerset_1"],
+        {**pos, "reposition": {1: {"attacker": {"center_from": 2}}}})
+    assert len(skew["rounds"][0]["engagements"]) == 1
+
+
+# -------------------------------------------------------------- Regroup (Y30)
+def test_regroup_defaults_to_round_two_and_recovers_singly(monkeypatch):
+    # Omitting "round" defaults to Round 2 (4.4.2); the recovery counter starts
+    # at 0, a roll of exactly hi (Militia Protection 1-1, roll 1) recovers, and
+    # each success recovers exactly ONE Troop: [1, 6] on 2 Routed Militia.
+    s = _duel(seed=1)
+    s.lords["york"].forces = {"retinue": 1, "militia": 3}
+    s.lords["henry_vi"].forces = {"retinue": 1}
+    s.decks["yorkist"]["held"] = ["Y30"]       # REGROUP
+    # R1 missile: Henry saves 2 Hits [1,1]; melee: Henry saves 5 [1x5], York's
+    # Militia roll [6,6,1] and two Rout. R2 Regroup [1,6] recovers one; missile
+    # [1]; melee: Henry's Retinue fails [6] (no reroll) and Routs; York saves
+    # [1,1,1]. Ending: the King is Captured (no Death roll); the Losses roll
+    # [6] for York's one still-Routed Militia loses it.
+    stub = _patch_dice(monkeypatch, [1, 1, 1, 1, 1, 1, 1, 6, 6, 1,
+                                     1, 6, 1, 6, 1, 1, 1, 6])
+    r = battle.resolve_battle(s, "cambridge", "york", "henry_vi",
+                              {"regroup": {"lord": "york"}, "valour": False})
+    assert len(r["rounds"]) == 2 and r["winner_side"] == "yorkist"
+    assert r["losses"]["york"] == {"recovered": 0, "lost": 1}
+    assert s.lords["york"].forces["militia"] == 2
+    assert stub.i == len(stub.seq)             # every die accounted for
+
+
+def test_regroup_recovery_fires_on_its_round_only(monkeypatch):
+    # Recovery rolls happen at the START of the named Round only: a Militia
+    # Routed again in Round 2 stays Routed through Round 3 and comes back via
+    # the Losses roll [1], not via a phantom Round-3 Regroup.
+    s = _duel(seed=1)
+    s.lords["york"].forces = {"retinue": 1, "militia": 2}
+    s.lords["henry_vi"].forces = {"retinue": 1}
+    s.decks["yorkist"]["held"] = ["Y30"]
+    stub = _patch_dice(monkeypatch, [1, 1, 1, 1, 1, 6, 1, 1,
+                                     1, 1, 1, 1, 1, 1, 6, 1, 1,
+                                     1, 6, 1, 1, 1, 1])
+    r = battle.resolve_battle(s, "cambridge", "york", "henry_vi",
+                              {"regroup": {"lord": "york", "round": 2},
+                               "valour": False})
+    assert len(r["rounds"]) == 3 and r["winner_side"] == "yorkist"
+    assert r["losses"]["york"] == {"recovered": 1, "lost": 0}
+    assert s.lords["york"].forces["militia"] == 2
+    assert stub.i == len(stub.seq)
+
+
+# --------------------------------------------- Final Charge Valour gate (Y32)
+def _kingdom(forces_r3, forces_tudor):
+    s = build_initial_state("my_kingdom_for_a_horse")
+    s.lords["richard_iii"].status = LordStatus.MUSTERED
+    s.lords["richard_iii"].location = "leicester"
+    s.lords["richard_iii"].capabilities = ["Y32"]
+    s.lords["richard_iii"].forces = dict(forces_r3)
+    s.lords["henry_tudor"].location = "leicester"
+    s.lords["henry_tudor"].forces = dict(forces_tudor)
+    return s
+
+
+def test_final_charge_valour_gate_is_strictly_positive(monkeypatch):
+    # Richard (Valour 2) burns both points on Missile-phase rerolls [6,6/6,1];
+    # his failed Final Charge self-Hit [5] then gets NO reroll at Valour 0: the
+    # Retinue Routs and the Battle is a mutual loss.
+    s = _kingdom({"retinue": 1, "men_at_arms": 2}, {"retinue": 1, "longbow": 1})
+    stub = _patch_dice(monkeypatch, [6, 6, 6, 1, 5, 6, 6, 6, 6, 1, 1])
+    r = battle.resolve_battle(s, "leicester", "richard_iii", "henry_tudor",
+                              {"final_charge": ["richard_iii"]})
+    assert r["winner_side"] is None            # both Retinues Routed in Round 1
+    assert sorted(r["disbands"]) == ["henry_tudor", "richard_iii"]
+    assert stub.i == len(stub.seq)
+
+
+def test_final_charge_reroll_burns_exactly_one_valour(monkeypatch):
+    # Final Charge in Rounds 1 AND 2 with the self-Hit failing [5] each Round:
+    # the Round-1 reroll must burn exactly one Valour (2 -> 1) so the Round-2
+    # gate (Valour 1 > 0) still allows the reroll into the save [1] and a win.
+    s = _kingdom({"retinue": 1}, {"retinue": 1, "militia": 4, "men_at_arms": 1})
+    stub = _patch_dice(monkeypatch, [1, 1, 5, 1, 6, 6, 6, 6, 1, 1,
+                                     1, 1, 1, 1, 1, 1, 5, 1, 6, 6,
+                                     1, 1, 1, 1, 1])
+    r = battle.resolve_battle(s, "leicester", "richard_iii", "henry_tudor",
+                              {"final_charge": {"richard_iii": [1, 2]},
+                               "valour": ["richard_iii"]})
+    assert len(r["rounds"]) == 2 and r["winner_side"] == "yorkist"
+    assert r["disbands"] == ["henry_tudor"]
+    assert stub.i == len(stub.seq)
+
+
+# ------------------------------------------------------- Swift Maneuver (Y36)
+def test_swift_break_needs_a_new_retinue_rout_this_round(monkeypatch):
+    # Round 1: the directed Hit Routs Buckingham's Retinue [6] and the Round
+    # ends early (1 of 2 Engagements). Round 2: Buckingham is still Routed but
+    # that is NOT a Retinue Routed THIS Round, so both Engagements resolve.
+    s = build_initial_state("henry_vi", seed=1)
+    for lid, forces in (("york", {"retinue": 1, "men_at_arms": 2}),
+                        ("march", {"retinue": 1, "men_at_arms": 2}),
+                        ("henry_vi", {"retinue": 1, "men_at_arms": 2}),
+                        ("somerset_1", {"retinue": 1, "men_at_arms": 2}),
+                        ("buckingham", {"retinue": 1})):
+        s.lords[lid].status = LordStatus.MUSTERED
+        s.lords[lid].location = "cambridge"
+        s.lords[lid].capabilities = []
+        s.lords[lid].forces = forces
+    s.decks["yorkist"]["held"] = ["Y36"]       # SWIFT MANEUVER
+    stub = _patch_dice(monkeypatch, [6] + [1] * 34)
+    r = battle.resolve_battle(
+        s, "cambridge", ["york", "march"],
+        ["henry_vi", "somerset_1", "buckingham"],
+        {"swift_maneuver": "yorkist", "valour": False,
+         "absorb_plan": {"defender": [{"lord": "buckingham", "unit": "retinue"}]},
+         "flee_rounds": {"henry_vi": 3, "somerset_1": 3}})
+    assert len(r["rounds"][0]["engagements"]) == 1   # new Rout ends Round 1
+    assert len(r["rounds"][1]["engagements"]) == 2   # old Rout: Round 2 runs on
+    assert r["winner_side"] == "yorkist"
+    assert stub.i == len(stub.seq)
+
+
+# -------------------------------------------- Foreign Haven (IIY, 4.3.5/4.4.3)
+def _rebellion_forces(s):
+    return {lid: battle._Force(s, lid)
+            for lid in ("edward_iv", "warwick_lancastrian")}
+
+
+def test_foreign_haven_shifts_only_when_warwick_dies_as_defender(monkeypatch):
+    # Warwick dying as DEFENDER shifts Lancastrians to the current Calendar box
+    # and Yorkists to the next (Margaret 9 -> 1, Gloucester 9 -> 2) ...
+    s = build_initial_state("warwicks_rebellion")
+    _patch_dice(monkeypatch, [3])              # Death roll: 3 >= 3 -> dies
+    forces = _rebellion_forces(s)
+    forces["warwick_lancastrian"].lord_routed = True
+    r = battle._ending(s, "london", forces, ["edward_iv"],
+                       ["warwick_lancastrian"], [], [])
+    assert r["deaths"] == ["warwick_lancastrian"] and r["foreign_haven"] is True
+    assert s.lords["margaret"].calendar_box == 1
+    assert s.lords["gloucester_1"].calendar_box == 2
+    # ... but NOT when he merely Disbands (roll 2 < 3) ...
+    s2 = build_initial_state("warwicks_rebellion")
+    _patch_dice(monkeypatch, [2])
+    forces2 = _rebellion_forces(s2)
+    forces2["warwick_lancastrian"].lord_routed = True
+    r2 = battle._ending(s2, "london", forces2, ["edward_iv"],
+                        ["warwick_lancastrian"], [], [])
+    assert r2["disbands"] == ["warwick_lancastrian"]
+    assert "foreign_haven" not in r2
+    assert s2.lords["margaret"].calendar_box == 9
+    # ... and NOT when he dies as the ATTACKER.
+    s3 = build_initial_state("warwicks_rebellion")
+    _patch_dice(monkeypatch, [3])
+    forces3 = _rebellion_forces(s3)
+    forces3["warwick_lancastrian"].lord_routed = True
+    r3 = battle._ending(s3, "london", forces3, ["warwick_lancastrian"],
+                        ["edward_iv"], [], [])
+    assert r3["deaths"] == ["warwick_lancastrian"]
+    assert "foreign_haven" not in r3
+    assert s3.lords["margaret"].calendar_box == 9
+    assert s3.lords["gloucester_1"].calendar_box == 9
+
+
+def test_foreign_haven_approach_exile_needs_warwick_and_the_rule():
+    # Warwick choosing Exile on Approach shifts the Calendars (rule active) ...
+    s = build_initial_state("warwicks_rebellion")
+    s.lords["warwick_lancastrian"].location = "london"
+    r = battle.approach(s, "london", ["edward_iv"],
+                        {"responses": {"warwick_lancastrian": "exile"}})
+    assert r["exiles"] == ["warwick_lancastrian"] and r["foreign_haven"] is True
+    assert s.lords["margaret"].calendar_box == 1
+    assert s.lords["gloucester_1"].calendar_box == 2
+    # ... another Lord's Exile does not ...
+    s2 = build_initial_state("warwicks_rebellion")
+    s2.lords["edward_iv"].location = "york"
+    r2 = battle.approach(s2, "york", ["edward_iv"],
+                         {"responses": {"clarence": "exile"}})
+    assert r2["exiles"] == ["clarence"] and "foreign_haven" not in r2
+    assert s2.lords["margaret"].calendar_box == 9
+    # ... nor Warwick's when Foreign Haven is not a rule in force.
+    s3 = build_initial_state("warwicks_rebellion")
+    s3.scenario = "henry_vi"                   # same board, no Foreign Haven
+    s3.lords["warwick_lancastrian"].location = "london"
+    r3 = battle.approach(s3, "london", ["edward_iv"],
+                         {"responses": {"warwick_lancastrian": "exile"}})
+    assert r3["exiles"] == ["warwick_lancastrian"]
+    assert "foreign_haven" not in r3
+    assert s3.lords["margaret"].calendar_box == 9

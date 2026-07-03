@@ -261,7 +261,10 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                        "intercept": intercept_log, "decisions": decisions}
         from plantagenet import reactions
         return reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
-    if whole_card:
+    if approach is not None:
+        pass    # Flank Attack Intercept Battle consumed the card (set above);
+                # falling through to the decrement left actions_remaining at -1
+    elif whole_card:
         state.campaign.actions_remaining = 0
     else:
         state.campaign.actions_remaining -= 1
@@ -913,12 +916,17 @@ def parley_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) ->
     if cancelled:                       # Blockaded: no Influence paid, no Favour shift.
         return {"type": "parley", "by_lord": lord.lord_id, "target": target,
                 "cancelled": True}
-    chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=data["extra"], way_cost=data["way"],
-                                    discount=-1 if data.get("honest") else 0,   # Y34 +1
-                                    action="parley")
     if data["dorset"]:
-        chk["success"] = True
+        # Y29 Dorset: "Devon at Exeter Parleys for no Influence cost and
+        # automatic success ... cost 0 Influence and auto-succeed". No check,
+        # no roll, no spend -- not merely a waived Way surcharge.
+        chk: dict[str, Any] = {"success": True, "roll": None, "rating": None,
+                               "spent": 0}
+    else:
+        chk = influence.check_influence(state, lord.lord_id, lord.side,
+                                        extra_spend=data["extra"], way_cost=data["way"],
+                                        discount=-1 if data.get("honest") else 0,  # Y34 +1
+                                        action="parley")
     changed = None
     if chk["success"]:
         changed = _fav_desc(target, data["fav_before"], lord.side)

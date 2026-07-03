@@ -7,6 +7,9 @@ internal milestones.
 ## [Unreleased]
 
 ### Added
+- All 54 classified open mutation gaps closed (50 killed by 23 new tests, 4
+  proven equivalent); battle decision plumbing (engagement_order,
+  absorb_lords, absorb_plan, reposition) now has fork-oracle coverage.
 - Mutation sweep of the eight large modules (2,535 sites): all 777 surviving
   mutants triaged (mutation-results/*.triage.md), 565 killed by 138 new tests;
   89 proven equivalent, 69 low-value, 54 classified open. Suite 658 -> 796.
@@ -29,6 +32,11 @@ internal milestones.
   and the general Succession rule; suite 639 -> 656.
 
 ### Fixed
+- Y29 Dorset: Devon's Parley at Exeter now truly costs 0 Influence with no
+  roll (card: "no Influence cost and automatic success"); the engine had
+  only waived the Way surcharge and still spent the base 1.
+- Flank Attack (Y2/L2) march no longer ends at actions_remaining == -1
+  (double decrement past the consumed card); ends at 0.
 - 6.2.2 REPLACE no longer counts as Heir removal (D-007): a living card swap
   (March -> Edward IV) kept the -8 penalty and dropped the Heir slot at third-
   War setup; dead Heirs now also persist across Wars via a ledger even when

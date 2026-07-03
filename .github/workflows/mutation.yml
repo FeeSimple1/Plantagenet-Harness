@@ -35,7 +35,14 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "module=${{ inputs.module }}" >> "$GITHUB_OUTPUT"
           else
-            echo "module=$(head -1 mutation-requests/run.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+            REQ=$(head -1 mutation-requests/run.txt)
+            MOD=$(echo "$REQ" | awk '{print $1}')
+            echo "module=$MOD" >> "$GITHUB_OUTPUT"
+            # "module.py fresh" re-baselines: drop committed results so
+            # --resume does not skip every already-recorded site.
+            if echo "$REQ" | grep -q "fresh"; then
+              rm -f "mutation-results/$MOD.jsonl"
+            fi
           fi
       - name: Mutate ${{ steps.mod.outputs.module }}
         run: |

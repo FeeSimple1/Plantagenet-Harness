@@ -477,3 +477,47 @@ def test_resolve_battle_sides_and_combatants():
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s2, {"type": "resolve_battle"})
     assert e.value.code == "no_combatants"
+
+
+# site 880 (L440): only a SUCCESSFUL Levy Lord fires the grand-scenario Muster trigger
+def test_failed_levy_lord_does_not_fire_grand_muster_trigger():
+    # ``if chk["success"] and state.grand_scenario:`` -- the And->Or mutant runs
+    # succession.on_muster_lord even when the Levy check fails, putting L26
+    # EDWARD on Margaret's mat while she is still on the Calendar.
+    from plantagenet import succession
+
+    def staged(seed):
+        s = build_initial_state("wars_of_the_roses", seed=seed)   # War I
+        hv = s.lords["henry_vi"]
+        hv.status = LordStatus.REMOVED
+        hv.location = None
+        succession.on_heir_removed(s, "henry_vi")      # Margaret to the Calendar
+        s.lords["margaret"].calendar_box = s.turn_box  # Ready this Turn
+        s.levy_step = "muster"
+        s.active_side = "lancastrian"
+        return s
+
+    def first_d6(seed):
+        # peek the Levy check's die on a copy: check_influence consumes the
+        # first die of the stream; a 6 always fails and a 1 always succeeds
+        # (rating-independent, influence.py 1.4.2)
+        return staged(seed).model_copy(deep=True).dice().d6()
+
+    fail_seed = next(sd for sd in range(1, 60) if first_d6(sd) == 6)
+    s = staged(fail_seed)
+    r = actions.apply_action(s, {"type": "levy_lord", "side": "lancastrian",
+                                 "by_lord": "somerset_1", "target": "margaret"})
+    assert r["success"] is False
+    mg = s.lords["margaret"]
+    assert mg.status == LordStatus.CALENDAR            # the failed Levy changes nothing
+    assert "L26" not in mg.capabilities
+    assert "margaret" not in s.grand_scenario.get("set_aside_on_disband", {})
+    ok_seed = next(sd for sd in range(1, 60) if first_d6(sd) == 1)
+    s2 = staged(ok_seed)
+    r2 = actions.apply_action(s2, {"type": "levy_lord", "side": "lancastrian",
+                                   "by_lord": "somerset_1", "target": "margaret"})
+    assert r2["success"] is True
+    mg2 = s2.lords["margaret"]
+    assert mg2.status == LordStatus.MUSTERED
+    assert "L26" in mg2.capabilities                   # mandatory Capability assigned
+    assert s2.grand_scenario["set_aside_on_disband"]["margaret"] == ["L26"]
