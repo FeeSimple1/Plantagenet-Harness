@@ -32,6 +32,21 @@ internal milestones.
   and the general Succession rule; suite 639 -> 656.
 
 ### Fixed
+- October 2026 audit: Special Vassals now fight and count for Battle Influence;
+  fleeing Lords remain Routed; Ravine recalculates engagements; Swift Maneuver
+  stops on the triggering Hit.
+- Immediate Events require their actual pending draw in order. First-Levy
+  Special-Vassal Capabilities apply their muster effects, and Rebel Supply
+  Depot distributes four total Provender across a Group.
+- Pay spends available Coin before Pillage and requires the full renewed
+  payment afterward. Scourers grants its bonus on failed Forage; Charity
+  supports explicit sharing; Margaret's arrival adds her succession cards.
+- Intercept can reinforce a defender; Exile-marked Lords cannot use ordinary
+  Levy Lord; ordinary Marches trigger Port effects; canceled Approaches retain
+  earlier movement; shared transport keeps its owner's capability bonuses;
+  Ship Supply Sources must be Friendly and Enemy-free.
+- Rejected actions restore game state and RNG. Renewed War is available through
+  the JSON move palette and CLI, retaining the earlier Wars' history.
 - Y29 Dorset: Devon's Parley at Exeter now truly costs 0 Influence with no
   roll (card: "no Influence cost and automatic success"); the engine had
   only waived the Way surcharge and still spent the base 1.

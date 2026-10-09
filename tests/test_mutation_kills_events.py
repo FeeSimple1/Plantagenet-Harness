@@ -12,10 +12,11 @@ from plantagenet import actions
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordStatus, VassalState, VassalStatus
+from tests._helpers import apply_drawn_event
 
 
 def _play(s, card, side, **decisions):
-    return actions.apply_action(s, {"type": "play_event", "card": card, "side": side,
+    return apply_drawn_event(s, {"type": "play_event", "card": card, "side": side,
                                     "decisions": decisions})
 
 
@@ -331,7 +332,7 @@ def test_rebel_supply_depot():
     r = actions.apply_action(s, {"type": "play_held_event", "card": "L28",
                                  "side": "lancastrian",
                                  "decisions": {"lords": ["henry_vi"]}})
-    assert r["provender_each"] == 4 and r["ignore_next_feed"] is True
+    assert r["provender_added"] == {"henry_vi": 4} and r["ignore_next_feed"] is True
     assert s.lords["henry_vi"].assets["provender"] == 4  # exactly +4
     assert s.lords["henry_vi"].ignore_next_feed is True
     s2 = build_initial_state("henry_vi", seed=1)         # mover not at a Port: illegal
@@ -364,19 +365,19 @@ def test_sun_in_splendour_musters_edward():
 
 
 # sites 3214 (L593), 3261/4296 (L622)
-def test_play_event_pending_scope_and_first_levy():
-    s = build_initial_state("henry_vi", seed=1)          # a standalone play while another
-    s.pending_events = [{"card": "Y27", "side": "yorkist"}]   # Event is pending
-    before = s.decks["yorkist"]["draw"].count("Y15")
-    _play(s, "Y15", "yorkist")
-    assert s.decks["yorkist"]["draw"].count("Y15") == before  # not returned to the deck
+def test_play_event_requires_its_drawn_window():
+    """Rules 3.1.2-.3: only the next drawn Event can resolve in a later Levy."""
+    s = build_initial_state("henry_vi", seed=1)
+    s.turn_box = 2
+    s.pending_events = [{"card": "Y27", "side": "yorkist"}]
+    with pytest.raises(IllegalAction, match="has not been drawn"):
+        actions.apply_action(s, {"type": "play_event", "card": "Y15", "side": "yorkist"})
     assert s.pending_events == [{"card": "Y27", "side": "yorkist"}]
-    s2 = build_initial_state("henry_vi", seed=1)         # first Levy: draw -> muster
+    s2 = build_initial_state("henry_vi", seed=1)
     s2.pending_events = [{"card": "L26", "side": "lancastrian"}]
-    r2 = _play(s2, "L26", "lancastrian")
-    assert r2["next"] == "muster" and s2.levy_step == "muster"
-    s3 = build_initial_state("henry_vi", seed=1)         # later Levy: draw -> pay
-    s3.turn_box = 2
-    s3.pending_events = [{"card": "L26", "side": "lancastrian"}]
+    with pytest.raises(IllegalAction) as e:
+        actions.apply_action(s2, {"type": "play_event", "card": "L26", "side": "lancastrian"})
+    assert e.value.code == "first_levy"
+    s3 = build_initial_state("henry_vi", seed=1)
     r3 = _play(s3, "L26", "lancastrian")
     assert r3["next"] == "pay" and s3.levy_step == "pay"

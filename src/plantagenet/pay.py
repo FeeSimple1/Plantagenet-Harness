@@ -113,61 +113,73 @@ def _percys_power_free_north(state: GameState, side: str) -> bool:
 
 def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str, Any]:
     pillage_by = action.get("pillage_by", {})
-    # 3.2.1: on a shortfall the player chooses which Lords go unpaid; honour an
-    # explicit ``unpay_lords`` list, else default to paying smallest-need first.
+    # The owner chooses payment order (3.2.1). Legacy unpay_lords is a priority
+    # preference only: Coin may never be withheld from any Lord who can be paid.
     choose_unpaid = set(action.get("unpay_lords", []))
+    pay_order = action.get("pay_order", [])
+    _require(isinstance(pay_order, list) and all(isinstance(lid, str) for lid in pay_order)
+             and len(set(pay_order)) == len(pay_order), "bad_pay_order",
+             "pay_order must name each Lord at most once (3.2.1)")
     groups: dict[str, list[LordState]] = {}
     for lord in state.lords.values():
         if lord.side == side and lord.status in (LordStatus.MUSTERED, LordStatus.EXILE):
             key = _locale_key(lord)
             if key:
                 groups.setdefault(key, []).append(lord)
+    eligible = {lord.lord_id for lords in groups.values() for lord in lords}
+    _require(set(pay_order) <= eligible and choose_unpaid <= eligible, "bad_pay_order",
+             "payment choices must name this side's Lords at Locales (3.2.1)")
+    rank = {lid: i for i, lid in enumerate(pay_order)}
+
+    def pay_round(lords: list[LordState], owing: list[LordState]) -> list[LordState]:
+        # First every owing Lord pays from his own mat, even partially. Then
+        # surplus Coin must be Shared. After Pillage the full requirement is
+        # due again, irrespective of the earlier partial payment (3.2.1).
+        remaining = {}
+        for lord in owing:
+            need = _troop_pay_need(lord)
+            take = min(lord.assets.get("coin", 0), need)
+            lord.assets["coin"] = lord.assets.get("coin", 0) - take
+            remaining[lord.lord_id] = need - take
+        unpaid = []
+        for lord in owing:
+            need = remaining[lord.lord_id]
+            available = sum(other.assets.get("coin", 0) for other in lords)
+            take = min(need, available)
+            _drain_coin(lords, take)
+            if take < need:
+                unpaid.append(lord)
+        return unpaid
 
     free_north = _percys_power_free_north(state, side)
     locales_static = static_data.load_locales()
     paid_groups, pillaged, disbanded = [], [], []
     for key, lords in groups.items():
+        lords.sort(key=lambda lord: (lord.lord_id in choose_unpaid,
+                                    rank.get(lord.lord_id, len(rank))))
         is_stronghold = key.startswith("loc:")
         locale_id = key.split(":", 1)[1] if is_stronghold else None
         if (free_north and is_stronghold
                 and locales_static.get(locale_id or "", {}).get("region") == "north"):
-            paid_groups.append(key)             # Percy's Power: Pay is free here (L14)
-            continue
-        need = {lord.lord_id: _troop_pay_need(lord) for lord in lords}
-        total_need = sum(need.values())
-        pool = sum(lord.assets.get("coin", 0) for lord in lords)
-
-        if pool >= total_need:
-            _drain_coin(lords, total_need)
             paid_groups.append(key)
             continue
-
-        # Shortfall: Pillage an Unexhausted Stronghold (3.2.1), then re-Pay.
-        if (is_stronghold and state.locales[cast(str, locale_id)].depletion != "exhausted"):
-            assert locale_id is not None                # is_stronghold guarantees it
+        unpaid = pay_round(lords, lords)
+        if (unpaid and is_stronghold
+                and state.locales[cast(str, locale_id)].depletion != "exhausted"):
+            assert locale_id is not None
             chooser = pillage_by.get(locale_id)
-            pillager = next((lord for lord in lords if lord.lord_id == chooser), None)
-            if pillager is None:   # default: the Lord with the most Troops
-                pillager = max(lords, key=lambda x: campaign._troop_count(x))
+            if chooser is not None:
+                _require(any(lord.lord_id == chooser for lord in unpaid), "bad_pillager",
+                         "only an unpaid Lord may Pillage during Pay (3.2.1)")
+            pillager = next((lord for lord in unpaid if lord.lord_id == chooser), unpaid[0])
             campaign._pillage(state, pillager, locale_id)
             pillaged.append(locale_id)
-            pool = sum(lord.assets.get("coin", 0) for lord in lords)
-
-        # Fully Pay as many Lords as possible; the rest Disband (3.2.1). If the
-        # player named Lords to leave unpaid, Pay the others first (then ascending
-        # need); otherwise default to ascending need.
-        order = sorted(lords, key=lambda x: (x.lord_id in choose_unpaid, need[x.lord_id]))
-        available = pool
-        unpaid = []
-        for lord in order:
-            if lord.lord_id not in choose_unpaid and available >= need[lord.lord_id]:
-                available -= need[lord.lord_id]
-            else:
-                unpaid.append(lord)
-        _drain_coin(lords, pool - available)
+            unpaid = pay_round(lords, unpaid)
+        if not unpaid:
+            paid_groups.append(key)
         for lord in unpaid:
             inf = static_data.load_lords()[lord.lord_id]["ratings"]["influence"]
-            influence.spend_influence(state, side, inf + len(lord.vassals))  # 3.2.1 penalty
+            influence.spend_influence(state, side, inf + len(lord.vassals))
             campaign._disband_lord(state, lord)
             disbanded.append(lord.lord_id)
 

@@ -151,6 +151,30 @@ def _shared_asset(state: GameState, lord: LordState, asset: str,
             + sum(a.assets.get(asset, 0) for a in _shared_lords(state, lord, share_ids)))
 
 
+def _transport_capacity(state: GameState, owners: list[LordState], asset: str) -> int:
+    """Count Ship/Cart capacity with each owner's Capability (Y6/L6, L8).
+
+    Great Ships and Hay Wains remain attached to the owner's Assets when
+    Shared; a borrowing Lord's Capability never doubles another Lord's Assets.
+    """
+    capability = {"ship": "GREAT SHIPS", "cart": "HAY WAINS"}[asset]
+    return sum(owner.assets.get(asset, 0)
+               * (2 if ratings.has_capability(state, owner.lord_id, capability) else 1)
+               for owner in owners)
+
+
+def _haul(state: GameState, movers: list[LordState]) -> None:
+    """March/Intercept Haul, including Group Sharing and Hay Wains (4.3.2-.4)."""
+    excess = max(0, sum(m.assets.get("provender", 0) for m in movers)
+                 - _transport_capacity(state, movers, "cart"))
+    for mover in movers:
+        drop = min(excess, mover.assets.get("provender", 0))
+        mover.assets["provender"] = mover.assets.get("provender", 0) - drop
+        excess -= drop
+        if excess == 0:
+            break
+
+
 def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
     assert state.campaign is not None
@@ -210,21 +234,8 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
     # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
     # its owner's mat for Feed; only the group's overall excess is discarded.
-    def _carts(m: LordState) -> int:
-        c = m.assets.get("cart", 0)
-        return c * 2 if ratings.has_capability(state, m.lord_id, "HAY WAINS") else c  # L8
-    if len(movers) > 1:
-        excess = max(0, sum(m.assets.get("provender", 0) for m in movers)
-                     - sum(_carts(m) for m in movers))
-        for m in movers:                        # trim the group's overall surplus
-            if excess <= 0:
-                break
-            drop = min(excess, m.assets.get("provender", 0))
-            m.assets["provender"] = m.assets.get("provender", 0) - drop
-            excess -= drop
-    else:
-        if lord.assets.get("provender", 0) > _carts(lord):
-            lord.assets["provender"] = _carts(lord)
+    moved_before = {m.lord_id: m.moved_fought for m in movers}
+    _haul(state, movers)
     for m in movers:
         m.location = dest
         m.exile_box = None
@@ -235,11 +246,14 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     truce = _active_event(state, "PARLIAMENT'S TRUCE")
     _require(not (truce and dest_has_enemy), "parliaments_truce",
              "Parliament's Truce prohibits Approach this Campaign (Y12/L20)")
-    intercept_log = (None if (dest_has_enemy or truce)
+    # 4.3.4 explicitly permits Intercept to reinforce a pending Approach.
+    intercept_log = (None if truce
                      else _try_intercept(state, dest, lord.side, decisions))
     approach = None
     if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
         from plantagenet import battle  # interceptor (+Group) Attacks the Marching Lords
+        for mover in movers:
+            _apply_burgundians(state, mover)
         approach = battle.approach(
             state, dest,
             [intercept_log["interceptor"], *intercept_log.get("group", [])], decisions)
@@ -258,7 +272,8 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         finish_data = {"movers": [m.lord_id for m in movers], "leader": lord.lord_id,
                        "origin": here, "origin_kind": kind, "dest": dest, "way": way_kind,
                        "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
-                       "intercept": intercept_log, "decisions": decisions}
+                       "intercept": intercept_log, "decisions": decisions,
+                       "moved_before": moved_before}
         from plantagenet import reactions
         return reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
     if approach is not None:
@@ -268,6 +283,10 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.campaign.actions_remaining = 0
     else:
         state.campaign.actions_remaining -= 1
+    if approach is None:
+        for mover in movers:
+            _apply_burgundians(state, mover)
+    _maybe_open_hold_window(state, "march", [m.lord_id for m in movers], dest)
     return {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
             "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
             "intercept": intercept_log, "approach": approach}
@@ -295,7 +314,8 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
             "intercept": data["intercept"]}
     if cancelled:
         # King's Parley / Parliament's Truce: rewind the movers; the cancelled
-        # March's movers are not marked Moved/Fought; the Command card ends.
+        # March does not add Moved/Fought; earlier movement on this card still
+        # requires Feed (King's Parley L15 Tips). The Command card ends.
         for mid in data["movers"]:
             m = state.lords[mid]
             # Restore the pre-March position. An Exile-box origin must go back to
@@ -307,7 +327,7 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
             else:
                 m.location = data["origin"]
                 m.exile_box = None
-            m.moved_fought = False
+            m.moved_fought = data.get("moved_before", {}).get(mid, False)
         cast(CampaignState, state.campaign).actions_remaining = 0
         base["approach"] = None
         base["approach_cancelled"] = data.get("cancel_reason", True)
@@ -375,12 +395,11 @@ def _try_intercept(state: GameState, dest: str, side: str,
         state.store_dice(roller)
         success = roll <= valour
     if success:                          # the Interceptor (and Group) March to dest
+        _haul(state, movers)
         for m in movers:
-            carts = m.assets.get("cart", 0)
-            if m.assets.get("provender", 0) > carts:
-                m.assets["provender"] = carts
             m.location = dest
             m.moved_fought = True
+            _apply_burgundians(state, m)
     return {"interceptor": iid, "roll": roll, "valour": valour, "success": success,
             "flank_attack": flank, "group": [m.lord_id for m in movers[1:]]}
 
@@ -538,23 +557,21 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
     # A single Ship carries up to each limit. Ships may be Shared (1.5.3): from
     # co-located Friendly Lords for a lone Lord, or pooled across the Group.
-    cap = 2 if ratings.has_capability(state, lord.lord_id, "GREAT SHIPS") else 1
     if len(movers) > 1:
-        ships = sum(m.assets.get("ship", 0) for m in movers)   # Shared among the Group
+        ships = _transport_capacity(state, movers, "ship")
         tot_forces = sum(_forces_units(m) for m in movers)
         tot_prov = sum(m.assets.get("provender", 0) for m in movers)
         tot_carts = sum(m.assets.get("cart", 0) for m in movers)
     else:
-        ships = _shared_asset(state, lord, "ship", action.get("share"))
+        owners = [lord, *_shared_lords(state, lord, action.get("share"))]
+        ships = _transport_capacity(state, owners, "ship")
         tot_forces = _forces_units(lord)
         tot_prov = lord.assets.get("provender", 0)
         tot_carts = lord.assets.get("cart", 0)
-    need = max(-(-tot_forces // (6 * cap)),
-               -(-tot_prov // (2 * cap)),
-               -(-tot_carts // (2 * cap)))
+    need = max(-(-tot_forces // 6), -(-tot_prov // 2), -(-tot_carts // 2))
     _require(ships >= need, "insufficient_ships",
              f"Sail needs {need} Ship(s) (1 per 6 Forces / 2 Provender / 2 Carts); "
-             f"available (incl. Shared) {ships} (4.6.1)")
+             f"available capacity (incl. Shared/Great Ships) {ships} (4.6.1)")
 
     # Owain Glyndwr (Y25): no Lancastrian Sail to a Stronghold in Wales.
     _require(not (lord.side == "lancastrian" and _active_event(state, "OWAIN GLYNDWR")
@@ -1002,9 +1019,8 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     use_ships = bool(action.get("use_ships", False))
     # Carts may be Shared from co-located Friendly Lords (1.5.3; the rule's
     # example: Share Carts to help another Lord's Supply/March).
-    carts = _shared_asset(state, lord, "cart", action.get("share"))
-    if ratings.has_capability(state, lord.lord_id, "HAY WAINS"):
-        carts *= 2                               # Hay Wains (L8): Carts double for Supply
+    owners = [lord, *_shared_lords(state, lord, action.get("share"))]
+    carts = _transport_capacity(state, owners, "cart")
     is_port = bool(static_data.load_locales()[source].get("port"))
 
     # Exile-box Lords must Supply by Ship from a same-Sea Port (Scotland: Path).
@@ -1019,14 +1035,16 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     if use_ships:
         _require(is_port, "ships_need_port", "Ship Supply requires a Port Source (4.5.1)")
-        ships = _shared_asset(state, lord, "ship", action.get("share"))   # Shared (4.5.2/1.5.3)
+        ships = _transport_capacity(state, owners, "ship")  # Shared (4.5.2/1.5.3)
         _require(ships > 0, "no_ships", "Ship Supply requires at least one Ship (4.5.1)")
-        per_ship = 2 if gs else 1
         sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \
             and _same_sea_port_or_box(here, source)
         ways_out: int | None = None
         if sea_direct:
-            added = ships * per_ship               # by Sea: no Carts (4.5.2)
+            _require(is_friendly_stronghold(state, source, lord.side)
+                     and not enemy_lord_at(state, source, lord.side), "no_route",
+                     "a Port Supply Source must be Friendly and free of Enemy Lords (4.5.1)")
+            added = ships                          # by Sea: no Carts (4.5.2)
             sea = _port_sea_map().get(source)       # Ship Supply uses the Source Port's Sea
             if sea and sea in blk:
                 used_seas = [sea]
@@ -1034,7 +1052,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
             _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
             assert ways is not None
-            added = ships * per_ship if ways == 0 else min(ships * per_ship, carts // ways)
+            added = ships if ways == 0 else min(ships, carts // ways)
             _require(added > 0, "insufficient_carts",
                      "need one Cart per Provender per intervening Way (4.5.1)")
             ways_out = ways

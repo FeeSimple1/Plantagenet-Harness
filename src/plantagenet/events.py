@@ -474,17 +474,34 @@ def _hp_rebel_supply_depot(state: GameState, side: str, d: dict[str, Any]) -> di
     assert win is not None
     movers = set(win.get("lords", []))
     lids = d.get("lords", [])
-    _require(lids, "no_lords", "name the Lord(s) that just reached the Port (L28)")
+    _require(isinstance(lids, list) and lids, "no_lords",
+             "name the Lord(s) that just reached the Port (L28)")
+    _require(all(isinstance(lid, str) for lid in lids) and len(set(lids)) == len(lids),
+             "duplicate_lords", "name each moving Lord only once (L28)")
     locs = static_data.load_locales()
     for lid in lids:
         _require(lid in movers, "not_mover",
                  f"{lid} did not just March/Sail to the Port (L28)")
-        ls = state.lords[lid]
+        ls = state.lords.get(lid)
+        _require(ls is not None and ls.side == side and ls.status == LordStatus.MUSTERED,
+                 "bad_lord", f"{lid} is not a Mustered {side} Lord (L28)")
+        assert ls is not None
         _require(ls.location and locs.get(ls.location, {}).get("port"),
                  "not_at_port", f"{lid} is not at a Port (L28)")
-        ls.assets["provender"] = ls.assets.get("provender", 0) + 4
+    # L28 Tips: four Provender TOTAL, distributed among the movers as desired.
+    distribution = d.get("provender", {lids[0]: 4} if len(lids) == 1 else None)
+    _require(isinstance(distribution, dict), "provender_distribution_required",
+             "distribute four Provender among the moving Lords (L28)")
+    assert isinstance(distribution, dict)
+    _require(all(lid in lids and type(n) is int and n >= 0
+                 for lid, n in distribution.items()) and sum(distribution.values()) == 4,
+             "bad_provender_distribution",
+             "the distribution must assign exactly four Provender to named movers (L28)")
+    for lid in lids:
+        ls = state.lords[lid]
+        ls.assets["provender"] = ls.assets.get("provender", 0) + distribution.get(lid, 0)
         ls.ignore_next_feed = True
-    return {"lords": lids, "provender_each": 4, "ignore_next_feed": True}
+    return {"lords": lids, "provender_added": distribution, "ignore_next_feed": True}
 
 
 # L33: after Sailing to a Port, free March
@@ -580,45 +597,32 @@ _PERSIST = {"Y34"}   # immediate Events that stay in effect (active_events)
 
 
 def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    """Resolve an immediate Event card's effect (1.9.1 / 3.1.3).
-
-    A drawn immediate Event sits in ``state.pending_events`` until resolved; on
-    resolution it returns to the deck (3.1.3) and, once the side's queue empties,
-    the Arts of War sequence advances. An Event whose precondition is unmet
-    resolves to no effect (the card text's "No effect if ..."). Standalone calls
-    (not from a draw) just apply the effect, leaving deck membership untouched."""
+    """Resolve the next drawn immediate Event, in draw order (1.9.1 / 3.1.3)."""
     cid = cast(str, action.get("card"))
     side = cast(str, action.get("side"))
     cards = static_data.load_cards()
-    in_pending = any(pe.get("card") == cid and pe.get("side") == side
-                     for pe in state.pending_events)
+    _require(cid in _IMMEDIATE or cid in _PERSIST, "not_immediate_event",
+             f"{cid} is not a coded immediate Event")
+    _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
+    _require(state.phase == "levy" and state.levy_step == "arts_of_war",
+             "wrong_step", "immediate Events resolve during the Arts of War draw (3.1.3)")
+    _require(state.turn_box != (state.calendar.first_box or state.turn_box),
+             "first_levy", "the first Levy draws Capabilities, not Events (3.1.2)")
+    _require(side == state.active_side, "not_active_side",
+             f"it is the {state.active_side} side's draw (3.1.3)")
+    _require(any(pe.get("card") == cid and pe.get("side") == side
+                 for pe in state.pending_events), "event_not_pending",
+             f"{cid} has not been drawn for resolution (3.1.3)")
+    _require(state.pending_events[0] == {"card": cid, "side": side}, "event_order",
+             "resolve Events in the order drawn (3.1.3)")
     if cid in _PERSIST:
-        _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
         state.active_events.append({"card": cid, "side": side, "scope": "this_campaign"})
         res: dict[str, Any] = {"active": True}
     else:
-        _require(cid in _IMMEDIATE, "not_immediate_event",
-                 f"{cid} is not a coded immediate Event")
-        _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
-        # Henry Released (L26): cannot occur while L26 is on a mat / set aside.
-        if cid == "L26":
-            d = state.decks.get(side, {})
-            # A just-drawn L26 is live by definition (in_pending); otherwise it is
-            # suppressed when assigned to a mat / set aside (not in any deck pile).
-            live = in_pending or any("L26" in d.get(pile, [])
-                                     for pile in ("draw", "discard", "held"))
-            _require(live, "event_suppressed",
-                     "Henry Released cannot occur: L26 EDWARD is assigned/set aside (6.2)")
         res = _IMMEDIATE[cid](state, side, action.get("decisions", {}))
-        # 3.1.3: a drawn immediate Event returns to the deck after resolving. Only
-        # in the drawn (pending) context -- standalone calls leave the card alone.
-        if in_pending:
-            state.decks.setdefault(side, {}).setdefault("draw", []).append(cid)
-    if in_pending:
-        state.pending_events = [pe for pe in state.pending_events
-                                if not (pe.get("card") == cid and pe.get("side") == side)]
-        if not state.pending_events:
-            from plantagenet.arts_of_war import advance_after_draw
-            first_levy = state.turn_box == (state.calendar.first_box or state.turn_box)
-            res["next"] = advance_after_draw(state, side, first_levy)
+        state.decks.setdefault(side, {}).setdefault("draw", []).append(cid)
+    state.pending_events.pop(0)
+    if not state.pending_events:
+        from plantagenet.arts_of_war import advance_after_draw
+        res["next"] = advance_after_draw(state, side, first_levy=False)
     return {"type": "play_event", "card": cid, "side": side, **res}

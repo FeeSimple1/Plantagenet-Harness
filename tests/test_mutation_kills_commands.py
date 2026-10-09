@@ -489,6 +489,7 @@ def test_supply_by_ship():
     def prep(st):
         st.lords["york"].location = "lynn"
         st.locales["lynn"].favour = "yorkist"
+        st.locales["ravenspur"].favour = "yorkist"  # Port Source must be Friendly (4.5.1).
         st.lords["york"].assets = {}
     s = _campaign(prep=prep)
     with pytest.raises(IllegalAction) as e:

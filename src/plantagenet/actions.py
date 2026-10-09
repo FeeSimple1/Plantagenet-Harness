@@ -16,8 +16,11 @@ actions live in `commands.py`; this module also hosts `apply_action`, the
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from copy import deepcopy
 from functools import lru_cache
 from typing import Any, cast
+
+from pydantic import BaseModel
 
 from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
@@ -129,6 +132,46 @@ def _lordship(lord_id: str) -> int:
 
 # ----------------------------------------------------------------- dispatch
 def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Apply one action atomically, including reactions and all dice effects.
+
+    History is append-only, so retain its original list and length rather than
+    copying the entire game log for every action. Restore mutable state in place
+    on rejection so callers holding a Lord or assets reference see the rollback.
+    """
+    if not isinstance(action, dict):
+        raise IllegalAction("bad_action", "an action must be a JSON object")
+    snapshot = {key: deepcopy(value) for key, value in state.__dict__.items()
+                if key != "history"}
+    history, history_length = state.history, len(state.history)
+    try:
+        return _apply_action(state, action)
+    except Exception:
+        for key, value in snapshot.items():
+            state.__dict__[key] = _restore_value(state.__dict__.get(key), value)
+        del history[history_length:]
+        state.history = history
+        raise
+
+
+def _restore_value(current: Any, saved: Any) -> Any:
+    if isinstance(current, BaseModel) and isinstance(saved, type(current)):
+        _restore_value(current.__dict__, saved.__dict__)
+        return current
+    if isinstance(current, dict) and isinstance(saved, dict):
+        for key in list(current):
+            if key not in saved:
+                del current[key]
+        for key, value in saved.items():
+            current[key] = _restore_value(current.get(key), value)
+        return current
+    if isinstance(current, list) and isinstance(saved, list):
+        current[:] = [_restore_value(current[i], value) if i < len(current) else value
+                      for i, value in enumerate(saved)]
+        return current
+    return saved
+
+
+def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     atype = cast(str, action.get("type"))
     # While a reaction is pending, only "react" is legal (the acting side waits).
     if state.pending and atype != "react":
@@ -137,7 +180,7 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if atype == "react":
         from plantagenet import reactions
         result = reactions.resolve(state, action)
-        state.history.append({"action": action, "result": result})
+        state.history.append(deepcopy({"action": action, "result": result}))
         return result
     # The Hold-event timing window (1.9.1) lasts only until the next action; any
     # non-Held action closes it. (``react`` returned above; it resolves a move's
@@ -153,7 +196,7 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
     result = handler(state, action)
-    state.history.append({"action": action, "result": result})
+    state.history.append(deepcopy({"action": action, "result": result}))
     return result
 
 
@@ -404,6 +447,9 @@ def _h_levy_lord(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              and target.calendar_box <= state.turn_box, "target_not_ready",
              f"{target_id} is not Ready (cylinder on the Calendar in the current or a "
              "lower Turn box) (3.4.2)")
+    _require(not target.calendar_exile, "target_in_exile",
+             "an Exiled Lord may only Muster in its Exile box during Muster Exiles "
+             "(Errata FAQ #3, 3.3.1)")
     seat = static_data.load_lords()[target_id]["seat"]
     seat_free = not enemy_lord_at(state, seat, lord.side)
     fallback = None
@@ -825,6 +871,21 @@ def _h_crown_richard(state: GameState, action: dict[str, Any]) -> dict[str, Any]
 
 
 # --------------------------------------------------------- 6.1.1 Surrender
+def _h_renew_war(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Expose the grand scenario's Renewed War through the action interface (6.1.2)."""
+    from plantagenet.scenarios import renew_war
+
+    _require(state.phase == "over", "war_not_over", "the current War has not ended (6.1.2)")
+    previous = (state.grand_scenario or {}).get("current_war")
+    winner = (state.victory or {}).get("result")
+    following = renew_war(state)
+    following.history = state.history
+    state.__dict__.update(following.__dict__)
+    return {"type": "renew_war", "from_war": previous,
+            "to_war": (state.grand_scenario or {}).get("current_war"),
+            "previous_winner": winner, "rule": "6.1.2"}
+
+
 def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Surrender / Concede a War (6.1.1-.2): in the grand scenario's first or
     second War, a side with an Heir still present may concede that War as the
@@ -925,6 +986,7 @@ def _parley_dispatch(state: GameState, action: dict[str, Any]) -> dict[str, Any]
 
 
 _HANDLERS: dict[str, Callable[[GameState, dict[str, Any]], dict[str, Any]]] = {
+    "renew_war": _h_renew_war,
     "begin_campaign": lambda st, a: _campaign_handler("begin_campaign")(st, a),
     "build_plan": lambda st, a: _campaign_handler("build_plan")(st, a),
     "forage": lambda st, a: _campaign_handler("forage")(st, a),

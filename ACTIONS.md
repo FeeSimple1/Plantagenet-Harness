@@ -25,6 +25,8 @@ A successful `do` returns a structured result: the mutated state delta,
 every die rolled with its context, markers placed/removed, Influence
 changes, and (for combat) hits assigned and Routs. Errors return
 `{ "error": { "code": "...", "message": "...", "rule": "..." } }`.
+Rejected actions leave the game, RNG, pending windows, and history unchanged,
+including when using the in-memory Python API.
 
 ## Action catalog (by phase)
 
@@ -47,6 +49,9 @@ if unassignable). Later Levies (3.1.3): each side draws two Events — Hold ->
 held pile, This Levy / This Campaign -> active, otherwise resolve and return
 to the deck. (Event/Capability *effects* are applied by the consumer until
 coded in later increments.) After both draws -> Muster (first Turn) or Pay.
+Immediate Events must be resolved in draw order: `play_event` accepts only the
+first card in `pending_events`, for the active side. Undrawn cards cannot be
+played through this action.
 
 ### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 
@@ -130,6 +135,13 @@ the current Turn box → shift right, else Disband). After King's Pay, Ready
 Vassals (3.3.2) returns due Disbanded Vassals to their Seats and play
 proceeds to Muster.
 
+Optional `pay_order` lists this side's Lords in the owner's order of payment
+when sharing limited Coin; omitted Lords follow in state order. Existing
+`unpay_lords` preferences put those Lords last, but cannot withhold available
+Coin. Every Lord first spends Coin from his own mat, even if insufficient;
+surplus Coin is then Shared. Unpaid Lords Pillage if able and owe their full
+payment again, regardless of Coin spent before Pillage (3.2.1).
+
 Phase 3a is COMPLETE (full Levy + Campaign turn cycle). DEFERRED: Muster
 Exiles (3.3.1 — needs scenario Exile-box mapping; a no-op without due Exile
 cylinders), the Arts-of-War draw (3.1, Phase 4), cross-Lord Cart Sharing for
@@ -168,6 +180,11 @@ In-Battle Held-Event / Capability plays are passed via the `resolve_battle`
 attempts to Levy a regular Enemy Vassal in the Battle onto its own mat;
 `{"by": <lord>, "target": <vassal_id>}`; ignores Routes/Seat Favour, Salisbury's
 Vassals immune via Y17).
+
+Within `absorb_plan`, a Vassal Hit can identify its counter explicitly, for
+example `{"lord":"warwick_yorkist","unit":"vassal","vassal":"montagu"}`.
+Both regular and Special Vassals fight and may absorb Hits. A Routed Special
+Vassal Disbands with its associated Capability discarded after the Battle.
 
 A March or Sail move that would resolve a Battle (its `to` holds an Enemy Lord)
 is annotated by `legal_moves` with a `battle_reactions` list -- the in-Battle
@@ -208,8 +225,17 @@ a draw). The Rebel side Arrays as Attacker, the King side as Defender (4.2);
 
 ### System / flow actions
 
-`pass`, `advance_step`, and similar phase-flow actions are documented as
-the sequence of play is implemented.
+`renew_war` (6.1.2): `{"type":"renew_war"}` — after a decisive victory in
+the first or second War of the grand scenario, set up the next War and retain
+the game history. Offered by `legal_moves` only when a next War exists. The CLI
+also accepts `plantagenet renew-war game.state.json`. Draws, standalone games,
+unfinished Wars, and the final War do not permit renewal.
+
+For We Done Deeds of Charity (Y4), `end_campaign` accepts
+`decisions.charity` keyed by Capability holder. An integer spends that Lord's
+own Provender. To Share, use `{"pay":2,"share":["march"]}` instead of the
+integer: spend the holder's Provender first, then the listed co-located friendly
+Lords' Provender in order. The payment is 0, 1, or 2 and grants equal Influence.
 
 ### Special Command / Event / Capability actions
 
@@ -267,16 +293,21 @@ Yorkists with York or Warwick there.
 Levy while Edward IV is on the Calendar/Exile; one move per Friendly Enemy-free
 Stronghold or Yorkist Exile box.
 
-`L28` Rebel Supply Depot — `{card, side, decisions:{lords}}`. Movement-triggered:
+`L28` Rebel Supply Depot — `{card, side, decisions:{lords, provender?}}`. Movement-triggered:
 offered only while the Hold-event timing window opened by a qualifying March or
-Sail to a Port is open; the named Lord(s) must be those movers.
+Sail to a Port is open; the named Lord(s) must be unique movers. Grants four
+Provender **total**, distributed using `provender:{lord_id:amount,...}` with
+nonnegative integer amounts summing to four. For one Lord the distribution may
+be omitted; for a Group it is required. The move palette offers every allocation.
+Selected movers ignore their next Feed. The result's `provender_added` mapping
+records the allocation.
 
 `L33` Surprise Landing — `{card, side}`. Offered only while the window records a
 Sail (not a March) to a Port.
 
-The Hold-event timing window (`state.hold_window`) is opened by `march_finish` /
-`sail_finish` when mover(s) end at a Port and is cleared by the next non-Held
-action; the L28/L33 handlers validate it independently, so the engine no longer
+The Hold-event timing window (`state.hold_window`) is opened by a completed
+March or Sail when mover(s) end at a Port and is cleared by the next accepted
+non-Held action; the L28/L33 handlers validate it independently, so the engine no longer
 grants those plays without a preceding qualifying Move.
 
 ### Manual-adjudication actions (not enumerated)

@@ -240,6 +240,7 @@ def test_supply_exile_box_lord_needs_ship_and_port():
                                  "by_lord": lid, "source": "ludlow"})
     assert e.value.code in ("exile_needs_ship_port", "no_route")
     # With a Ship and a same-Sea Port Source (Southampton, English Channel): ships-many.
+    s.locales["southampton"].favour = "lancastrian"  # Friendly Source required (4.5.1).
     s.lords[lid].assets["ship"] = 2
     r = actions.apply_action(s, {"type": "supply", "side": "lancastrian",
                                  "by_lord": lid, "source": "southampton", "use_ships": True})

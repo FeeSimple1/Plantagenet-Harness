@@ -125,6 +125,32 @@ def _drop_lord_sources(state: GameState, side: str, lord_id: str) -> list[str]:
 
 
 # --------------------------------------------------------------- setup
+def _register_present_sources(state: GameState, side: str,
+                              *, arrived_lord: str | None = None) -> list[str]:
+    """Register while-remains cards when their Lord enters the War (6.2.2).
+
+    A successor can arrive after setup: E4 adds L27/L28/L31 whenever Margaret
+    is present. Existing contributions stay where they are, including active
+    Events, rather than being added again on each Succession recomputation.
+    """
+    registered = []
+    for trig in _succ(state, side).get("triggers", []):
+        if trig.get("on") != "while_remains":
+            continue
+        lid = trig["lord"]
+        if arrived_lord is not None and lid != arrived_lord:
+            continue
+        lord = state.lords.get(lid)
+        if lord is None or lord.status not in (
+                LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE):
+            continue
+        for card in trig.get("cards", []):
+            if lid not in _sources(state).get(side, {}).get(card, []):
+                _register_source(state, side, card, lid)
+        registered.append(lid)
+    return registered
+
+
 def apply_setup(state: GameState) -> dict[str, Any]:
     """Register continuous (while_remains / while_king) deck contributions for
     Heirs currently in play, at War setup."""
@@ -132,15 +158,9 @@ def apply_setup(state: GameState) -> dict[str, Any]:
     if not state.grand_scenario:
         return log
     for side in ("lancastrian", "yorkist"):
-        for trig in _succ(state, side).get("triggers", []):
-            if trig.get("on") == "while_remains":   # while_king is handled by _recompute
-                lord = trig["lord"]
-                ls = state.lords.get(lord)
-                if ls is not None and ls.status in (
-                        LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE):
-                    for card in trig.get("cards", []):
-                        _register_source(state, side, card, lord)
-                    log["registered"].setdefault(side, []).append(lord)
+        registered = _register_present_sources(state, side)
+        if registered:
+            log["registered"][side] = registered
     for side in ("lancastrian", "yorkist"):
         if not _succ(state, side).get("setup_only") and not (
                 _current_war(state) or {}).get("successions", {}).get("setup_only"):
@@ -290,6 +310,7 @@ def _seat_in_place(state: GameState, side: str, new: str, at: dict[str, Any]) ->
         lord_id=new, side=cast(Side, side), status=LordStatus.MUSTERED,
         location=at.get("location"), exile_box=at.get("exile_box"), ring=at.get("ring"),
         forces=dict(ns.get("forces", {})), assets=dict(ns.get("assets", {})))
+    _register_present_sources(state, side, arrived_lord=new)
     return True
 
 
@@ -439,10 +460,12 @@ def _enter_calendar(state: GameState, side: str, lord_id: str) -> None:
             state.lords[lord_id] = LordState(lord_id=lord_id, side=cast(Side, side),
                                              status=LordStatus.CALENDAR,
                                              calendar_box=state.turn_box + 1)
+            _register_present_sources(state, side, arrived_lord=lord_id)
         return
     if ls.status == LordStatus.AVAILABLE:
         ls.status = LordStatus.CALENDAR
         ls.calendar_box = state.turn_box + 1
+        _register_present_sources(state, side, arrived_lord=lord_id)
 
 
 def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, Any] | None:
@@ -475,13 +498,10 @@ def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, A
             return None
         for cand, ls in members.items():
             if ls is not None:                       # AVAILABLE -> Calendar
-                ls.status = LordStatus.CALENDAR
-                ls.calendar_box = state.turn_box + 1
+                _enter_calendar(state, side, cand)
                 return {"succession": cand, "to_box": ls.calendar_box}
             if cand in lords_static:                 # not yet instantiated
-                state.lords[cand] = LordState(lord_id=cand, side=cast(Side, side),
-                                              status=LordStatus.CALENDAR,
-                                              calendar_box=state.turn_box + 1)
+                _enter_calendar(state, side, cand)
                 return {"succession": cand, "to_box": state.turn_box + 1, "added": True}
     return None
 

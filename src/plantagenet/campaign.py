@@ -222,11 +222,12 @@ def forage(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         threshold = 3 if (fav == "enemy" or enemy_adjacent) else 4
         success = roll <= threshold
     cast(CampaignState, state.campaign).actions_remaining -= 1
-    added = 0
+    # Y13 Scourers grants its extra Provender even when the Forage roll fails;
+    # only a successful Forage Depletes/Exhausts (Arts of War Reference, Y13 Tips).
+    added = int(success) + int(ratings.has_capability(state, lord.lord_id, "SCOURERS"))
+    if added:
+        lord.assets["provender"] = lord.assets.get("provender", 0) + added
     if success:
-        gain = 1 + (1 if ratings.has_capability(state, lord.lord_id, "SCOURERS") else 0)
-        lord.assets["provender"] = lord.assets.get("provender", 0) + gain  # Y13 Scourers +1
-        added = gain
         if ls is not None:
             ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
         elif kind == "exile":                       # Deplete, else Exhaust (4.6.2)
@@ -582,27 +583,44 @@ def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> d
             pts[ls.side] += 2
             detail.append(f"{ls.side} +2 Margaret Takes the Reins")
 
-    # We Done Deeds of Charity (Y4): pay 1 or 2 Provender for +1 Influence each.
-    # (Sharing 1.5.3 is the consumer's job: move Provender onto the holder first.)
+    # Y4 explicitly permits Sharing (1.5.3). An integer spends the holder's
+    # own Provender; {pay, share} authorizes named providers in supplied order.
+    from plantagenet.commands import _shared_lords
     charity = (decisions or {}).get("charity", {})
+    _require(isinstance(charity, dict), "bad_charity", "charity must map Lords to payments")
+    charity_payments: dict[str, dict[str, Any]] = {}
     for lid in _cap_holders(state, "WE DONE DEEDS OF CHARITY"):
         ls = state.lords[lid]
         if ls.status != LordStatus.MUSTERED:
             continue
-        pay = int(charity.get(lid, 0))
-        if pay not in (0, 1, 2):
+        choice = charity.get(lid, 0)
+        pay = choice.get("pay", 0) if isinstance(choice, dict) else choice
+        share = choice.get("share", []) if isinstance(choice, dict) else []
+        if type(pay) is not int or pay not in (0, 1, 2):
             raise IllegalAction("bad_charity",
                                 "We Done Deeds of Charity pays 0, 1, or 2 Provender (Y4)")
+        _require(isinstance(share, list) and all(isinstance(x, str) for x in share),
+                 "bad_share", "Charity share must be a list of Friendly Lord ids (1.5.3)")
+        _require(len(set(share)) == len(share), "bad_share",
+                 "a Lord may be listed only once for Charity Sharing (1.5.3)")
+        providers = [ls, *_shared_lords(state, ls, share)]
         if pay:
-            have = ls.assets.get("provender", 0)
+            have = sum(provider.assets.get("provender", 0) for provider in providers)
             if pay > have:
                 raise IllegalAction("no_provender",
-                                    f"{lid} lacks {pay} Provender for Deeds of Charity (Y4)")
-            ls.assets["provender"] = have - pay
+                                    f"{lid} and its named providers lack {pay} Provender "
+                                    "for Deeds of Charity (Y4)")
+            before = {provider.lord_id: provider.assets.get("provender", 0)
+                      for provider in providers}
+            _drain_provender(providers, pay)
+            paid_from = {provider.lord_id: before[provider.lord_id]
+                         - provider.assets.get("provender", 0) for provider in providers
+                         if before[provider.lord_id] != provider.assets.get("provender", 0)}
+            charity_payments[lid] = {"paid": pay, "from": paid_from}
             pts[ls.side] += pay
             detail.append(f"{ls.side} +{pay} Deeds of Charity")
 
-    return {"points": pts, "detail": detail}
+    return {"points": pts, "detail": detail, "charity": charity_payments}
 
 
 # ----------------------------------------------------- 4.8.3 Victory check

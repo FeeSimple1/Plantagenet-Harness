@@ -46,3 +46,23 @@ def to_muster(state):
         else:
             actions.apply_action(state, {"type": "draw", "side": state.active_side})
     return state
+
+
+def apply_drawn_event(state, action):
+    """Place an immediate Event in a legal later-Levy draw window for effect tests.
+
+    The fixture deliberately chooses the drawn card; production callers must
+    obtain pending Events through draw (3.1.3).
+    """
+    from plantagenet import static_data
+    card = action["card"]
+    side = static_data.load_cards()[card]["side"]
+    state.phase = "levy"
+    state.levy_step = "arts_of_war"
+    state.turn_box = (state.calendar.first_box or state.turn_box) + 1
+    state.active_side = side
+    for pile in state.decks[side].values():
+        while card in pile:
+            pile.remove(card)
+    state.pending_events = [{"card": card, "side": side}]
+    return actions.apply_action(state, action)

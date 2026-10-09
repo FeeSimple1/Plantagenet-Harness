@@ -1,21 +1,16 @@
-"""Ground-truth replay: the recorded 347-action grand-scenario self-play
-(seed 181, three Wars, two Battles) must replay exactly on the current engine.
+"""Historical seed-181 replay preserves its valid prefix and rejects its Pay bug.
 
-This is the dice/draw-path regression the unit suite cannot give: every Arts
-of War draw, battle outcome (winner/deaths/disbands), Levy Lord roll, Pay
-result, Tides of War tally, and War victory in the log is compared against
-the engine's live results while the recorded actions are applied.
+The original 347-action recording remains unchanged. Steps 1-68 still match the
+current engine's recorded oracle fields. At step 69 (Pay, rule 3.2.1), Henry VI
+owns one Coin but needs three; Somerset owns none and needs one. Both are at
+exhausted London. Henry must spend his Coin on his own Troops even partially,
+leaving no surplus to Share, so both must Disband. The old engine incorrectly
+spent Henry's Coin on Somerset; its step-73 Somerset action is consequently
+illegal under the corrected rules.
 
-Two steps are waived as recorded-run bugs, both confirmed against the
-scenario specs and both impossible in the current engine (the old
-levy-capability enumerator ignored the War deck's composition):
-  - step 117: L4 HERALDS levied in War IIL ("all no-rose EXCEPT L4")
-  - step 279: L37 (rose 3) levied in War IIIL (deck adds only L25/L34/L36)
-The harness asserts these actions are still NOT offered.
-
-One vintage accommodation: the recording's engine auto-fired the Culverins
-Capability for every holder in a Battle; the current engine makes firing an
-explicit decision (4.4.1 "may"), so the replay attaches it (--auto-culverins).
+This defect is neither waived nor reproduced through an engine accommodation.
+The full historical recording must be rejected. Current full-game smoke tests
+provide end-to-end validation of games played under the corrected rules.
 """
 
 from __future__ import annotations
@@ -27,11 +22,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_recorded_grand_selfplay_replays_exactly():
-    r = subprocess.run(
+def _replay(*args):
+    return subprocess.run(
         [sys.executable, "scripts/replay_log.py",
-         "tests/data/grand_selfplay_seed181_log.md",
-         "--waive", "117,279", "--auto-culverins"],
+         "tests/data/grand_selfplay_seed181_log.md", *args],
         cwd=ROOT, capture_output=True, text=True, timeout=120)
-    assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
-    assert "replayed 347 actions, 0 divergences" in r.stdout
+
+
+def test_recorded_grand_selfplay_valid_prefix_replays_exactly():
+    """Rules 3.1-4.8: every recorded oracle before corrected Pay still matches."""
+    result = _replay("--through", "68")
+    assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
+    assert "replayed 68 actions, 0 divergences" in result.stdout
+    assert "WAIVED" not in result.stdout
+    assert "step 69" not in result.stdout
+
+
+def test_full_historical_recording_rejected_at_corrected_pay():
+    """Rule 3.2.1: own-mat partial Pay makes the old step-69 outcome impossible."""
+    result = _replay()
+    assert result.returncode == 2, result.stdout[-2000:] + result.stderr[-2000:]
+    assert ("step 69: DIVERGE unpaid_disbanded ['henry_vi', 'somerset_1'] "
+            "!= ['henry_vi']") in result.stdout
+    assert "step 73: NO MATCH" in result.stdout
+    assert "WAIVED" not in result.stdout
+    assert "replayed 347 actions, 0 divergences" not in result.stdout

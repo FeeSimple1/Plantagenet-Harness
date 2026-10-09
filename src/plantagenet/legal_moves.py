@@ -48,12 +48,19 @@ def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
     the only legal move is to play each (the consumer supplies any ``decisions``;
     some Events are deterministic). ``apply_action`` rejects all else."""
     side = state.active_side
-    return [{"type": "play_event", "side": side, "card": pe["card"]}
-            for pe in state.pending_events if pe.get("side") == side]
+    pe = state.pending_events[0]
+    return ([{"type": "play_event", "side": side, "card": pe["card"]}]
+            if pe.get("side") == side else [])
 
 
 def legal_moves(state: GameState) -> list[dict[str, Any]]:
     if state.phase == "over":
+        if state.grand_scenario and (state.victory or {}).get("result") in actions.SIDES:
+            from plantagenet.scenarios import next_war_id
+            winner = cast(str, (state.victory or {})["result"])
+            if next_war_id(static_data.load_scenario("wars_of_the_roses"),
+                           state.grand_scenario["current_war"], winner):
+                return [{"type": "renew_war"}]
         return []
     if state.phase == "battle":           # battle-only scenario (e.g. Bosworth)
         return [] if state.victory is not None else [{"type": "resolve_battle"}]
@@ -140,7 +147,7 @@ def _moves_for_lord(state: GameState, lord_id: str, lord: LordState, side: str,
     try:
         seat_fallback = actions._friendly_enemyfree_seat_exists(state, side)
         for tid, t in state.lords.items():
-            if (t.side == side and t.status == LordStatus.CALENDAR
+            if (t.side == side and t.status == LordStatus.CALENDAR and not t.calendar_exile
                     and t.calendar_box is not None and t.calendar_box <= state.turn_box):
                 seat = static_data.load_lords()[tid]["seat"]
                 if not actions.enemy_lord_at(state, seat, side) or seat_fallback is not None:
@@ -276,7 +283,7 @@ def _sail_moves(state: GameState, lord_id: str, lord: LordState, side: str,
         return moves
     if side == "yorkist" and commands._active_event(state, "FRENCH FLEET"):
         return moves                                   # French Fleet bars Yorkist Sail (L21)
-    ships = lord.assets.get("ship", 0)
+    ships = commands._transport_capacity(state, [lord], "ship")
     need = max(-(-commands._forces_units(lord) // 6),
                -(-lord.assets.get("provender", 0) // 2),
                -(-lord.assets.get("cart", 0) // 2))
@@ -454,8 +461,17 @@ def _held_event_moves(state: GameState, side: str) -> list[dict[str, Any]]:
     # Rebel Supply Depot (L28): just after a March/Sail to a Port (window movers).
     if ("L28" in held and win is not None and win.get("side") == side
             and win.get("action") in ("march", "sail") and win.get("lords")):
-        out.append({"type": "play_held_event", "side": side, "card": "L28",
-                    "decisions": {"lords": list(win["lords"])}})
+        movers = list(win["lords"])
+        if len(movers) == 1:
+            out.append({"type": "play_held_event", "side": side, "card": "L28",
+                        "decisions": {"lords": movers}})
+        else:
+            # Four total Provender, with the allocation chosen by the consumer.
+            import itertools
+            for recipients in itertools.combinations_with_replacement(movers, 4):
+                out.append({"type": "play_held_event", "side": side, "card": "L28",
+                            "decisions": {"lords": movers, "provender":
+                                          {lid: recipients.count(lid) for lid in movers}}})
 
     # Surprise Landing (L33): just after a Sail to a Port.
     if ("L33" in held and win is not None and win.get("side") == side
@@ -597,7 +613,8 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     # Supply (4.5): Friendly non-Exhausted Stronghold Sources reachable with
     # enough Carts; Port Sources via Ship.
     try:
-        carts = lord.assets.get("cart", 0)
+        carts = commands._transport_capacity(state, [lord], "cart")
+        great_ships = ratings.has_capability(state, lord_id, "GREAT SHIPS")
         for src in state.locales:
             if src == here:
                 base = static_data.stronghold_yields(src).get("supply", {}).get("provender", 0)
@@ -607,7 +624,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
                 continue
             if state.locales[src].depletion == "exhausted":
                 continue
-            ways = commands._supply_route_cost(state, here, src, side)
+            ways = commands._supply_route_cost(state, here, src, side, all_seas=great_ships)
             if ways is None:
                 continue
             base = static_data.stronghold_yields(src).get("supply", {}).get("provender", 0)
@@ -618,7 +635,9 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
             seas = static_data.load_seas()
             ports = {p for zone in seas["zones"].values() for p in zone.get("ports", [])}
             for src in sorted(ports):  # sorted: set order must not leak into move order
-                if src != here and commands._same_sea_port_or_box(here, src):
+                if (src != here and commands._same_sea_port_or_box(here, src)
+                        and actions.is_friendly_stronghold(state, src, side)
+                        and not actions.enemy_lord_at(state, src, side)):
                     out.append({"type": "supply", "side": side, "by_lord": lord_id,
                                 "source": src, "use_ships": True})
     except (KeyError, AttributeError, IndexError):

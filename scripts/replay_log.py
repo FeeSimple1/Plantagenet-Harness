@@ -7,7 +7,7 @@ compares the engine's result against the recorded Result line. Gaps in the
 step numbering are War transitions (renew_war).
 
 Usage: PYTHONPATH=src python scripts/replay_log.py tests/data/<log>.md \
-           [-v] [--waive N,N,...]
+           [-v] [--through N] [--waive N,N,...]
 A waived step is a KNOWN recorded-run bug: the harness asserts the recorded
 action is (still) not offered by the current engine, skips it, and continues.
 
@@ -16,12 +16,21 @@ auto-fired the Culverins and Falconets Capability for every holder on both
 sides of a Battle; the current engine makes firing an explicit decision
 (4.4.1 "may"). With the flag, a march into Battle carries a culverins
 decision for all capability holders present, replicating the recorded dice.
-Exit code 0 = full replay; every compared oracle field matched and only
-waived steps diverged.
+Use --through N to validate the prefix ending at recorded step N, inclusive.
+A successful prefix does not validate the remaining recorded continuation.
+Exit code 0 = every compared oracle field in the requested range matched;
+only explicitly waived illegal actions were skipped. Nonzero rejects the replay.
+
+The seed-181 historical recording is valid through step 68. At step 69 its old
+Pay implementation diverted Henry VI's one Coin to Somerset, contrary to the
+own-mat/partial-Pay requirement (3.2.1). Correct Pay Disbands both Lords at
+exhausted London, so the later recorded Somerset actions cannot be replayed.
+The original recording is preserved as evidence, not rewritten or waived.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -140,13 +149,23 @@ def match_move(moves: list[dict[str, Any]], it: dict[str, Any]) -> dict[str, Any
 
 
 def main() -> int:
-    path = sys.argv[1]
-    verbose = "-v" in sys.argv
-    waived: set[int] = set()
-    if "--waive" in sys.argv:
-        waived = {int(x) for x in sys.argv[sys.argv.index("--waive") + 1].split(",")}
-    auto_cul = "--auto-culverins" in sys.argv
-    scenario, seed, steps = parse_log(path)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", help="recorded chronological Markdown log")
+    parser.add_argument("-v", action="store_true", dest="verbose")
+    parser.add_argument("--through", type=int, metavar="N",
+                        help="validate only through recorded step N, inclusive")
+    parser.add_argument("--waive", default="", metavar="N,N,...",
+                        help="explicitly recorded illegal actions to skip")
+    parser.add_argument("--auto-culverins", action="store_true")
+    args = parser.parse_args()
+    verbose = args.verbose
+    waived = {int(x) for x in args.waive.split(",") if x}
+    auto_cul = args.auto_culverins
+    scenario, seed, steps = parse_log(args.path)
+    if args.through is not None:
+        if args.through < 1 or not steps or args.through > steps[-1]["n"]:
+            parser.error("--through must name a positive step within the recorded range")
+        steps = [st for st in steps if st["n"] <= args.through]
     state = build_initial_state(scenario, seed=seed)
     prev_n = 0
     divergences = []

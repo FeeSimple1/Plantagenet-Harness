@@ -57,7 +57,7 @@ def test_concede_ends_the_war_immediately():
     assert s.phase == "over"
     assert s.victory == {"result": "yorkist", "rule": "6.1.1 Surrender",
                          "conceded_by": "lancastrian"}
-    assert legal_moves.legal_moves(s) == []                # no play after surrender
+    assert legal_moves.legal_moves(s) == [{"type": "renew_war"}]  # only the next War (6.1.2)
     nxt = renew_war(s)                                     # straight to Renewed War
     assert nxt.grand_scenario["current_war"] == "war_iiy"
 

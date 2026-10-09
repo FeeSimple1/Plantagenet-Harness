@@ -157,6 +157,12 @@ def pending(file: str) -> None:
     typer.echo(json.dumps(out, indent=2))
 
 
+@app.command("renew-war")
+def renew_war(file: str) -> None:
+    """Continue a completed grand-scenario War into the next War (6.1.2)."""
+    do(file, json.dumps({"type": "renew_war"}))
+
+
 @app.command()
 def history(file: str, n: int = 10) -> None:
     """Show the last N actions and their results."""

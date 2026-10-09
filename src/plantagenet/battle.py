@@ -247,8 +247,13 @@ class _Force:
         lord = state.lords[lord_id]
         self.prof = _strike_profile()
         self.count: dict[str, int] = {"retinue": lord.forces.get("retinue", 1) or 1}
-        if lord.vassals:
-            self.count["vassal"] = len(lord.vassals)
+        # Special Vassals are Forces too (1.5.4). Keep identities so the
+        # owner can assign Hits to a particular Vassal and its Capability is
+        # discarded only if that Special Vassal Disbands after Battle (4.4.3).
+        self.vassal_ids = list(lord.vassals) + list(lord.special_vassals)
+        self.routed_vassal_ids: list[str] = []
+        if self.vassal_ids:
+            self.count["vassal"] = len(self.vassal_ids)
         for t in _TROOP_TYPES:
             if lord.forces.get(t):
                 self.count[t] = lord.forces[t]
@@ -293,12 +298,15 @@ class _Force:
 def _absorb_side(side_forces: list[_Force], n_hits: int, dice: DiceRoller, order: list[str],
                  valour_lords: set[str] | bool | None, log: list[dict[str, Any]],
                  phase: str = "melee", lord_order: list[str] | None = None,
-                 plan: list[Any] | None = None) -> None:
+                 plan: list[Any] | None = None,
+                 stop_on_retinue_rout: set[str] | None = None) -> bool:
     """Apply ``n_hits`` to a side's Forces in an Engagement: each Hit -> a
     unit (owner's choice, 4.4.2 "Hit by Hit") -> Protection roll (Valour reroll)
     -> Rout on failure. ``plan`` is the owner's per-Hit queue of {lord, unit}
     selections (consumed in order); ``lord_order``/``order`` give the default
-    priority for Hits the plan does not direct."""
+    priority for Hits the plan does not direct. A Vassal selection may include
+    ``vassal`` to identify its counter. Returns True when Swift Maneuver ends
+    the Round at a selected side's Retinue Rout, before any further Hit (Y36)."""
     if valour_lords is True:        # tolerate a bool (legacy callers): True=all, False=none
         valour_lords = None
     elif valour_lords is False:
@@ -338,6 +346,14 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice: DiceRoller, order
         roll = dice.d6()
         saved = lo <= roll <= hi
         entry = {"lord": hit_force.lord_id, "unit": hit_type, "roll": roll}
+        vassal_id = None
+        if hit_type == "vassal":
+            available = [vid for vid in hit_force.vassal_ids
+                         if vid not in hit_force.routed_vassal_ids]
+            preferred = spec.get("vassal") if isinstance(spec, dict) else None
+            vassal_id = preferred if preferred in available else next(iter(available), None)
+            if vassal_id is not None:
+                entry["vassal"] = vassal_id
         if (not saved and hit_force.valour > 0
                 and (valour_lords is None or hit_force.lord_id in valour_lords)):
             hit_force.valour -= 1
@@ -355,6 +371,12 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice: DiceRoller, order
                 entry["yeomen_redirect"] = "men_at_arms"
             else:
                 hit_force.routed[cast(str, hit_type)] += 1
+                if vassal_id is not None:
+                    hit_force.routed_vassal_ids.append(vassal_id)
+                if (hit_type == "retinue" and stop_on_retinue_rout
+                        and hit_force.lord_id in stop_on_retinue_rout):
+                    return True
+    return False
 
 
 # ----------------------------------------------------------------- 4.4.1 Array
@@ -555,7 +577,9 @@ def _resolve_for_trust(state: GameState, attackers: list[str], defenders: list[s
         state.vassals[vid] = VassalState(vassal_id=vid, status=VassalStatus.MUSTERED,
                                          on_lord=by, service_box=box)
         forces[old].count["vassal"] = max(0, forces[old].count.get("vassal", 0) - 1)
+        forces[old].vassal_ids.remove(vid)
         forces[by].count["vassal"] = forces[by].count.get("vassal", 0) + 1
+        forces[by].vassal_ids.append(vid)
         forces[by].routed.setdefault("vassal", 0)
     return {"by": by, "target": vid, "from_lord": old, **chk}
 
@@ -762,22 +786,28 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                     if lo <= dice.d6() <= hi:
                         rec += 1
                 f.routed[t] -= rec
-        engs = _engagements(positions, forces, flank_choice)
+        # L12: ignore the target for Engage as well as Strike. Its empty
+        # position changes which remaining Lords Flank one another (4.4.2).
+        engage_positions = positions
+        if n == 1 and ravine_target is not None:
+            engage_positions = {
+                side: {idx: lid for idx, lid in pos.items() if lid != ravine_target}
+                for side, pos in positions.items()}
+        engs = _engagements(engage_positions, forces, flank_choice)
         if engagement_order:                               # 4.4.2: Attacker declares order
             engs.sort(key=lambda e: min(
                 (engagement_order.index(x) for x in e["attacker"] + e["defender"]
                  if x in engagement_order), default=len(engagement_order)))
-        if n == 1 and ravine_target is not None:               # Ravine: ignore Lord Round 1
-            for eng in engs:
-                eng["attacker"] = [x for x in eng["attacker"] if x != ravine_target]
-                eng["defender"] = [x for x in eng["defender"] if x != ravine_target]
-            engs = [e for e in engs if e["attacker"] and e["defender"]]
         if n == 1 and vanguard_lord is not None:               # Vanguard: only his Engagement
             engs = [e for e in engs
                     if vanguard_lord in e["attacker"] or vanguard_lord in e["defender"]]
-        # Swift Maneuver (Y36): snapshot Lancastrian Retinue Routs to detect new ones.
-        lanc_ret_before = {lid: forces[lid].routed.get("retinue", 0)
-                           for lid in forces if state.lords[lid].side == "lancastrian"}
+        # Swift Maneuver (Y36) interrupts at the individual Hit that Routs a
+        # Lancastrian Retinue, skipping all remaining Hits and Engagements.
+        swift_now = swift == "yorkist" and (swift_end is True or (
+            isinstance(swift_end, (list, tuple, set)) and n in swift_end))
+        swift_targets = {lid for lid in forces if state.lords[lid].side == "lancastrian"} \
+            if swift_now else set()
+        end_round = False
         # Caltrops (Y19): a +2 Melee budget per side per Round, distributable
         # between Engagements ("distributes between Engagements").
         caltrops_left = {sd: (2 if sd in caltrops else 0) for sd in (aside, dside)}
@@ -846,24 +876,24 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                             d_hits = ceil(d_hits / 2)
                 dlog: list[dict[str, Any]] = []
                 alog: list[dict[str, Any]] = []
-                _absorb_side(d_forces, a_hits, dice, order, valour_lords, dlog, phase,
-                             absorb_lords, plan_def)
-                _absorb_side(a_forces, d_hits, dice, order, valour_lords, alog, phase,
-                             absorb_lords, plan_atk)
+                end_round = _absorb_side(
+                    d_forces, a_hits, dice, order, valour_lords, dlog, phase,
+                    absorb_lords, plan_def, swift_targets)
+                if not end_round:
+                    end_round = _absorb_side(
+                        a_forces, d_hits, dice, order, valour_lords, alog, phase,
+                        absorb_lords, plan_atk, swift_targets)
                 elog["strikes"].append({"phase": phase, "attacker_hits": a_hits,
                                         "defender_hits": d_hits,
                                         "defender_rolls": dlog, "attacker_rolls": alog})
+                if end_round:
+                    break
             rlog["engagements"].append(elog)
             cal_idx += 1                                       # next Engagement's Caltrops slot
-            _swift_now = swift_end is True or (
-                isinstance(swift_end, (list, tuple, set)) and n in swift_end)
-            if swift == "yorkist" and _swift_now and any(
-                    forces[lid].routed.get("retinue", 0) > lanc_ret_before.get(lid, 0)
-                    and forces[lid].avail("retinue") == 0
-                    for lid in lanc_ret_before):
+            if end_round:
                 break                                          # Swift Maneuver: end Round (Y36)
         for f in forces.values():                              # LORD ROUT
-            f.lord_routed = f.is_lord_routed()
+            f.lord_routed = f.lord_routed or f.is_lord_routed()
         rounds.append(rlog)
 
     state.store_dice(dice)
@@ -912,7 +942,8 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
         # Locale: the battle's winner simply wins the scenario (no award/Spoils).
         if state.influence.get("track") is not None and locale in state.locales:
             gain = sum(static_data.load_lords()[lid]["ratings"]["influence"]
-                       + len(state.lords[lid].vassals) for lid in lose_ids)
+                       + len(state.lords[lid].vassals) + len(state.lords[lid].special_vassals)
+                       for lid in lose_ids)
             influence.gain_influence(state, wside, gain)
             result["influence_award"] = {wside: gain}
             _spoils(state, locale, winners, lose_ids, result, spoils_to)
@@ -920,10 +951,16 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
         _losses(state, w, dice, result)
     for w in winners:                                    # 4.4.3: Routed Vassals of Unrouted Lords
         lord = state.lords[w.lord_id]
-        for vid in list(lord.vassals)[:w.routed.get("vassal", 0)]:
-            campaign._disband_vassal(state, vid)
-            if vid in lord.vassals:
+        remaining = [vid for vid in w.vassal_ids if vid not in w.routed_vassal_ids]
+        routed = (w.routed_vassal_ids + remaining)[:w.routed.get("vassal", 0)]
+        for vid in routed:
+            if vid in lord.special_vassals:
+                campaign._disband_special_vassal(state, lord, vid)
+            elif vid in lord.vassals:
+                campaign._disband_vassal(state, vid)
                 lord.vassals.remove(vid)
+            else:
+                continue                     # Lord already Disbanded during Losses
             result.setdefault("vassal_disbands", []).append(vid)
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
     # go into Exile (4.3.5) instead of rolling Death.
@@ -996,7 +1033,7 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
             else:
                 influence.spend_influence(state, ld.side,
                                           static_data.load_lords()[lid]["ratings"]["influence"]
-                                          + len(ld.vassals))
+                                          + len(ld.vassals) + len(ld.special_vassals))
                 campaign._disband_lord(state, ld, from_exile=True)
                 exiles.append(lid)
             continue
@@ -1189,7 +1226,8 @@ def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str) -> Non
         lord.calendar_exile = False
         return
     inf = static_data.load_lords()[lord_id]["ratings"]["influence"]
-    influence.spend_influence(state, lord.side, inf + len(lord.vassals))
+    influence.spend_influence(state, lord.side,
+                              inf + len(lord.vassals) + len(lord.special_vassals))
     fav = state.locales[locale].favour
     aside: str = state.lords[attacker_id].side
     frac = 1.0 if fav == aside else (0.5 if fav == "neutral" else 0.0)

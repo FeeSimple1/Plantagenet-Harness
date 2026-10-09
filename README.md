@@ -34,7 +34,7 @@ from a seeded RNG:
   resolve through all Renewed-War transitions, alongside the standalone and
   battle-only (Bosworth) scenarios.
 
-Verification: 586 passing tests (`pytest`), ruff clean, continuous board-invariant
+Verification: 905 passing tests (`pytest`), ruff clean, continuous board-invariant
 checks, and two reusable bug-finding harnesses (`scripts/sweep_harness.py`,
 `scripts/battle_fuzz.py`). See [`SMOKE_TEST_FINDINGS.md`](SMOKE_TEST_FINDINGS.md)
 for the full audit/bug log and [`CHANGELOG.md`](CHANGELOG.md) for milestones.
@@ -42,8 +42,8 @@ for the full audit/bug log and [`CHANGELOG.md`](CHANGELOG.md) for milestones.
 Known gaps (not bugs): the engine has not yet been validated move-by-move against
 an external recorded game (the highest-value test still outstanding); a few rules
 calls were adjudicated rather than designer-confirmed (see
-[`RULES_DECISIONS.md`](RULES_DECISIONS.md) / [`RULES_QUESTIONS.md`](RULES_QUESTIONS.md));
-and `mypy --strict` is configured but not yet clean.
+[`RULES_DECISIONS.md`](RULES_DECISIONS.md) / [`RULES_QUESTIONS.md`](RULES_QUESTIONS.md)).
+The code also passes `mypy --strict`.
 
 ## Where things are
 
@@ -76,7 +76,7 @@ and `mypy --strict` is configured but not yet clean.
 - `scripts/` — data builders (`build_map_data.py`, `build_scenarios.py`,
   `build_grand_scenario.py`) and bug-finding sweeps (`sweep_harness.py`,
   `battle_fuzz.py`).
-- `tests/` — pytest suite (586 tests) covering the full engine, plus
+- `tests/` — pytest suite (905 tests) covering the full engine, plus
   property-based conservation tests and the fuzz-finding regressions.
 
 ## How to run things
@@ -101,6 +101,11 @@ PYTHONPATH=src python -m plantagenet.cli state game.state.json                  
 PYTHONPATH=src python -m plantagenet.cli state game.state.json --mode verbose         # full JSON
 PYTHONPATH=src python -m plantagenet.cli state game.state.json --mode focused --focus calendar
 ```
+
+After a decisive first or second War in the grand scenario, continue with
+`PYTHONPATH=src python -m plantagenet.cli renew-war game.state.json`.
+The equivalent JSON action is `{"type":"renew_war"}`; it appears in `legal-moves`
+when the transition is available and preserves the earlier game history.
 
 Regenerate the data files from the references (if a reference changes):
 

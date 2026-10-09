@@ -65,6 +65,9 @@ def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             lord = _first_eligible_lord(state, side, cid)
             if lord is not None:
                 lord.capabilities.append(cid)
+                # 3.1.2 deploys the Capability with all its effects (1.5.4).
+                from plantagenet.actions import _muster_special_vassal
+                _muster_special_vassal(state, lord, cid)
                 result["deployed"].append({"card": cid, "lord": lord.lord_id})
             else:                                    # cannot assign -> discard (3.1.2)
                 deck["discard"].append(cid)

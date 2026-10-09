@@ -582,14 +582,16 @@ def test_vanguard_restricts_round_one_only(monkeypatch):
 
 
 def test_ravine_ignores_a_lord_in_round_one_only(monkeypatch):
+    """L12/4.4.2: ignoring York leaves his opponent free to Flank March."""
     s = _two_on_two()
     s.decks["lancastrian"]["held"] = ["L12"]   # RAVINE, played against york
     _patch_dice(monkeypatch, [1], cycle=True)  # everything saves: no Routs
     r = battle.resolve_battle(s, "cambridge", ["york", "march"],
                               ["henry_vi", "somerset_1"], {"ravine": "york"})
     r1 = r["rounds"][0]["engagements"]
-    assert len(r1) == 1                        # york's Engagement is skipped
-    assert r1[0]["attacker"] == ["march"] and r1[0]["defender"] == ["somerset_1"]
+    assert len(r1) == 1                        # both defenders now Engage March
+    assert r1[0]["attacker"] == ["march"]
+    assert set(r1[0]["defender"]) == {"henry_vi", "somerset_1"}
     assert any("york" in e["attacker"]
                for e in r["rounds"][1]["engagements"])   # back in Round 2
 
@@ -877,6 +879,7 @@ def test_final_charge_reroll_burns_exactly_one_valour(monkeypatch):
 
 # ------------------------------------------------------- Swift Maneuver (Y36)
 def test_swift_break_needs_a_new_retinue_rout_this_round(monkeypatch):
+    """Y36: only a new Retinue Rout interrupts, before further Hit rolls."""
     # Round 1: the directed Hit Routs Buckingham's Retinue [6] and the Round
     # ends early (1 of 2 Engagements). Round 2: Buckingham is still Routed but
     # that is NOT a Retinue Routed THIS Round, so both Engagements resolve.
@@ -891,7 +894,8 @@ def test_swift_break_needs_a_new_retinue_rout_this_round(monkeypatch):
         s.lords[lid].capabilities = []
         s.lords[lid].forces = forces
     s.decks["yorkist"]["held"] = ["Y36"]       # SWIFT MANEUVER
-    stub = _patch_dice(monkeypatch, [6] + [1] * 34)
+    # The trigger's remaining 12 Round-1 Hits are skipped immediately (Y36).
+    stub = _patch_dice(monkeypatch, [6] + [1] * 22)
     r = battle.resolve_battle(
         s, "cambridge", ["york", "march"],
         ["henry_vi", "somerset_1", "buckingham"],

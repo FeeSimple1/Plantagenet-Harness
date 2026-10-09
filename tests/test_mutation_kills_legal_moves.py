@@ -256,9 +256,13 @@ def test_tax_supply_and_parley_menus_at_a_port():
     assert "truro" not in parley                       # same-Sea Port needs a Ship
     york.assets["ship"] = 1
     cm = legal_moves._command_moves(s, "yorkist", "york")
+    assert not any(m["type"] == "supply" and m["source"] == "truro"
+                   and m.get("use_ships") for m in cm)  # 4.5.1: Source must be Friendly
+    assert "truro" in {m["target"] for m in cm if m["type"] == "parley"}
+    s.locales["truro"].favour = "yorkist"
+    cm = legal_moves._command_moves(s, "yorkist", "york")
     assert any(m["type"] == "supply" and m["source"] == "truro"
                and m.get("use_ships") for m in cm)
-    assert "truro" in {m["target"] for m in cm if m["type"] == "parley"}
 
 
 def test_agitators_and_merchants_target_menus():

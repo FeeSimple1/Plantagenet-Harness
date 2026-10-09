@@ -90,6 +90,7 @@ def test_parley_blockade_roll_cancels_or_proceeds():
 def test_ship_supply_over_sea_pauses_and_cancel_gives_no_provender():
     for seed in range(1, 25):
         s, lanc, _ = _camp(seed=seed)
+        s.locales["pembroke"].favour = "lancastrian"  # 4.5.1: legal Friendly Source
         prov0 = s.lords[lanc].assets.get("provender", 0)
         r = actions.apply_action(s, {"type": "supply", "side": "lancastrian",
                                      "by_lord": lanc, "source": "pembroke",

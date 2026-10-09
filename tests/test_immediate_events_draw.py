@@ -92,6 +92,8 @@ def test_warwicks_propaganda_sizes_to_available():
     picks = list(s.locales)[:2]
     for loc in picks:
         s.locales[loc].favour = "yorkist"
+    s.turn_box = (s.calendar.first_box or s.turn_box) + 1
+    s.decks["lancastrian"]["draw"].remove("L23")
     s.pending_events.append({"card": "L23", "side": "lancastrian"})
     s.active_side = "lancastrian"
     # Supplying 3 is now wrong (only 2 available); supplying 2 is correct.

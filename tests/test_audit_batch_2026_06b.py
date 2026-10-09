@@ -10,6 +10,7 @@ from plantagenet import actions, campaign, events, legal_moves
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordStatus
+from tests._helpers import apply_drawn_event
 
 
 # 1. Fauconberg is on March's vassal list at Towton.
@@ -23,7 +24,7 @@ def test_fauconberg_on_march_mat():
 def test_l31_rejects_placing_enemy_favour():
     s = build_initial_state("henry_vi", seed=1)
     with pytest.raises(IllegalAction) as e:
-        actions.apply_action(s, {"type": "play_event", "side": "lancastrian", "card": "L31",
+        apply_drawn_event(s, {"type": "play_event", "side": "lancastrian", "card": "L31",
                                  "decisions": {"favour": [{"locale": "scarborough",
                                                            "side": "yorkist"}]}})
     assert e.value.code == "bad_favour_side"
@@ -35,7 +36,7 @@ def test_l31_allows_remove_enemy_and_place_own():
     from plantagenet.state import Favour
     s.locales["scarborough"].favour = Favour("yorkist")
     s.locales["carlisle"].favour = Favour.NEUTRAL
-    actions.apply_action(s, {"type": "play_event", "side": "lancastrian", "card": "L31",
+    apply_drawn_event(s, {"type": "play_event", "side": "lancastrian", "card": "L31",
                              "decisions": {"favour": [
                                  {"locale": "scarborough", "side": "neutral"},
                                  {"locale": "carlisle", "side": "lancastrian"}]}})
@@ -129,7 +130,7 @@ def test_l25_disbands_zero_troop_lord():
     s.lords[wales_lord].location = wales[0]
     s.lords[wales_lord].status = LordStatus.MUSTERED
     s.lords[wales_lord].forces = {"men_at_arms": 2}             # only wooden troops
-    res = actions.apply_action(s, {"type": "play_event", "side": "lancastrian", "card": "L25",
+    res = apply_drawn_event(s, {"type": "play_event", "side": "lancastrian", "card": "L25",
                                    "decisions": {}})
     assert wales_lord in res.get("disbanded", [])
     assert s.lords[wales_lord].status == LordStatus.CALENDAR

@@ -1530,3 +1530,55 @@ had their killed/equivalent twin ids transposed — the re-baseline shows each
 line's behavioural occurrence killed and its structural twin surviving,
 exactly as the equivalence arguments described. Triage tables corrected.
 No claimed kill is actually alive.
+
+
+## Round (2026-10-09): rules audit — 19 issue groups fixed
+
+Audited baseline: `83167ec8fc3e726a3a86abf87d286d042169a10c`. All fixes use
+the repository Rules, Errata, and curated references. No rules deviations added.
+
+1. Special Vassals fight, absorb Hits, Rout, discard their Capability when
+   Disbanding, and count for defeat Influence (1.5.4, 4.4.3).
+2. Flee remains Routed throughout Battle (4.4.2).
+3. Immediate Events require the active side's pending draw, resolved in order
+   during a later Levy (3.1.3).
+4. Pay spends own-mat Coin even partially, then Shares surplus; unpaid Lords
+   owe their full payment again after Pillage (3.2.1).
+5. Exile-marked Lords cannot receive ordinary Levy Lord (Errata FAQ 3).
+6. Intercept can reinforce a destination already containing a defender (4.3.4).
+7. Renewed War is available through JSON, the move palette, and CLI; history
+   remains in the saved game (6.1.2).
+8. Ship Supply Sources must be Friendly and Enemy-free (4.5.1).
+9. Ordinary Marches apply Port arrival effects and open Held-Event windows
+   (Burgundians Y14/Y23; Rebel Supply Depot L28).
+10. Shared Ships/Carts retain the owner's Great Ships/Hay Wains bonus
+    (Y6/L6, L8); borrowed transport does not gain the borrower's bonus.
+11. A canceled Approach preserves earlier movement and Feed obligations
+    (King's Parley L15 Tips).
+12. Rebel Supply Depot grants four total Provender, with explicit Group
+    allocation, rather than four per mover (L28).
+13. First-Levy Special-Vassal Capabilities apply muster effects (3.1.2, Y24).
+14. Ravine treats the target's position as empty when calculating Flanking (L12).
+15. Swift Maneuver stops on the triggering Hit, before further resolution (Y36).
+16. Margaret's arrival in War IIY adds L27/L28/L31 (E4, 6.2.2).
+17. Scourers grants its extra Provender even on failed Forage (Y13).
+18. Charity supports explicit sharing from co-located friendly Lords (Y4).
+19. Rejected actions roll back state, RNG, pending windows, and history. History
+    entries are detached from mutable reaction logs to preserve this guarantee.
+
+Regression coverage: `test_battle_audit_2026_10.py`,
+`test_card_pay_audit_2026_10.py`, `test_command_audit_regressions.py`,
+`test_campaign_audit_regressions.py`, `test_audit_interface_2026_10.py`, and
+`test_action_reaction_atomicity.py`. Legacy fixtures requiring illegal
+Supply Sources or combat results were corrected rather than grandfathered.
+
+The preserved seed-181 recording is valid through step 68. Its step 69 Pay
+incorrectly let Henry VI's Coin pay Somerset instead of Henry's own Troops.
+Correct Pay Disbands both Lords at exhausted London; the subsequent recorded
+Somerset actions are illegal. The replay test now verifies the exact valid
+prefix and requires full replay to reject the obsolete continuation. No
+payment waiver or engine bypass was introduced. Current full-game smoke
+tests still exercise complete scenarios and Renewed War transitions.
+
+Validation: **905 tests pass**, Ruff clean, `mypy --strict` clean, and
+`git diff --check` clean. Baseline had 841 passing tests.

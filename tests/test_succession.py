@@ -97,9 +97,11 @@ def test_henry_released_suppressed_when_l26_assigned():
     succession.on_muster_lord(s, "margaret")            # L26 leaves the deck
     for pile in ("draw", "discard", "held"):
         assert "L26" not in s.decks["lancastrian"][pile]
+    s.turn_box = (s.calendar.first_box or s.turn_box) + 1
+    s.active_side = "lancastrian"
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "play_event", "card": "L26", "side": "lancastrian"})
-    assert e.value.code == "event_suppressed"
+    assert e.value.code == "event_not_pending"
 
 
 def test_removing_somerset_one_calendars_somerset_two():
