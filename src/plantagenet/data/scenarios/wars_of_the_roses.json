@@ -841,7 +841,7 @@
    ],
    "victory_threshold": 45,
    "successions": {
-    "_source": "Scenario Reference E2; War IIIY prose. Heir removal affects only setup.",
+    "_source": "Scenario Reference E2, E6/E7: succession changes are setup-only; Heir loss still decides immediate War Victory.",
     "setup_only": true,
     "yorkist": {
      "heirs": [
@@ -853,8 +853,10 @@
       "rutland",
       [
        "gloucester_1",
+       "gloucester_2",
        "richard_iii"
-      ]
+      ],
+      "warwick_yorkist"
      ],
      "triggers": [
       {
@@ -1080,7 +1082,7 @@
    ],
    "victory_threshold": 45,
    "successions": {
-    "_source": "Scenario Reference E2; War IIIL prose. Heir removal affects only setup.",
+    "_source": "Scenario Reference E2, E6/E7: succession changes are setup-only; Heir loss still decides immediate War Victory.",
     "setup_only": true,
     "lancastrian": {
      "heirs": [
@@ -1150,9 +1152,17 @@
     "yorkist": {
      "heirs": [
       "york",
-      "march",
+      [
+       "march",
+       "edward_iv"
+      ],
       "rutland",
-      "gloucester_1"
+      [
+       "gloucester_1",
+       "gloucester_2",
+       "richard_iii"
+      ],
+      "warwick_yorkist"
      ],
      "triggers": [
       {

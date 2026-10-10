@@ -28,7 +28,7 @@ def test_l31_rejects_placing_enemy_favour():
                                  "decisions": {"favour": [{"locale": "scarborough",
                                                            "side": "yorkist"}]}})
     assert e.value.code == "bad_favour_side"
-    assert s.locales["scarborough"].favour.value == "neutral"
+    assert s.locales["scarborough"].favour == "neutral"
 
 
 def test_l31_allows_remove_enemy_and_place_own():
@@ -40,8 +40,8 @@ def test_l31_allows_remove_enemy_and_place_own():
                              "decisions": {"favour": [
                                  {"locale": "scarborough", "side": "neutral"},
                                  {"locale": "carlisle", "side": "lancastrian"}]}})
-    assert s.locales["scarborough"].favour.value == "neutral"   # Yorkist removed
-    assert s.locales["carlisle"].favour.value == "lancastrian"    # own Favour placed
+    assert s.locales["scarborough"].favour == "neutral"   # Yorkist removed
+    assert s.locales["carlisle"].favour == "lancastrian"    # own Favour placed
 
 
 # 3. Grand scenario: a Lord cannot levy a Capability that isn't in this War's deck.

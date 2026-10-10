@@ -6,6 +6,30 @@ internal milestones.
 
 ## [Unreleased]
 
+### Fixed — 2026-10-10 complete grand-campaign playtest
+- Reject commands after a War has ended, preserving its winner and state; only
+  a legal Renewed War transition may continue play.
+- Apply immediate last-Heir War Victory in both third-War variants. Complete
+  Yorkist Heir tables with Warwick and all Gloucester forms; captured Heirs
+  remain alive. Setup-only Succession still does not add Lords/cards during play.
+- Resolve Exile returns using the current War's rules and Friendly box alignment,
+  not inherited War-I Allied Networks. Later Lords such as Jasper can return;
+  multiple legal destinations are explicit choices. Reject duplicate returns.
+- Normalize JSON Battle Array keys and reject invalid indices, duplicate positions,
+  duplicate Lords, and enemy/nonparticipant Lords atomically.
+- Queue Loyalty and Trust (Y22) until the player chooses a Yorkist Lord. Enumerate
+  targets, apply +3 Lordship without rolling, and expire the benefit normally.
+- Enumerate Commission of Array's adjacent recruitment, including free Stanley
+  Levies and Exhausted origins. Reject remote targets without the Capability.
+  The shared Troop menu also includes Irishmen's no-depletion recruitment.
+- Normalize default enum values and Favour transition text so fresh and saved
+  games produce identical results and history.
+- Add 71 regression cases with original game snapshots and full campaign actions.
+  The corrected campaign takes 1101 actions, including one explicit new Y22 choice,
+  and ends on Warwick's Death rather than executing two post-victory old actions.
+- Keep the historical seed-181 log unchanged: its valid prefix now ends at action
+  28, because action 29 skips Y22's mandatory selection. No replay waiver added.
+
 ### Fixed — 2026-10-10 interactive playtest
 - Mark every remaining Battle participant for Feed, including stationary defenders
   and Reserves; Suspicion targets removed before the Battle are excluded.

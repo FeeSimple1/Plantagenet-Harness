@@ -50,7 +50,7 @@ class LordStatus(str, Enum):
 
 
 class _Model(BaseModel):
-    model_config = ConfigDict(extra="forbid", use_enum_values=True)
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, validate_default=True)
 
 
 class LordState(_Model):

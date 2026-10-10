@@ -380,17 +380,35 @@ def _absorb_side(side_forces: list[_Force], n_hits: int, dice: DiceRoller, order
 
 
 # ----------------------------------------------------------------- 4.4.1 Array
+def _array_positions(raw: Any, participants: list[str]) -> dict[int, str]:
+    """Normalize JSON object keys; validate position and Lord identities."""
+    _require(isinstance(raw, dict), "bad_battle_array", "Battle positions must be an object")
+    positions: dict[int, str] = {}
+    for key, lid in raw.items():
+        _require((type(key) is int and key in (0, 1, 2))
+                 or (isinstance(key, str) and key in ("0", "1", "2")),
+                 "bad_battle_array", "Front positions must be 0 (left), 1 (center), or 2 (right)")
+        idx = int(key)
+        _require(idx not in positions, "bad_battle_array", "a Front position cannot be duplicated")
+        _require(isinstance(lid, str) and lid in participants,
+                 "bad_battle_array", "Array Lords must participate on that side of the Battle")
+        _require(lid not in positions.values(), "bad_battle_array",
+                 "a Lord cannot occupy two Fronts")
+        positions[idx] = lid
+    return positions
+
+
 def _initial_array(attackers: list[str], defenders: list[str],
                    decisions: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     if "defender_positions" in decisions:
-        dpos = dict(decisions["defender_positions"])
+        dpos = _array_positions(decisions["defender_positions"], defenders)
         res_def = [d for d in defenders if d not in dpos.values()]
     else:
         dpos = {idx: lid for idx, lid in zip(_FILL_ORDER, defenders[:3], strict=False)}
         res_def = defenders[3:]
     occupied = [i for i in _FILL_ORDER if i in dpos]
     if "attacker_positions" in decisions:
-        apos = dict(decisions["attacker_positions"])
+        apos = _array_positions(decisions["attacker_positions"], attackers)
         res_atk = [a for a in attackers if a not in apos.values()]
     else:
         apos = {idx: lid for idx, lid in zip(occupied, attackers[:len(occupied)], strict=False)}

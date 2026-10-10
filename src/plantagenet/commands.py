@@ -967,7 +967,8 @@ def _shift_favour(state: GameState, target: str, side: str) -> None:
 
 
 def _fav_desc(target: str, before: str, side: str) -> str:
-    after = side if before == "neutral" else "neutral"
+    before = Favour(before).value
+    after = Favour(side).value if before == "neutral" else "neutral"
     return f"{target}: {before} -> {after}"
 
 

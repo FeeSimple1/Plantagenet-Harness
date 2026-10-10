@@ -40,18 +40,23 @@ The Levy begins with the Arts of War draw, Rebel then King:
 
 | Action | Args | Rule | Status |
 |---|---|---|---|
-| `draw` | `side` | 3.1 | done (first Levy deploys 2 Capabilities; later Levies draw 2 Events; immediate Events queue on `pending_events` for resolution) |
-| `play_event` | `card`, `side`, `decisions?` | 3.1.3 / 1.9.1 | done (resolve a drawn immediate Event as far as able; returns card to deck; only legal move while `pending_events` set) |
+| `draw` | `side` | 3.1 | done (first Levy deploys 2 Capabilities; later Levies draw 2 Events; immediate Events and targeted duration Events queue on `pending_events`) |
+| `play_event` | `card`, `side`, `decisions?` | 3.1.3 / 1.9.1 | done (resolve a pending drawn Event; immediate cards return to deck, duration cards stay active; only legal move while `pending_events` set) |
 
 First Levy of a scenario (3.1.2): each side draws two cards and deploys them
 as Capabilities at Mustered Lord mats (default first eligible Lord; discard
 if unassignable). Later Levies (3.1.3): each side draws two Events — Hold ->
-held pile, This Levy / This Campaign -> active, otherwise resolve and return
-to the deck. (Event/Capability *effects* are applied by the consumer until
-coded in later increments.) After both draws -> Muster (first Turn) or Pay.
-Immediate Events must be resolved in draw order: `play_event` accepts only the
+held pile, This Levy / This Campaign -> active (after any required target
+selection), otherwise resolve and return to the deck. After both draws ->
+Muster (first Turn) or Pay. Pending Events must be resolved in draw order: `play_event` accepts only the
 first card in `pending_events`, for the active side. Undrawn cards cannot be
 played through this action.
+
+**Loyalty and Trust (Y22)** queues a required target choice rather than silently
+activating without one. `legal_moves` offers concrete `play_event` choices with
+`"decisions": {"target": "<Yorkist Lord id>"}`. The card stays unavailable as a
+Capability while pending/active, gives only that Lord +3 Lordship, and expires
+at the end of the Levy. An invalid/missing target cannot advance the draw.
 
 ### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 
@@ -203,9 +208,13 @@ and Falconets in the Battle.
 
 ### Edge-case completeness (Phase 5j)
 
-`muster_exiles` (3.3.1): {`side`, `lords`} — during the Muster window, move the
-listed Exile-marked Calendar Lords (current/earlier box) to their designated
-Exile box, free; enumerated in `legal_moves`.
+`muster_exiles` (3.3.1): {`side`, `lords`, `exile_boxes?`} — during the Muster
+window, move the listed Exile-marked Calendar Lords (current/earlier box) to
+currently Friendly, permitted Exile boxes, free. Allied Networks restricts only
+Henry VI / War I; later Wars use their own current box alignments. A sole legal
+destination is implicit; with multiple destinations provide a mapping such as
+`"exile_boxes": {"jasper_tudor_1": "france"}`. The menu offers each choice.
+Enemy/unmarked boxes, premature returns, and duplicate Lords are rejected.
 
 `sail` into a Sea (4.6.1): `to` may name a Sea zone (same/adjacent), leaving the
 Lord at Sea (`LordState.at_sea`); a later `sail` from at Sea reaches a Port. At
@@ -361,3 +370,23 @@ the granting effect explicitly waives them. Players cannot request automatic
 success independently of a rules-granted effect. Held Events are not unused
 Capabilities: `levy_capability` rejects them until a permitted play/discard
 returns them to the unused deck.
+
+
+### Grand-campaign regression details (2026-10-10)
+
+Final-War Heir lists include the Lord forms actually selected at setup, including
+Yorkist Warwick and Gloucester (2). Losing the last current-War Heir immediately
+sets `phase="over"` and the War winner; after the third War there is no `renew_war`
+action. The setup-only Succession rule suppresses in-play replacements/deck changes,
+not this immediate victory check. Influence cannot overturn a prior Heir victory.
+
+Battle decisions `attacker_positions` / `defender_positions` accept integer Python
+keys or their JSON string equivalents `"0"`, `"1"`, `"2"`. Bad indices, duplicate
+positions/Lords, and Lords outside that side's participants raise `IllegalAction`
+(`bad_battle_array`); public action rejection restores state and RNG.
+
+`levy_troops` with Commission of Array may specify `levy_target` for an adjacent,
+Friendly, Enemy-free, non-Exhausted Stronghold. The menu includes each eligible
+target even when the acting Lord's own Stronghold is Exhausted; the target, not
+the origin, supplies Troops and is Depleted/Exhausted. Ordinary Lordship and payment
+requirements still apply, including a legal Thomas Stanley free Levy.

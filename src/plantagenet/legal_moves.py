@@ -49,6 +49,12 @@ def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
     some Events are deterministic). ``apply_action`` rejects all else."""
     side = state.active_side
     pe = state.pending_events[0]
+    if pe.get("side") == side and pe["card"] == "Y22":
+        from plantagenet.events import loyalty_and_trust_targets
+        targets = loyalty_and_trust_targets(state, side)
+        if targets:
+            return [{"type": "play_event", "side": side, "card": "Y22",
+                     "decisions": {"target": lid}} for lid in targets]
     return ([{"type": "play_event", "side": side, "card": pe["card"]}]
             if pe.get("side") == side else [])
 
@@ -91,14 +97,17 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     # Muster Exiles (3.3.1): each Exile-marked Lord ready in the current/earlier box
     # with a designated Exile box.
     try:
-        net = {lid for _box, lids in actions._allied_networks(state).items() for lid in lids}
         for lid, ls in state.lords.items():
             bsf = side == "lancastrian" and ratings.event_active(state, "BE SENT FOR")
             if (ls.side == side and ls.status == LordStatus.CALENDAR and ls.calendar_exile
                     and ls.calendar_box is not None
-                    and (bsf or ls.calendar_box <= state.turn_box)
-                    and lid in net):
-                out.append({"type": "muster_exiles", "side": side, "lords": [lid]})
+                    and (bsf or ls.calendar_box <= state.turn_box)):
+                boxes = actions._exile_destinations(state, lid)
+                for box in boxes:
+                    move: dict[str, Any] = {"type": "muster_exiles", "side": side, "lords": [lid]}
+                    if len(boxes) > 1:
+                        move["exile_boxes"] = {lid: box}
+                    out.append(move)
     except (KeyError, AttributeError):
         pass
     # King Richard (My Kingdom for a Horse) -- offered to the Yorkist player
@@ -132,14 +141,10 @@ def _moves_for_lord(state: GameState, lord_id: str, lord: LordState, side: str,
     if free_only:
         # Lordship exhausted: only Thomas Stanley's free Levy Troops remains (L35).
         try:
-            loc = cast(tuple[str, str], actions.lord_location(lord))
             stanley_free = ("thomas_stanley" in lord.special_vassals
                             and not lord.free_troops_used)
-            rising_wages = ratings.event_against(state, "RISING WAGES", side)
-            if (stanley_free and loc[0] == "stronghold"
-                    and state.locales[loc[1]].depletion != "exhausted"
-                    and not (rising_wages and lord.assets.get("coin", 0) < 1)):
-                moves.append({"type": "levy_troops", "side": side, "by_lord": lord_id})
+            if stanley_free:
+                moves.extend(_troop_levy_moves(state, lord, side))
         except (KeyError, AttributeError, IndexError):
             pass
         return moves
@@ -177,11 +182,7 @@ def _moves_for_lord(state: GameState, lord_id: str, lord: LordState, side: str,
     # --- Levy Troops (3.4.4): at a Friendly Stronghold (not Exile box), not Exhausted ---
     # Rising Wages (L9): this side pays 1 Coin per Levy Troops -- need the Coin.
     try:
-        loc = cast(tuple[str, str], actions.lord_location(lord))
-        rising_wages = ratings.event_against(state, "RISING WAGES", side)
-        if (loc[0] == "stronghold" and state.locales[loc[1]].depletion != "exhausted"
-                and not (rising_wages and lord.assets.get("coin", 0) < 1)):
-            moves.append({"type": "levy_troops", "side": side, "by_lord": lord_id})
+        moves.extend(_troop_levy_moves(state, lord, side))
     except (KeyError, AttributeError, IndexError):
         pass
 
@@ -216,6 +217,30 @@ def _moves_for_lord(state: GameState, lord_id: str, lord: LordState, side: str,
                           "by_lord": lord_id, "transport": "ship"})
     except (KeyError, AttributeError, IndexError):
         pass
+    return moves
+
+
+def _troop_levy_moves(state: GameState, lord: LordState, side: str) -> list[dict[str, Any]]:
+    """All eligible own/adjacent recruitment locations, including free Levies."""
+    if ratings.event_against(state, "RISING WAGES", side) and lord.assets.get("coin", 0) < 1:
+        return []
+    loc = actions.lord_location(lord)
+    if loc is None:
+        return []
+    kind, here = loc
+    irish = ratings.has_capability(state, lord.lord_id, "IRISHMEN") and (
+        (kind == "exile" and here == "ireland")
+        or (kind == "stronghold" and actions._port_sea().get(here) == "irish_sea"))
+    base = {"type": "levy_troops", "side": side, "by_lord": lord.lord_id}
+    moves = []
+    if irish or (kind == "stronghold" and state.locales[here].depletion != "exhausted"):
+        moves.append(base)
+    if kind == "stronghold" and ratings.has_capability(state, lord.lord_id, "COMMISSION OF ARRAY"):
+        for target in sorted({n for n, _ in actions._adjacency().get(here, [])}):
+            if (actions.is_friendly_stronghold(state, target, side)
+                    and not actions.enemy_lord_at(state, target, side)
+                    and state.locales[target].depletion != "exhausted"):
+                moves.append({**base, "levy_target": target})
     return moves
 
 

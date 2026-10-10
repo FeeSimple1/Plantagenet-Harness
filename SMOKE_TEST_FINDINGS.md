@@ -1618,3 +1618,31 @@ omniscient; the normal setup summary does not reveal the other side's choices.
 Regression coverage: `test_playtest_2026_10.py` and `test_bosworth_setup.py`.
 Baseline 905 tests; updated suite 944 tests. See the fix commit and CI for final
 validation results. The earlier audit results above are historical snapshots.
+
+
+## 2026-10-10 complete grand-campaign fixes
+
+Based on Wars of the Roses seed 20261010, revision 17cb0fe. The original diagnostic
+file reproduced ten failing expectations and two passing controls. Fixes address
+all six finding groups: (G1) final-Heir victory/rosters; (G2) current-War Exile
+returns; (G3) JSON arrays; (G4) Y22 target selection; (G5) Commission of Array menu;
+(G6) enum/string save-load logs. See CHANGELOG and ACTIONS for the contracts.
+
+Added 71 regression cases with real stripped-history fixtures, controlled boundary
+variants, and the entire original action list. The corrected campaign's 1101
+actions include both War transitions and a new explicit Y22 choice. It ends
+immediately on Warwick's Death. Fresh and serialized-start replays match every
+result and game state, and their final histories are identical. The original
+campaign's last two actions are now correctly rejected as post-victory.
+
+The older seed-181 log remains unaltered, but its valid prefix is now only 28
+actions: action 29 tries to draw before choosing Y22's target. The prior Pay
+violation remains in that record; it is not waived or reached by inventing the
+omitted choice. The standalone Muster Exiles test now expects France for War-IIY
+Henry VI, not the obsolete War-I Scotland assignment.
+
+The corrected full replay also exposed an executor-only terminal-state bypass:
+`end_activation` and `end_campaign` could still mutate an ended War. The action
+dispatcher now rejects all post-War commands except `renew_war`, whose handler
+checks that a next War actually exists. The full replay tests rejected suffix
+actions atomically and still traverses both legal Renewed-War transitions.

@@ -4,8 +4,8 @@ First Levy of a scenario (3.1.2): each side draws two cards and deploys them
 as Capabilities at Mustered Lord mats (discarding any it cannot assign).
 Second and later Levies (3.1.3): each side draws two cards and implements
 their Events — Hold Events go to the held pile, This Levy / This Campaign
-Events become active for the phase, and other Events resolve and return to
-the deck.
+Events become active for the phase (after target selection where needed),
+and other Events resolve and return to the deck.
 
 This module wires the draw, deck, and Event-type lifecycle; card effects
 themselves are applied by the rules-engine modules (events / ratings /
@@ -78,6 +78,9 @@ def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             if etype == "hold":
                 deck["held"].append(cid)
                 result["held"].append(cid)
+            elif cid == "Y22":                      # Loyalty and Trust needs a chosen Lord
+                state.pending_events.append({"card": cid, "side": side})
+                result["pending"].append(cid)
             elif etype in ("this_levy", "this_campaign"):
                 state.active_events.append({"card": cid, "side": side, "scope": etype})
                 result["active"].append(cid)
@@ -93,7 +96,7 @@ def draw(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                 state.pending_events.append({"card": cid, "side": side})
                 result["pending"].append(cid)
 
-    if state.pending_events:                          # immediate Events await play_event
+    if state.pending_events:                          # drawn Events await resolution/selection
         result["next"] = "resolve_events"
         return result
     result["next"] = advance_after_draw(state, side, first_levy)

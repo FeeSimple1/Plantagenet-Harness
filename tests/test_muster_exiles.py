@@ -27,9 +27,9 @@ def test_muster_exiles_places_lord_in_designated_box_for_free():
     n = _iiy_at_muster()
     r = actions.apply_action(n, {"type": "muster_exiles", "side": "lancastrian",
                                  "lords": ["henry_vi"]})
-    assert r["mustered"] == [{"lord": "henry_vi", "box": "scotland"}]
+    assert r["mustered"] == [{"lord": "henry_vi", "box": "france"}]
     hv = n.lords["henry_vi"]
-    assert hv.status == LordStatus.MUSTERED and hv.exile_box == "scotland"
+    assert hv.status == LordStatus.MUSTERED and hv.exile_box == "france"
     assert not hv.calendar_exile and hv.calendar_box is None
     assert hv.forces                                     # mat set up (Forces from the card)
     # Free: no Lordship/Influence machinery -- a brought-in Exile may still act (3.3.1).

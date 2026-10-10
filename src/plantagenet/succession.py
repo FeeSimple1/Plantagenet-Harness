@@ -201,7 +201,7 @@ def on_muster_lord(state: GameState, lord_id: str) -> dict[str, Any] | None:
 
 
 # --------------------------------------------------------------- presence
-_IN_PLAY = (LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE)
+_IN_PLAY = (LordStatus.MUSTERED, LordStatus.CALENDAR, LordStatus.EXILE, LordStatus.CAPTURED)
 
 
 def _present_heirs(state: GameState, side: str) -> list[str]:
@@ -390,11 +390,17 @@ def on_heir_removed(state: GameState, lord_id: str,
     side = state.lords[lord_id].side
     if heir_rank(state, side, lord_id) is None:
         return None
-    setup_only = (_current_war(state) or {}).get("successions", {}).get("setup_only", False)
-    if setup_only:                       # War III: Heir removal affects only setup, not play
-        return {"after": lord_id, "setup_only": True}
-
     result: dict[str, Any] = {"after": lord_id}
+    setup_only = (_current_war(state) or {}).get("successions", {}).get("setup_only", False)
+    if setup_only:
+        # E6/E7 suppress replacement Lords and deck changes during play, not
+        # the E2 immediate loss when the current War's last Heir dies.
+        result = {"after": lord_id, "setup_only": True}
+        av = _automatic_victory(state)
+        if av:
+            result["automatic_victory"] = av
+        return result
+
     explicit = False
     if not setup_only:
         for trig in _succ(state, side).get("triggers", []):
@@ -508,8 +514,6 @@ def _general_next_heir(state: GameState, side: str, lord_id: str) -> dict[str, A
 
 def _automatic_victory(state: GameState) -> dict[str, Any] | None:
     war = _current_war(state) or {}
-    if war.get("successions", {}).get("setup_only"):     # War III: removal is setup-only
-        return None
     rules = war.get("successions", {}).get("automatic_victory", [])
 
     def gone(lid: str) -> bool:

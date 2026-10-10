@@ -21,11 +21,12 @@ A successful prefix does not validate the remaining recorded continuation.
 Exit code 0 = every compared oracle field in the requested range matched;
 only explicitly waived illegal actions were skipped. Nonzero rejects the replay.
 
-The seed-181 historical recording is valid through step 68. At step 69 its old
-Pay implementation diverted Henry VI's one Coin to Somerset, contrary to the
-own-mat/partial-Pay requirement (3.2.1). Correct Pay Disbands both Lords at
-exhausted London, so the later recorded Somerset actions cannot be replayed.
-The original recording is preserved as evidence, not rewritten or waived.
+The seed-181 historical recording matches through step 28. That draw includes
+Y22 Loyalty and Trust, but the recording omits its mandatory target selection.
+Step 29 tries to draw for Lancaster instead, so the current engine rejects it.
+The previously identified step-69 partial-Pay error is also in that old record;
+it is now unreachable without inventing the missing choice. The original log
+is preserved as evidence, not rewritten or waived.
 """
 
 from __future__ import annotations

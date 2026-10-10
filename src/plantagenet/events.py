@@ -593,19 +593,25 @@ def play_held_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     return {"type": "play_held_event", "card": cid, "side": side, **res}
 
 
+def loyalty_and_trust_targets(state: GameState, side: str) -> list[str]:
+    """Y22: any Yorkist Lord still in this scenario, including Calendar/Exile."""
+    return sorted(lid for lid, lord in state.lords.items()
+                  if lord.side == side == "yorkist" and lord.status != LordStatus.REMOVED)
+
+
 _PERSIST = {"Y34"}   # immediate Events that stay in effect (active_events)
 
 
 def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    """Resolve the next drawn immediate Event, in draw order (1.9.1 / 3.1.3)."""
+    """Resolve the next pending drawn Event, including a Y22 target (1.9.1 / 3.1.3)."""
     cid = cast(str, action.get("card"))
     side = cast(str, action.get("side"))
     cards = static_data.load_cards()
-    _require(cid in _IMMEDIATE or cid in _PERSIST, "not_immediate_event",
-             f"{cid} is not a coded immediate Event")
+    _require(cid in _IMMEDIATE or cid in _PERSIST or cid == "Y22", "not_immediate_event",
+             f"{cid} is not a coded pending Event")
     _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
     _require(state.phase == "levy" and state.levy_step == "arts_of_war",
-             "wrong_step", "immediate Events resolve during the Arts of War draw (3.1.3)")
+             "wrong_step", "drawn Events resolve during the Arts of War step (3.1.3)")
     _require(state.turn_box != (state.calendar.first_box or state.turn_box),
              "first_levy", "the first Levy draws Capabilities, not Events (3.1.2)")
     _require(side == state.active_side, "not_active_side",
@@ -615,9 +621,22 @@ def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"{cid} has not been drawn for resolution (3.1.3)")
     _require(state.pending_events[0] == {"card": cid, "side": side}, "event_order",
              "resolve Events in the order drawn (3.1.3)")
-    if cid in _PERSIST:
+    res: dict[str, Any]
+    if cid == "Y22":
+        targets = loyalty_and_trust_targets(state, side)
+        decisions = action.get("decisions", {})
+        _require(isinstance(decisions, dict), "bad_event_decisions", "decisions must be an object")
+        target = decisions.get("target")
+        _require((not targets and target is None) or target in targets, "bad_event_target",
+                 "Loyalty and Trust requires selection of a Yorkist Lord still in the scenario")
+        ev = {"card": cid, "side": side, "scope": "this_levy"}
+        if target is not None:
+            ev["target"] = target
+        state.active_events.append(ev)
+        res = {"active": True, "target": target, "no_effect": not targets}
+    elif cid in _PERSIST:
         state.active_events.append({"card": cid, "side": side, "scope": "this_campaign"})
-        res: dict[str, Any] = {"active": True}
+        res = {"active": True}
     else:
         res = _IMMEDIATE[cid](state, side, action.get("decisions", {}))
         state.decks.setdefault(side, {}).setdefault("draw", []).append(cid)

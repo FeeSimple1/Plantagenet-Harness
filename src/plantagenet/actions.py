@@ -173,6 +173,8 @@ def _restore_value(current: Any, saved: Any) -> Any:
 
 def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     atype = cast(str, action.get("type"))
+    if state.phase == "over" and atype != "renew_war":
+        raise IllegalAction("game_over", "the War has ended; only Renewed War may follow (6.1.2)")
     if state.phase == "battle" and atype not in (
             "choose_battle_capability", "array_battle", "resolve_battle"):
         raise IllegalAction("battle_setup_only",
@@ -191,11 +193,11 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # reaction gate before the move's window ever opens.)
     if atype != "play_held_event":
         state.hold_window = None
-    # While immediate Events drawn during Arts of War await resolution (3.1.3),
+    # While drawn Events (including target choices) await resolution (3.1.3),
     # only play_event is legal and the Levy does not advance.
     if state.pending_events and atype != "play_event":
         raise IllegalAction("events_pending",
-                            "resolve drawn immediate Events with play_event first (3.1.3)")
+                            "resolve pending drawn Events with play_event first (3.1.3)")
     handler = _HANDLERS.get(atype)
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
@@ -412,10 +414,10 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if chk["success"]:
         if fav == Favour.NEUTRAL.value:
             state.locales[target].favour = cast(Favour, lord.side)
-            changed = f"{target}: neutral -> {lord.side}"
+            changed = f"{target}: neutral -> {Side(lord.side).value}"
         else:  # Enemy favour -> Neutral
             state.locales[target].favour = cast(Favour, Favour.NEUTRAL.value)
-            changed = f"{target}: {fav} -> neutral"
+            changed = f"{target}: {Favour(fav).value} -> neutral"
     result = {"type": "parley", "by_lord": lord.lord_id, "target": target,
               "way_cost": way_cost, **chk, "favour_change": changed}
     if chk["success"]:
@@ -631,8 +633,13 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     here = loc[1]
     # Commission of Array (L12): draw from an adjacent Friendly, Enemy-free Stronghold.
     target = action.get("levy_target")
-    if (target and target != here
-            and ratings.has_capability(state, lord.lord_id, "COMMISSION OF ARRAY")):
+    if target is not None and target != here:
+        _require(isinstance(target, str), "bad_commission_target",
+                 "levy_target must be a Locale id")
+        _require(ratings.has_capability(state, lord.lord_id, "COMMISSION OF ARRAY"),
+                 "no_commission_of_array", "remote Levy Troops requires Commission of Array (L12)")
+        _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
+                 "Commission of Array requires the acting Lord at a Friendly Locale (3.4)")
         _require(loc[0] == "stronghold", "in_exile_box",
                  "Commission of Array Levies from a map Stronghold (L12)")
         _require(target in {n for n, _t in _adjacency().get(here, [])}, "not_adjacent",
@@ -811,12 +818,24 @@ def _muster_special_vassal(state: GameState, lord: LordState, card_id: str) -> s
 
 # ----------------------------------------------------- 3.3.1 Muster Exiles
 def _allied_networks(state: GameState) -> dict[str, Any]:
-    """Exile-box assignments per Lord (6.0). A fixed game property: defined at
-    War I / Scenario Ia and carried across Wars."""
+    """Lord-specific Exile restrictions of the CURRENT scenario/War (6.0).
+    Allied Networks applies to War I / Henry VI, not to later-War returns.
+    With no such restriction, any currently Friendly Exile box is eligible.
+    """
     if state.grand_scenario:
-        return cast(dict[str, Any], state.grand_scenario.get("allied_networks") or {})
+        from plantagenet.succession import _current_war
+        return cast(dict[str, Any], (_current_war(state) or {}).get("allied_networks", {}))
     return cast(dict[str, Any],
                 static_data.load_scenario(state.scenario).get("allied_networks", {}))
+
+
+def _exile_destinations(state: GameState, lord_id: str) -> list[str]:
+    """Legal 3.3.1 return boxes, shared by the menu and executor."""
+    lord = state.lords[lord_id]
+    networks = _allied_networks(state)
+    return sorted(box for box, side in state.exile_alignment.items()
+                  if side == lord.side and box in static_data.load_exile_boxes()
+                  and (not networks or lord_id in networks.get(box, [])))
 
 
 def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -830,25 +849,34 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
              f"Muster Exiles is part of the Muster window (3.3.1); step is {state.levy_step!r}")
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Muster (Rebel then King)")
-    lord_to_box = {lid: box for box, lids in _allied_networks(state).items() for lid in lids}
+    destinations = {lid: _exile_destinations(state, lid) for lid in state.lords}
+    choices = action.get("exile_boxes", {})
+    _require(isinstance(choices, dict), "bad_exile_boxes", "exile_boxes must map Lord ids to boxes")
     # Be Sent For (L4): treat any Exile-marked Lancastrian on the Calendar as Ready.
     be_sent_for = side == "lancastrian" and bool(ratings.event_active(state, "BE SENT FOR"))
     eligible = {lid for lid, ls in state.lords.items()
                 if ls.side == side and ls.status == LordStatus.CALENDAR and ls.calendar_exile
                 and ls.calendar_box is not None
                 and (be_sent_for or ls.calendar_box <= state.turn_box)
-                and lid in lord_to_box}
+                and destinations[lid]}
     targets = action.get("lords")
     _require(isinstance(targets, list) and targets, "no_lords",
              "muster_exiles requires a non-empty 'lords' list (3.3.1)")
     assert targets is not None
+    _require(all(isinstance(lid, str) for lid in targets), "no_lords", "lords must be Lord ids")
+    _require(len(targets) == len(set(targets)), "duplicate_lord", "Muster each Exile only once")
+    _require(set(choices) <= set(targets), "bad_exile_boxes",
+             "choose boxes only for selected Lords")
     statics = static_data.load_lords()
     mustered = []
     for lid in targets:
         _require(lid in eligible, "not_exile_musterable",
                  f"{lid} is not an Exile-marked Lord of {side} ready to Muster to a "
                  f"designated box (3.3.1)")
-        box = lord_to_box[lid]
+        options = destinations[lid]
+        box = choices.get(lid, options[0] if len(options) == 1 else None)
+        _require(box in options, "bad_exile_box",
+                 f"choose a currently Friendly permitted Exile box for {lid}: {options}")
         ls = state.lords[lid]
         ls.status = LordStatus.MUSTERED          # Mustered in its Exile box (has a mat)
         ls.exile_box = box

@@ -9,8 +9,12 @@ from plantagenet.state import LordStatus, VassalStatus
 def fill_event_decisions(state, card, side):
     """Minimal legal ``decisions`` for a drawn immediate Event (test scaffolding,
     standing in for a consumer's choices). Most Events default to empty (they are
-    deterministic, or the choice is optional and declining is legal); only the two
-    mandatory-selection Events need a default selection, sized to availability."""
+    deterministic, or the choice is optional and declining is legal). Mandatory
+    selection Events need a default choice, sized to availability."""
+    if card == "Y22":
+        from plantagenet.events import loyalty_and_trust_targets
+        targets = loyalty_and_trust_targets(state, side)
+        return {"target": targets[0]} if targets else {}
     if card in ("L23", "L24"):                  # Warwick's Propaganda: min(3, available)
         ys = [loc for loc, ls in state.locales.items() if ls.favour == "yorkist"]
         return {"strongholds": {loc: "remove" for loc in ys[:min(3, len(ys))]}}

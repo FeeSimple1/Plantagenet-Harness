@@ -1,0 +1,203 @@
+{
+  "0": {
+    "type": "draw",
+    "side": "yorkist"
+  },
+  "1": {
+    "type": "draw",
+    "side": "lancastrian"
+  },
+  "2": {
+    "type": "levy_capability",
+    "by_lord": "march",
+    "card": "Y20",
+    "side": "yorkist"
+  },
+  "3": {
+    "type": "levy_capability",
+    "by_lord": "march",
+    "card": "Y19",
+    "side": "yorkist"
+  },
+  "4": {
+    "type": "levy_capability",
+    "by_lord": "york",
+    "card": "Y7",
+    "side": "yorkist"
+  },
+  "5": {
+    "type": "parley",
+    "by_lord": "york",
+    "target": "cambridge",
+    "side": "yorkist"
+  },
+  "6": {
+    "type": "parley",
+    "by_lord": "york",
+    "target": "bury_st_edmunds",
+    "side": "yorkist"
+  },
+  "7": {
+    "type": "end_muster",
+    "side": "yorkist"
+  },
+  "8": {
+    "type": "parley",
+    "by_lord": "henry_vi",
+    "target": "st_albans",
+    "side": "lancastrian"
+  },
+  "9": {
+    "type": "parley",
+    "by_lord": "henry_vi",
+    "target": "oxford",
+    "side": "lancastrian"
+  },
+  "10": {
+    "type": "levy_capability",
+    "by_lord": "somerset_1",
+    "card": "L19",
+    "side": "lancastrian"
+  },
+  "11": {
+    "type": "levy_capability",
+    "by_lord": "somerset_1",
+    "card": "L20",
+    "side": "lancastrian"
+  },
+  "12": {
+    "type": "end_muster",
+    "side": "lancastrian"
+  },
+  "13": {
+    "type": "begin_campaign"
+  },
+  "14": {
+    "type": "build_plan",
+    "side": "yorkist",
+    "plan": [
+      {
+        "lord": "york"
+      },
+      {
+        "lord": "march"
+      },
+      {
+        "lord": "march"
+      },
+      {
+        "lord": "york"
+      }
+    ]
+  },
+  "15": {
+    "type": "build_plan",
+    "side": "lancastrian",
+    "plan": [
+      {
+        "lord": "somerset_1"
+      },
+      {
+        "lord": "henry_vi"
+      },
+      {
+        "lord": "somerset_1"
+      },
+      {
+        "lord": "henry_vi"
+      }
+    ]
+  },
+  "16": {
+    "type": "march",
+    "by_lord": "york",
+    "to": "peterborough",
+    "side": "yorkist"
+  },
+  "17": {
+    "type": "parley",
+    "by_lord": "york",
+    "target": "peterborough",
+    "side": "yorkist"
+  },
+  "43": {
+    "type": "draw",
+    "side": "yorkist"
+  },
+  "80": {
+    "type": "march",
+    "by_lord": "york",
+    "to": "peterborough",
+    "group": [
+      "salisbury"
+    ],
+    "decisions": {
+      "valour": true,
+      "escape_ship": [
+        "york"
+      ]
+    },
+    "side": "yorkist"
+  },
+  "177": {
+    "type": "levy_troops",
+    "by_lord": "henry_vi",
+    "levy_target": "hereford",
+    "side": "lancastrian"
+  },
+  "1099": {
+    "type": "march",
+    "side": "lancastrian",
+    "by_lord": "margaret",
+    "to": "exeter",
+    "battle_reactions": [
+      {
+        "side": "lancastrian",
+        "card": "L36",
+        "effect": "talbot",
+        "window": "death",
+        "priority": 40
+      },
+      {
+        "side": "yorkist",
+        "card": "Y1",
+        "lord": "warwick_yorkist",
+        "effect": "culverins",
+        "window": "event",
+        "priority": 15
+      },
+      {
+        "side": "yorkist",
+        "card": "Y36",
+        "effect": "swift_maneuver",
+        "window": "round",
+        "priority": 30
+      }
+    ],
+    "decisions": {
+      "culverins": [
+        "warwick_yorkist"
+      ],
+      "absorb_order": [
+        "men_at_arms",
+        "vassal",
+        "militia",
+        "longbow",
+        "retinue"
+      ],
+      "valour": true
+    }
+  },
+  "1100": {
+    "type": "end_activation",
+    "side": "lancastrian"
+  },
+  "1101": {
+    "type": "end_campaign",
+    "decisions": {
+      "charity": {
+        "salisbury": 0
+      }
+    }
+  }
+}

@@ -35,7 +35,7 @@ from a seeded RNG:
   battle-only (Bosworth) scenarios. Bosworth includes explicit four-Capability
   selection and three-Lord Arrays for each side before simultaneous reveal.
 
-Verification: 944 passing tests (`pytest`), ruff clean, continuous board-invariant
+Verification: 1015 passing tests (`pytest`), ruff clean, continuous board-invariant
 checks, and two reusable bug-finding harnesses (`scripts/sweep_harness.py`,
 `scripts/battle_fuzz.py`). See [`SMOKE_TEST_FINDINGS.md`](SMOKE_TEST_FINDINGS.md)
 for the full audit/bug log and [`CHANGELOG.md`](CHANGELOG.md) for milestones.
@@ -78,7 +78,7 @@ The code also passes `mypy --strict`.
 - `scripts/` — data builders (`build_map_data.py`, `build_scenarios.py`,
   `build_grand_scenario.py`) and bug-finding sweeps (`sweep_harness.py`,
   `battle_fuzz.py`).
-- `tests/` — pytest suite (944 tests) covering the full engine, plus
+- `tests/` — pytest suite (1015 tests) covering the full engine, plus
   property-based conservation tests and the fuzz-finding regressions.
 
 ## How to run things

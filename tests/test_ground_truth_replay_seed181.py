@@ -1,16 +1,11 @@
-"""Historical seed-181 replay preserves its valid prefix and rejects its Pay bug.
+"""Historical seed-181 replay stops at its earliest corrected rule violation.
 
-The original 347-action recording remains unchanged. Steps 1-68 still match the
-current engine's recorded oracle fields. At step 69 (Pay, rule 3.2.1), Henry VI
-owns one Coin but needs three; Somerset owns none and needs one. Both are at
-exhausted London. Henry must spend his Coin on his own Troops even partially,
-leaving no surplus to Share, so both must Disband. The old engine incorrectly
-spent Henry's Coin on Somerset; its step-73 Somerset action is consequently
-illegal under the corrected rules.
-
-This defect is neither waived nor reproduced through an engine accommodation.
-The full historical recording must be rejected. Current full-game smoke tests
-provide end-to-end validation of games played under the corrected rules.
+The original 347-action recording is unchanged. Its first 28 recorded actions
+match, but the Turn-2 draw of Y22 needs a target before Lancaster can draw at
+step 29. The log never recorded that decision. Do not invent a choice to force
+an obsolete playthrough through the current engine. A previously identified
+step-69 Pay error remains in the historical record too; it is now unreachable.
+The current grand-campaign regression supplies all required choices explicitly.
 """
 
 from __future__ import annotations
@@ -30,20 +25,19 @@ def _replay(*args):
 
 
 def test_recorded_grand_selfplay_valid_prefix_replays_exactly():
-    """Rules 3.1-4.8: every recorded oracle before corrected Pay still matches."""
-    result = _replay("--through", "68")
+    """Rule 3.1: recorded fields match through the draw that now requests Y22."""
+    result = _replay("--through", "28")
     assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
-    assert "replayed 68 actions, 0 divergences" in result.stdout
+    assert "replayed 28 actions, 0 divergences" in result.stdout
     assert "WAIVED" not in result.stdout
-    assert "step 69" not in result.stdout
+    assert "step 29" not in result.stdout
 
 
-def test_full_historical_recording_rejected_at_corrected_pay():
-    """Rule 3.2.1: own-mat partial Pay makes the old step-69 outcome impossible."""
+def test_full_historical_recording_rejected_at_missing_event_choice():
+    """Y22: the historical log cannot skip a mandatory player selection."""
     result = _replay()
     assert result.returncode == 2, result.stdout[-2000:] + result.stderr[-2000:]
-    assert ("step 69: DIVERGE unpaid_disbanded ['henry_vi', 'somerset_1'] "
-            "!= ['henry_vi']") in result.stdout
-    assert "step 73: NO MATCH" in result.stdout
+    assert "step 29: NO MATCH 0 candidates" in result.stdout
+    assert "'type': 'draw', 'side': 'lancastrian'" in result.stdout
     assert "WAIVED" not in result.stdout
     assert "replayed 347 actions, 0 divergences" not in result.stdout

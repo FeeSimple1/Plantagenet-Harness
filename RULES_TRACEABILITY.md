@@ -186,3 +186,19 @@ Clauses from `source/plantagenet_clause_index.tsv` with no citation in src/ of t
 | 2.1 | Setup |
 | 2.1.1 | Lay Out |
 | 2.1.2 | Scenarios |
+
+
+## Complete grand-campaign regression supplement — 2026-10-10
+
+The following additions supplement the generated table above. All are exercised
+by `tests/test_grand_campaign_2026_10.py`, including negative menu/executor tests
+and the complete corrected three-War replay with save/load equivalence.
+
+| Source | Implementation | Added regression coverage |
+|---|---|---|
+| Scenario Reference E2, E6/E7 | succession.py; wars_of_the_roses.json | Last-Heir victory; Warwick/Gloucester forms; both final-War rosters; wrong-winner counterexample |
+| 3.3.1; Scenario Reference D1, E3/E4/E6/E7 | actions.py; legal_moves.py; scenarios.py | Current-War Exile destinations; first-War restrictions; Jasper; no duplicate/unready/Enemy-box returns |
+| 4.4.1 | battle.py | JSON/Python array equivalence; malformed/duplicate/nonparticipant rejection |
+| Arts of War Y22 | arts_of_war.py; events.py; legal_moves.py | Mandatory selection; every offered target; +3 Lordship; no RNG roll; expiry; pending save/load |
+| 3.4.4; Arts of War L12 | actions.py; legal_moves.py | Adjacent Levy from Exhausted origin; target restrictions; Stanley/free-Lordship interaction |
+| Reproducibility contract | state.py; actions.py; commands.py | Canonical Favour text; every result and full history match after save/load |
