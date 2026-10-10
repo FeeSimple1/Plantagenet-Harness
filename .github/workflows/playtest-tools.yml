@@ -1,0 +1,21 @@
+name: Playtest validation tools
+on:
+  push:
+    branches: [audit/selfplay-20261009]
+    paths: [.github/workflows/playtest-tools.yml]
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download validation wheels
+        run: python -m pip download --only-binary=:all: --dest wheels hypothesis pytest-xdist ruff mypy
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playtest-validation-wheels
+          path: wheels
+          retention-days: 2
