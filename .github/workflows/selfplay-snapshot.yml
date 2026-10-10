@@ -1,0 +1,26 @@
+name: Self-play audit snapshot
+on:
+  push:
+    branches: [audit/selfplay-20261009]
+    paths: [.github/workflows/selfplay-snapshot.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 76353e6c12b30b3055a93fb714903f5d6b0707ee
+          persist-credentials: false
+      - name: Archive exact game revision
+        run: |
+          git archive --format=tar HEAD > plantagenet-source.tar
+          git rev-parse HEAD > revision.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plantagenet-source-76353e6
+          path: |
+            plantagenet-source.tar
+            revision.txt
+          retention-days: 2
