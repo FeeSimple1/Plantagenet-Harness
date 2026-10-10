@@ -1,0 +1,43 @@
+[
+  {
+    "type": "march",
+    "side": "lancastrian",
+    "by_lord": "warwick_lancastrian",
+    "to": "rochester",
+    "decisions": {
+      "suspicion": {
+        "by": "warwick_lancastrian",
+        "target": "rutland"
+      },
+      "responses": {
+        "york": "battle",
+        "rutland": "battle"
+      },
+      "culverins": [
+        "rutland"
+      ],
+      "valour": true,
+      "absorb_order": [
+        "men_at_arms",
+        "militia",
+        "longbow",
+        "vassal",
+        "retinue"
+      ]
+    }
+  },
+  {
+    "type": "react",
+    "side": "lancastrian",
+    "play": "L11"
+  },
+  {
+    "type": "react",
+    "side": "yorkist",
+    "pass": true
+  },
+  {
+    "type": "end_activation",
+    "side": "lancastrian"
+  }
+]

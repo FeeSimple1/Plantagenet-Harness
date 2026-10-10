@@ -32,6 +32,18 @@ def render_summary(state: GameState) -> str:
     if roles:
         lines.append(roles)
 
+    setup = state.battle_setup
+    if setup is not None and not setup.complete:
+        count = sum(len(cards) for cards in
+                    setup.capabilities.get(state.active_side, {}).values())
+        lines.append(f"Bosworth setup: {count}/4 Capabilities selected for active side; "
+                     "then choose a Left/Center/Right Array.")
+        # Only the active side's choices are shown before simultaneous reveal.
+        for lid, cards in setup.capabilities.get(state.active_side, {}).items():
+            lines.append(f"  Selected for {lid}: {', '.join(cards)}")
+        if setup.arrays:
+            lines.append("The other side has committed its hidden setup.")
+
     for side in ("lancastrian", "yorkist"):
         side_lords = [v for v in state.lords.values() if v.side == side]
         if not side_lords:

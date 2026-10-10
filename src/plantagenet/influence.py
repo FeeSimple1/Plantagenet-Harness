@@ -79,6 +79,7 @@ def check_influence(
     way_cost: int = 0,
     discount: int = 0,
     action: str | None = None,
+    automatic: bool = False,
 ) -> dict[str, Any]:
     """Perform an Influence check for ``lord_id``; returns the outcome.
 
@@ -87,7 +88,9 @@ def check_influence(
     reports success. ``discount`` carries Event reductions (e.g. Succession Y18,
     Parliament Votes L18, Jack Cade Y4) and may drive the spend to 0; a negative
     ``discount`` (An Honest Tale Y34) raises the cost. ``extra_spend`` must be
-    0, 1, or 3 (1.4.2: "never two").
+    0, 1, or 3 (1.4.2: "never two"). ``automatic`` is set only by a
+    rules-granted effect: pay the same cost, but succeed without rolling or
+    advancing the seeded RNG. It is not a player-supplied override.
     """
     if extra_spend not in _RATING_BONUS:
         raise IllegalAction("bad_extra_spend",
@@ -96,6 +99,8 @@ def check_influence(
               + _RATING_BONUS[extra_spend] + loyalty_mod)
     total_spend = max(0, 1 + extra_spend + way_cost - discount)
     spend_influence(state, side, total_spend)
+    if automatic:
+        return {"success": True, "roll": None, "rating": rating, "spent": total_spend}
 
     roller = state.dice()
     roll = roller.d6()

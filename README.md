@@ -32,9 +32,10 @@ from a seeded RNG:
 - **All 74 Arts of War cards** (both the Event and Capability faces) are coded.
 - **Succession (6.2)** and the three-War **Wars of the Roses grand scenario**
   resolve through all Renewed-War transitions, alongside the standalone and
-  battle-only (Bosworth) scenarios.
+  battle-only (Bosworth) scenarios. Bosworth includes explicit four-Capability
+  selection and three-Lord Arrays for each side before simultaneous reveal.
 
-Verification: 905 passing tests (`pytest`), ruff clean, continuous board-invariant
+Verification: 944 passing tests (`pytest`), ruff clean, continuous board-invariant
 checks, and two reusable bug-finding harnesses (`scripts/sweep_harness.py`,
 `scripts/battle_fuzz.py`). See [`SMOKE_TEST_FINDINGS.md`](SMOKE_TEST_FINDINGS.md)
 for the full audit/bug log and [`CHANGELOG.md`](CHANGELOG.md) for milestones.
@@ -62,6 +63,7 @@ The code also passes `mypy --strict`.
     (Tides of War, Grow, Waste, Victory, Turn advance).
   - `commands.py` — March, Sail, Supply, Tax, campaign Parley (4.3, 4.5, 4.6.1-.4).
   - `pay.py` — Levy Pay step: Pay Troops/Lords/Vassals (3.2).
+  - `battle_setup.py` — mandatory Bosworth Capability selection and hidden Arrays.
   - `battle.py` — Approach/Exile (4.3.5) and the multi-Lord Battle engine (4.4).
   - `cli.py` — the CLI: `new`, `state`, `legal-moves` (with `--validated`),
     `do`, `pending`, `history`, and the data commands.
@@ -76,7 +78,7 @@ The code also passes `mypy --strict`.
 - `scripts/` — data builders (`build_map_data.py`, `build_scenarios.py`,
   `build_grand_scenario.py`) and bug-finding sweeps (`sweep_harness.py`,
   `battle_fuzz.py`).
-- `tests/` — pytest suite (905 tests) covering the full engine, plus
+- `tests/` — pytest suite (944 tests) covering the full engine, plus
   property-based conservation tests and the fuzz-finding regressions.
 
 ## How to run things

@@ -81,7 +81,7 @@ def deep_copy(state):
 
 
 def setup_actions(state):
-    """build_initial_state is fully set up; no post-load confirmations needed."""
+    """Player setup choices, including Bosworth, are exposed by legal_moves."""
     return []
 
 

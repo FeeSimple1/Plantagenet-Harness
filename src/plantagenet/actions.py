@@ -173,6 +173,10 @@ def _restore_value(current: Any, saved: Any) -> Any:
 
 def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     atype = cast(str, action.get("type"))
+    if state.phase == "battle" and atype not in (
+            "choose_battle_capability", "array_battle", "resolve_battle"):
+        raise IllegalAction("battle_setup_only",
+                            "Bosworth uses Capability selection, Array, and Battle only")
     # While a reaction is pending, only "react" is legal (the acting side waits).
     if state.pending and atype != "react":
         raise IllegalAction("reaction_pending",
@@ -292,7 +296,8 @@ def levy_cancel_finish(state: GameState, data: dict[str, Any], *,
 
 
 def _parley_event_mods(state: GameState, lord_id: str, side: str,
-                       commit: bool = True) -> dict[str, Any]:
+                       commit: bool = True, *,
+                       use_parliament_votes: bool = True) -> dict[str, Any]:
     """This-Levy/Campaign Event modifiers to a Parley by ``lord_id`` (1.9.1):
     Succession (Y18), Parliament Votes (L18), Jack Cade (Y4), My Crown (L17),
     Gloucester as Heir (Y28), Dorset (Y29), An Honest Tale (Y34). Returns
@@ -305,17 +310,17 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str,
                 if cards[e["card"]]["event"]["title"] == title]
 
     def use(ev: dict[str, Any], lid: str, limit: int) -> bool:
-        used = ev.setdefault("used", {})
+        used = ev.get("used", {})
         if used.get(lid, 0) >= limit:
             return False
-        if commit:                      # commit=False: peek (legal-move enumeration)
-            used[lid] = used.get(lid, 0) + 1
+        if commit:                      # commit=False must be entirely read-only
+            ev.setdefault("used", {})[lid] = used.get(lid, 0) + 1
         return True
 
     lord = state.lords[lord_id]
     # Succession (Y18) / Parliament Votes (L18): once per Lord, -1 Influence + auto.
     for title, esd in (("SUCCESSION", "yorkist"), ("PARLIAMENT VOTES", "lancastrian")):
-        if side == esd:
+        if side == esd and (title != "PARLIAMENT VOTES" or use_parliament_votes):
             for ev in matches(title):
                 if ev.get("side") == side and use(ev, lord_id, 1):
                     mod["auto"] = True
@@ -364,8 +369,12 @@ def _jack_cade_eligible(state: GameState, lord: LordState) -> bool:
 
 
 def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    use_votes = action.get("use_parliament_votes", True)
+    _require(isinstance(use_votes, bool), "bad_parliament_choice",
+             "use_parliament_votes must be true or false (L18)")
     peek = state.lords.get(cast(str, action.get("by_lord")))
-    mods = (_parley_event_mods(state, peek.lord_id, peek.side)
+    mods = (_parley_event_mods(state, peek.lord_id, peek.side,
+                               use_parliament_votes=use_votes)
             if peek is not None else {"auto": False, "discount": 0, "free_lordship": False})
     lord = _active_lord(state, action, require_lordship=not mods["free_lordship"])
     loc = lord_location(lord)
@@ -394,9 +403,8 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     chk = influence.check_influence(state, lord.lord_id, lord.side,
                                     extra_spend=extra, way_cost=way_cost,
-                                    discount=mods["discount"], action="parley")
-    if mods["auto"]:
-        chk["success"] = True
+                                    discount=mods["discount"], action="parley",
+                                    automatic=bool(mods["auto"]))
     if not mods["free_lordship"]:
         lord.lordship_spent += 1
     changed = None
@@ -533,13 +541,12 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Buckingham's Plot Backfires (L34): each Yorkist Vassal Levy costs +2 Influence.
     bp = 2 if (lord.side == "yorkist"
                and ratings.event_against(state, "BUCKINGHAM'S PLOT BACKFIRES", "yorkist")) else 0
+    automatic = bool(ratings.has_capability(state, lord.lord_id, "TWO ROSES")
+                     or (lord.side == "lancastrian"
+                         and ratings.event_active(state, "THE EARL OF RICHMOND")))
     chk = influence.check_influence(state, lord.lord_id, lord.side, extra_spend=extra,
                                     loyalty_mod=_loyalty_mod(vid, lord.side),
-                                    way_cost=bp, action="levy")
-    if (ratings.has_capability(state, lord.lord_id, "TWO ROSES")
-            or (lord.side == "lancastrian"
-                and ratings.event_active(state, "THE EARL OF RICHMOND"))):
-        chk["success"] = True   # L32 Two Roses / L37 The Earl of Richmond: always succeeds
+                                    way_cost=bp, action="levy", automatic=automatic)
     lord.lordship_spent += 1
     undo = _snap(state, lords=[lord.lord_id], vassals=[vid])
     if chk["success"]:
@@ -701,9 +708,11 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 def _capabilities_in_play(state: GameState, side: str) -> set[str]:
     """Card ids whose Capability is unavailable to Levy now: those on one of
-    ``side``'s Lord mats, plus any card whose This-Levy / This-Campaign Event is
-    currently in force ("the card's Capability is unavailable that turn")."""
-    out: set[str] = set()
+    ``side``'s Lord mats, Held Events (3.1.4 Greed), and drawn/active Events.
+    Held Events cannot be returned to the unused pool by Levying their reverse
+    face; only the Event's permitted play/discard timing releases them."""
+    out: set[str] = set(state.decks.get(side, {}).get("held", []))
+    out.update(e["card"] for e in state.pending_events if e.get("side") == side)
     for v in state.lords.values():
         if v.side == side:
             out.update(v.capabilities)
@@ -938,8 +947,9 @@ def _h_resolve_battle(state: GameState, action: dict[str, Any]) -> dict[str, Any
     """Resolve the single Battle of a battle-only scenario (e.g. Bosworth) and
     set the scenario result: the winner of the Battle wins; an all-Rout result is
     a draw (Bosworth special rule "Victory"). The Rebel side Arrays as the
-    Attacker, the King side as the Defender (4.2); ``decisions`` flows straight
-    into ``resolve_battle`` for Array / Capability / Valour choices."""
+    Attacker, the King side as the Defender (4.2). Both sides must first commit
+    their four Capabilities and full Fronts. ``decisions`` supplies tactical
+    Capability / Valour choices, not overrides for the committed Arrays."""
     _require(state.phase == "battle", "not_battle_scenario",
              "resolve_battle applies only to a battle-only scenario")
     _require(state.victory is None, "already_resolved", "the Battle is already resolved")
@@ -950,13 +960,14 @@ def _h_resolve_battle(state: GameState, action: dict[str, Any]) -> dict[str, Any
     defenders = [lid for lid, v in state.lords.items()
                  if v.side == king and v.status == LordStatus.MUSTERED]
     _require(attackers and defenders, "no_combatants", "both sides need Mustered Lords")
+    from plantagenet.battle_setup import battle_decisions
+    decisions = battle_decisions(state, action.get("decisions", {}))
     scn = static_data.load_scenario(state.scenario)
     locale = scn.get("battle_locale", "leicester")
     for lid in attackers + defenders:                 # Arrayed at the Battle Locale
         state.lords[lid].location = locale
     from plantagenet import battle
-    res = battle.resolve_battle(state, locale, attackers, defenders,
-                                action.get("decisions", {}))
+    res = battle.resolve_battle(state, locale, attackers, defenders, decisions)
     winner = res.get("winner_side")
     state.victory = ({"result": winner, "rule": "battle-only scenario Victory"}
                      if winner else {"result": None, "rule": "draw -- all Lords Rout"})
@@ -1010,6 +1021,10 @@ _HANDLERS: dict[str, Callable[[GameState, dict[str, Any]], dict[str, Any]]] = {
     "concede": _h_concede,
     "crown_richard": _h_crown_richard,
     "resolve_battle": _h_resolve_battle,
+    "choose_battle_capability": lambda st, a: __import__(
+        "plantagenet.battle_setup", fromlist=["choose_capability"]).choose_capability(st, a),
+    "array_battle": lambda st, a: __import__(
+        "plantagenet.battle_setup", fromlist=["array_battle"]).array_battle(st, a),
     "end_muster": _h_end_muster,
     "pay": lambda st, a: __import__("plantagenet.pay", fromlist=["pay"]).pay(st, a),
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),

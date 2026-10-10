@@ -1582,3 +1582,39 @@ tests still exercise complete scenarios and Renewed War transitions.
 
 Validation: **905 tests pass**, Ruff clean, `mypy --strict` clean, and
 `git diff --check` clean. Baseline had 841 passing tests.
+
+
+## Interactive playtest fixes — 10 October 2026 (baseline 76353e6)
+
+The Towton/grand-campaign playtest recorded four defect groups. All nine supplied
+rules-correct reproduction tests failed on the baseline and pass after these fixes.
+Pre-action checkpoints (with history omitted only) are retained in
+`tests/fixtures/playtest_2026_10`; no obsolete post-action hashes are preserved.
+
+1. **Stationary defenders skipped Feed (4.7).** `resolve_battle` now marks all
+   remaining participants after Suspicion, including Reserves, as Moved/Fought.
+   The Rochester public March/reaction/Feed sequence now spends York's Provender;
+   its zero-food, Exhausted-field variant correctly Unfed-Disbands him.
+2. **Held Events were offered and accepted as Capabilities (3.1.4/3.4.6).** The
+   shared availability guard includes Held and pending drawn Events. Both L5 and
+   L11 are absent from the menu, and raw conversion attempts reject atomically.
+3. **Parliament Votes lacked the reserve choice and rolled unnecessarily (L18).**
+   `use_parliament_votes: false` preserves the bonus for a later Parley. Both
+   choices are enumerated; probes are read-only. Rules-granted automatic checks
+   pay the appropriate Influence but return `roll: null`, preserving RNG state.
+   The same roll-after-automatic-success defect was fixed for L32/L37 Vassal Levy.
+4. **Bosworth bypassed compulsory setup (Scenario IIIb).** Players now select four
+   eligible, unique cards per side, at most two different-named cards per mat,
+   and choose a full Left/Center/Right Array. Cards and Special Vassals reveal only
+   after both sides commit. Resolution, extra cards, foreign/ineligible cards,
+   duplicate names, malformed Arrays, and phase bypasses are guarded and tested.
+
+An adjacent menu/executor mismatch was also corrected: Great Ships' legal
+cross-Sea Levy Parleys now appear in the menu. These changes add no strategy
+policy and no rules variants. Tests use deterministic scripted choices solely
+for execution coverage. Full-state/history views remain administrative and
+omniscient; the normal setup summary does not reveal the other side's choices.
+
+Regression coverage: `test_playtest_2026_10.py` and `test_bosworth_setup.py`.
+Baseline 905 tests; updated suite 944 tests. See the fix commit and CI for final
+validation results. The earlier audit results above are historical snapshots.

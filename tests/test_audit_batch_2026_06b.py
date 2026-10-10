@@ -78,7 +78,9 @@ def test_this_levy_event_card_is_discarded_at_scope_end():
 
 # 5. Bosworth (battle-only) plays to completion through the action API.
 def test_bosworth_resolves_through_api():
+    from tests.test_bosworth_setup import complete_setup
     s = build_initial_state("bosworth", seed=3)
+    complete_setup(s)
     assert legal_moves.legal_moves(s) == [{"type": "resolve_battle"}]
     actions.apply_action(s, {"type": "resolve_battle"})
     assert s.phase == "over"

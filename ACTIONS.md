@@ -61,7 +61,7 @@ adds +0/+1/+2 to the Influence rating for that check (1.4.2).
 
 | Action | Args | Rule | Status |
 |---|---|---|---|
-| `parley` | `target` (Stronghold; default current), `extra_spend` | 3.4.1 | done |
+| `parley` | `target` (Stronghold; default current), `extra_spend`, `use_parliament_votes?` | 3.4.1 | done |
 | `levy_lord` | `target` (Ready Lord id), `extra_spend` | 3.4.2 | done |
 | `levy_vassal` | `target` (regular Vassal id), `extra_spend` | 3.4.3 | done |
 | `levy_transport` | `transport`: `"cart"` (2 Carts) or `"ship"` (1 Ship) | 3.4.5 | done |
@@ -217,11 +217,32 @@ Asset Sharing (1.5.3): `sail` and `supply` accept a `share` list of co-located
 Friendly Lords whose Ships / Carts are pooled for the capacity requirement
 (used, never transferred).
 
-`resolve_battle` (battle-only scenarios, e.g. Bosworth): `{decisions?}` — resolves
-the single set-piece Battle and sets the scenario result (winner wins; all-Rout is
-a draw). The Rebel side Arrays as Attacker, the King side as Defender (4.2);
-`decisions` flows into `resolve_battle` for Array / Capability / Valour choices.
-`legal_moves` offers it as the only move while `phase=="battle"`.
+### Bosworth setup and Battle (Scenario IIIb)
+
+Bosworth starts in `phase="battle"`, but the Battle cannot resolve until both
+players have selected and distributed four Capability cards and committed their
+Arrays. `legal_moves` enumerates individual card assignments and all six possible
+Fronts. These setup actions cost no Lordship, Influence, or dice rolls.
+
+`choose_battle_capability`: `{"type":"choose_battle_capability","side":"yorkist",
+"by_lord":"richard_iii","card":"Y33"}` selects one card for one Lord. Choose
+exactly four per side from that side's no-rose/three-rose deck. Livery eligibility,
+card uniqueness, two cards per mat, and no duplicate Capability names per mat are
+enforced. Cards are kept in the unrevealed `battle_setup` zone until both sides
+commit; Special Vassals and mat effects are applied on simultaneous reveal.
+
+`array_battle`: `{"type":"array_battle","side":"yorkist",
+"front":["norfolk","richard_iii","northumberland_2"]}` commits the selected
+cards and the three Lords in **Left, Center, Right** order. All three must appear
+exactly once, with none in Reserve. Then the other side makes its choices.
+The summary shows only the active side's uncommitted selections. The full state
+and history remain administrative, omniscient interfaces, like Campaign Plans.
+
+`resolve_battle`: `{"type":"resolve_battle","decisions":{...}}` becomes legal
+only after both sides finish setup. It resolves the set-piece Battle and sets
+the scenario result (winner wins; all-Rout is a draw). The Rebel side is Attacker
+and the King side Defender. Tactical Capability/Valour decisions remain available;
+`attacker_positions` and `defender_positions` cannot override the committed Arrays.
 
 ### System / flow actions
 
@@ -325,3 +346,18 @@ window; modeling that window in state is the prerequisite for enumerating it.
 
 > **Status:** Phase 0 fixes only the envelope and this catalog skeleton.
 > No action is executable yet; the CLI `do` command is a stub.
+
+### Parliament Votes and automatic Influence checks
+
+For Levy Parley with L18 active, `use_parliament_votes` is a JSON boolean,
+defaulting to `true`. Set it to `false` to roll normally and reserve that Lord's
+once-per-Levy benefit for a later target. Both choices appear in `legal_moves`
+while the benefit is available. Taking the benefit reduces Influence cost by one
+and succeeds without a die roll; it does not waive the remaining route cost.
+
+Rules-granted automatic checks (L18, Y18, Y4, L32, L37) return `roll: null` and
+do not advance the RNG. Normal Influence and Lordship costs still apply unless
+the granting effect explicitly waives them. Players cannot request automatic
+success independently of a rules-granted effect. Held Events are not unused
+Capabilities: `levy_capability` rejects them until a permitted play/discard
+returns them to the unused deck.

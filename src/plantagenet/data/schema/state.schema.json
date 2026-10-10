@@ -1,5 +1,41 @@
 {
   "$defs": {
+    "BattleSetupState": {
+      "additionalProperties": false,
+      "description": "Unrevealed Bosworth choices, then the committed Left/Center/Right Arrays.",
+      "properties": {
+        "capabilities": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          },
+          "title": "Capabilities",
+          "type": "object"
+        },
+        "arrays": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Arrays",
+          "type": "object"
+        },
+        "complete": {
+          "default": false,
+          "title": "Complete",
+          "type": "boolean"
+        }
+      },
+      "title": "BattleSetupState",
+      "type": "object"
+    },
     "CalendarState": {
       "additionalProperties": false,
       "properties": {
@@ -580,6 +616,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/CampaignState"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "battle_setup": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BattleSetupState"
         },
         {
           "type": "null"

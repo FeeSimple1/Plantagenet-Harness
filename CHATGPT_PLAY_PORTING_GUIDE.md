@@ -104,13 +104,13 @@ consistency, and card-zone uniqueness. Nothing to add.
 - `wars_of_the_roses` is the **grand** scenario: long, and a decisive War
   victory auto-continues into the next War (the helper calls `renew_war` for
   you and prints a transition line). Good for a deep soak run, not a first run.
-- **`bosworth` is battle-only and is NOT playable through this interface yet.**
-  The enumerator has no Battle-phase branch — battles are resolved internally by
-  command handlers (March/Approach → `battle.resolve_battle`), not offered as
-  enumerated actions. Driven through `legal_moves`, Bosworth stalls immediately
-  with a `no_legal_moves` finding after `end_muster`. That finding is *correct*
-  (it documents the gap); just don't pick Bosworth for a play session. Adding an
-  enumerated Battle action is the natural follow-up if you want it playable here.
+- **`bosworth` is now playable, including its mandatory setup.** Each side
+  selects four cards with `choose_battle_capability`, assigning each to an
+  eligible Lord, then chooses one of the six `array_battle` actions. The Array's
+  `front` list is Left, Center, Right. Cards stay unrevealed until both sides
+  commit. Only then does the menu offer `resolve_battle`. Choose tactical
+  Capability and Valour use through that action's `decisions`; starting Arrays
+  have already been committed. See `ACTIONS.md` for the action grammar.
 
 ## Dependencies
 
@@ -136,7 +136,9 @@ nv.findings_report()
 
 A 6-scenario × 3-seed sweep through this helper (every standalone scenario plus
 the grand scenario's War transitions) currently comes back with **zero** notable
-findings — `bosworth` aside, which stalls as described above.
+findings at the time of that sweep. That historical result predates the October
+interactive-play findings. Bosworth now has explicit setup and its own regression
+coverage; passing a sweep does not establish complete rules fidelity.
 
 ---
 
@@ -166,9 +168,9 @@ findings — `bosworth` aside, which stalls as described above.
 >
 > Play to win: advance on objectives, Levy troops and capabilities, March,
 > Tax/Parley for coin and Favour, keep your Lords supplied, and use special
-> capabilities; pass only when it is genuinely the best move. Do NOT pick the
-> `bosworth` scenario — it is battle-only and not playable through this
-> interface.
+> capabilities; pass only when it is genuinely the best move. For `bosworth`,
+> choose four Capabilities and a three-Lord Array for each side before resolving
+> its single Battle. The menu enumerates every setup choice.
 >
 > The harness auto-records any engine anomaly. Periodically and at the end, run
 > `nv.findings_report()` and paste its output back to the maintainer — that list

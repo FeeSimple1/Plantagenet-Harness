@@ -6,6 +6,19 @@ internal milestones.
 
 ## [Unreleased]
 
+### Fixed — 2026-10-10 interactive playtest
+- Mark every remaining Battle participant for Feed, including stationary defenders
+  and Reserves; Suspicion targets removed before the Battle are excluded.
+- Exclude Held/drawn Events from Capability availability at both the action menu
+  and executor boundaries; illegal conversion attempts leave state unchanged.
+- Expose Parliament Votes' choice to reserve the benefit for a later Parley.
+  Automatic Parley and Vassal Levy effects no longer consume an unnecessary die.
+- Add mandatory Bosworth four-card selection, eligibility and mat-limit checks,
+  unrevealed setup storage, full three-Lord Arrays, and a Battle-resolution gate.
+- Enumerate Great Ships' cross-Sea Levy Parleys, matching executor legality.
+- Add 39 regression cases, including the nine original playtest reproductions;
+  update existing Bosworth tests to perform the actual mandatory setup.
+
 ### Added
 - All 54 classified open mutation gaps closed (50 killed by 23 new tests, 4
   proven equivalent); battle decision plumbing (engagement_order,

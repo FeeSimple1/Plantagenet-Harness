@@ -62,8 +62,9 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
                            state.grand_scenario["current_war"], winner):
                 return [{"type": "renew_war"}]
         return []
-    if state.phase == "battle":           # battle-only scenario (e.g. Bosworth)
-        return [] if state.victory is not None else [{"type": "resolve_battle"}]
+    if state.phase == "battle":           # Bosworth: choose cards, Array, then Battle
+        from plantagenet.battle_setup import legal_moves as setup_moves
+        return setup_moves(state)
     if state.pending:                 # a reaction window is open: only react/pass
         return _reaction_moves(state)
     if state.pending_events:          # drawn immediate Events await resolution (3.1.3)
@@ -231,14 +232,23 @@ def _parley_moves(state: GameState, lord_id: str, lord: LordState, side: str,
     # Current location, if a Stronghold not yet Friendly to us.
     if kind == "stronghold" and state.locales[here].favour != side:
         moves.append({"type": "parley", "side": side, "by_lord": lord_id, "target": here})
-    if not friendly_here:
-        return moves
-    # Reachable Strongholds that don't already Favour us.
-    for tid, ls in state.locales.items():
-        if tid == here or ls.favour == side:
-            continue
-        if actions._parley_route_cost(state, loc, tid, side, has_ship) is not None:
-            moves.append({"type": "parley", "side": side, "by_lord": lord_id, "target": tid})
+    if friendly_here:
+        # Reachable Strongholds that don't already Favour us.
+        great_ships = ratings.has_capability(state, lord_id, "GREAT SHIPS")
+        for tid, ls in state.locales.items():
+            if tid == here or ls.favour == side:
+                continue
+            if actions._parley_route_cost(state, loc, tid, side, has_ship,
+                                           all_seas=great_ships) is not None:
+                moves.append({"type": "parley", "side": side,
+                              "by_lord": lord_id, "target": tid})
+    votes_available = (side == "lancastrian" and any(
+        e.get("card") == "L18" and e.get("side") == side
+        and e.get("used", {}).get(lord_id, 0) < 1 for e in state.active_events))
+    if votes_available:
+        # L18: announce which one Parley benefits before rolling. A normal
+        # Parley may reserve Parliament Votes for a later target this Levy.
+        moves += [{**mv, "use_parliament_votes": False} for mv in moves]
     return moves
 
 

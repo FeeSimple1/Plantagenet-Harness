@@ -115,6 +115,10 @@ def card_zone_violations(state: GameState) -> list[dict[str, Any]]:
         for pile in ("draw", "discard", "held", "set_aside"):
             for c in deck.get(pile, []):
                 piles_of.setdefault(c, []).append(pile)
+        if state.battle_setup is not None:
+            for lid, cards in state.battle_setup.capabilities.get(side, {}).items():
+                for c in cards:
+                    piles_of.setdefault(c, []).append(f"battle_setup:{lid}")
         mat_caps = {c for ls in state.lords.values() if ls.side == side
                     for c in ls.capabilities}
         for c, piles in piles_of.items():

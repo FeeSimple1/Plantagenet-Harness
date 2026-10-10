@@ -466,7 +466,9 @@ def test_end_muster_resets_only_own_side_flags():
 
 # sites 6194 (L885), 6198 (L886), 6204 (L888), 6211 (L890), 2874 (L891)
 def test_resolve_battle_sides_and_combatants():
+    from tests.test_bosworth_setup import complete_setup
     s = build_initial_state("bosworth", seed=1)
+    complete_setup(s)
     r = actions.apply_action(s, {"type": "resolve_battle"})
     assert set(r["attackers"]) == {"henry_tudor", "jasper_tudor_2", "oxford"}
     assert set(r["defenders"]) == {"richard_iii", "northumberland_2", "norfolk"}

@@ -136,6 +136,14 @@ class CampaignState(_Model):
     actions_remaining: int = 0                    # Command actions left this card
 
 
+class BattleSetupState(_Model):
+    """Unrevealed Bosworth choices, then the committed Left/Center/Right Arrays."""
+
+    capabilities: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
+    arrays: dict[str, list[str]] = Field(default_factory=dict)
+    complete: bool = False
+
+
 class GameState(_Model):
     schema_version: int = SCHEMA_VERSION
     scenario: str
@@ -156,6 +164,7 @@ class GameState(_Model):
     influence: dict[str, InfluenceState] = Field(default_factory=dict)
     calendar: CalendarState = Field(default_factory=CalendarState)
     campaign: CampaignState | None = None
+    battle_setup: BattleSetupState | None = None
     victory: dict[str, Any] | None = None   # set when the game ends (4.8.3, 5.x)
     # side -> {"draw": [...], "discard": [...], "held": [...]} Arts of War piles:
     decks: dict[str, dict[str, list[str]]] = Field(default_factory=dict)

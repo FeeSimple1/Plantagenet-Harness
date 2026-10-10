@@ -24,6 +24,7 @@ from plantagenet import static_data
 from plantagenet.errors import DataError
 from plantagenet.rng import DiceRoller
 from plantagenet.state import (
+    BattleSetupState,
     CalendarState,
     Favour,
     GameState,
@@ -193,7 +194,14 @@ def _build_standalone(scn: dict[str, Any], seed: int, scenario_id: str,
         arts_of_war={"description": scn.get("arts_of_war", "")},
     )
     roller = DiceRoller(seed)
-    if not battle_only:
+    if battle_only:
+        state.battle_setup = BattleSetupState()
+        for s_side in SIDES:
+            state.decks[s_side] = {
+                "draw": static_data.scenario_card_deck(scenario_id, s_side),
+                "discard": [], "held": [],
+            }
+    else:
         state.levy_step = "arts_of_war"      # the Levy begins with the Arts of War draw (3.1)
         in_play = {c for ls in lords.values() for c in ls.capabilities}
         for s_side in SIDES:

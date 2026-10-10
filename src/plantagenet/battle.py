@@ -736,6 +736,12 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
 
     susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
     ftrust = _resolve_for_trust(state, attackers, defenders, forces, decisions)
+    # All remaining participants fought, including stationary defenders and
+    # Lords in Reserve (4.7). Suspicion removes its target before this point;
+    # later Death/Disband clears the marker normally. Movement alone cannot
+    # supply this flag: the defending army may not have moved this activation.
+    for lid in attackers + defenders:
+        state.lords[lid].moved_fought = True
     positions, reserves = _initial_array(attackers, defenders, decisions)
     # Norfolk is Late (Towton): in the first Battle including Norfolk and another
     # Yorkist Lord, Norfolk stays in Reserve until Round 2.
