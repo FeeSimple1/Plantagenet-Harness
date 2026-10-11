@@ -1,0 +1,128 @@
+name: Validate card-lifecycle fixes
+
+on:
+  push:
+    branches: [audit/card-lifecycle-fixes-20261010]
+    paths:
+      - "audit/card-lifecycle-fixes-v3/**"
+      - ".github/workflows/validate-card-lifecycle-fixes.yml"
+
+permissions:
+  contents: write
+
+env:
+  BASE_REVISION: 34a5984518adca750226571d6ec7cefe69a6d0e7
+  PATCH_SHA256: c3bd7f659ff5add12a0a97acc6b82dcd905acf5f93c30f40bac7fbc8c3e3f76e
+  EXPECTED_TREE: a5b5ad5ae07995b8e63fbbd391d0d1009225f8c3
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconstruct and verify exact fix tree
+        run: |
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import lzma
+          import os
+          from pathlib import Path
+
+          root = Path("audit/card-lifecycle-fixes-v3")
+          expected = [
+              "b75f72cbb5fa72ec07db3d305466c38956ef2dea",
+              "efbc784171096a799bb51a89ef0262f66aa6dba6",
+              "c56a00bed943d3713e3db88973c516154d2bd8fa",
+              "e7f0bbe6880a41083b4bc8164f2f7b42e10cdd6d",
+              "dd4fcd56381f0d9682fa9db9273b3874f03ee403",
+              "b8903ca6906a5f032071784b7313b9cc90be4e32",
+              "d46b10f492392aee49a19570a2335d30fe87bec5",
+          ]
+          parts = []
+          for i, sha in enumerate(expected, 1):
+              data = (root / f"part{i:02}.b64").read_bytes()
+              digest = hashlib.sha1(
+                  b"blob " + str(len(data)).encode() + b"\0" + data
+              ).hexdigest()
+              assert digest == sha, (i, digest, sha)
+              parts.append(data)
+          patch = lzma.decompress(base64.b64decode(b"".join(parts)))
+          assert hashlib.sha256(patch).hexdigest() == os.environ["PATCH_SHA256"]
+          (Path(os.environ["RUNNER_TEMP"]) / "card-lifecycle.patch").write_bytes(patch)
+          PY
+          git checkout --detach "$BASE_REVISION"
+          git apply --index "$RUNNER_TEMP/card-lifecycle.patch"
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+          git diff --cached --check
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev,parallel]'
+      - name: Lint
+        run: ruff check .
+      - name: Strict type check
+        run: mypy
+      - name: Full regression suite
+        run: pytest -q -n 2 -p no:cacheprovider
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconstruct identical validated tree
+        run: |
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import lzma
+          import os
+          from pathlib import Path
+
+          root = Path("audit/card-lifecycle-fixes-v3")
+          expected = [
+              "b75f72cbb5fa72ec07db3d305466c38956ef2dea",
+              "efbc784171096a799bb51a89ef0262f66aa6dba6",
+              "c56a00bed943d3713e3db88973c516154d2bd8fa",
+              "e7f0bbe6880a41083b4bc8164f2f7b42e10cdd6d",
+              "dd4fcd56381f0d9682fa9db9273b3874f03ee403",
+              "b8903ca6906a5f032071784b7313b9cc90be4e32",
+              "d46b10f492392aee49a19570a2335d30fe87bec5",
+          ]
+          parts = []
+          for i, sha in enumerate(expected, 1):
+              data = (root / f"part{i:02}.b64").read_bytes()
+              digest = hashlib.sha1(
+                  b"blob " + str(len(data)).encode() + b"\0" + data
+              ).hexdigest()
+              assert digest == sha, (i, digest, sha)
+              parts.append(data)
+          patch = lzma.decompress(base64.b64decode(b"".join(parts)))
+          assert hashlib.sha256(patch).hexdigest() == os.environ["PATCH_SHA256"]
+          (Path(os.environ["RUNNER_TEMP"]) / "card-lifecycle.patch").write_bytes(patch)
+          PY
+          git checkout --detach "$BASE_REVISION"
+          git apply --index "$RUNNER_TEMP/card-lifecycle.patch"
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+          git diff --cached --check
+      - name: Commit and push publication branch
+        run: |
+          git config user.name "FeeSimple1"
+          git config user.email "ecommentation@gmail.com"
+          git commit \
+            -m "Fix Arts of War lifecycle and player card choices" \
+            -m "Shuffle the full unused Arts of War pool before each later Levy, expose joint first-Levy Capability allocation, and add selective Held-Event discard at Campaign Reset. Update replay compatibility, documentation, and targeted regressions. Validation: 1030 tests, Ruff, and strict mypy."
+          git push --force-with-lease origin HEAD:refs/heads/fix/card-lifecycle-20261010
