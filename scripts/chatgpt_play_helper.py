@@ -49,7 +49,7 @@ from plantagenet.state import GameState, LordStatus  # noqa: E402
 ILLEGAL_EXCEPTIONS = (IllegalAction,)
 
 # Display-only / internal keys never passed to apply_action.
-_NON_ACTION_KEYS = {"note", "cards_required"}
+_NON_ACTION_KEYS = {"note", "cards_required", "discard_held_options"}
 
 
 def scenario_ids():
@@ -127,6 +127,13 @@ def _expand(state, mv):
                 'Selection Events need decisions, e.g. a raw dict '
                 f'{{"type":"play_event","side":"{mv.get("side")}",'
                 f'"card":"{mv.get("card")}","decisions":{{...}}}}.')
+        return {**mv, "note": note}
+    if mv.get("type") == "end_campaign" and mv.get("discard_held_options"):
+        note = ("Reset permits each side to return any selected Held Events. "
+                "Apply a raw dict with decisions, e.g. "
+                '{"type":"end_campaign","decisions":{"discard_held":'
+                '{"lancastrian":["L13"],"yorkist":["Y30"]}}}. '
+                "Omit discard_held (or use empty lists) to keep every Held Event.")
         return {**mv, "note": note}
     return mv
 
@@ -286,7 +293,7 @@ def _classify(action, acts):
     - "offmenu": not currently offered at all. Rejected -> player mistake; but if
       the handler *accepts* it, the menu under-enumerated a legal move -> notable.
     """
-    if action.get("type") in ("build_plan", "play_event"):
+    if action.get("type") in ("build_plan", "play_event", "end_campaign"):
         if any(a.get("type") == action.get("type") and a.get("side") == action.get("side")
                for a in acts):
             return "template"

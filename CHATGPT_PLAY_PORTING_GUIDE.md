@@ -43,6 +43,14 @@ generic contract onto this engine. For the record, the wiring is:
 - **invariants** → `invariants.board_invariant_violations(state)` (co-location,
   influence-cap, lord-status, card-zone), stringified.
 
+### First-Levy Capability allocation (`draw`)
+
+On a first Levy, the menu contains one concrete `draw` action for each legal
+joint allocation of the two revealed Capabilities. The `assignments` mapping is
+part of the action, so choose the menu entry whose Lords you prefer. Later-Levy
+draws remain forced actions: the engine first rebuilds and shuffles the complete
+unused deck, then reveals the Events.
+
 ### The 4.1 Plan (`build_plan`) is a free construction
 
 `build_plan` is the one *templated* action: the player freely chooses which
@@ -60,6 +68,19 @@ nv.apply({"type":"build_plan","side":"yorkist",
 The number of plan entries must equal the `cards_required` shown on the move
 (the `// ...` note on the menu line spells this out, including the side's
 Mustered Lord ids).
+
+### Returning Held Events at Reset (`end_campaign`)
+
+When Held Events exist, the End-Campaign menu note lists each side's choices.
+Applying the numbered entry keeps every Held Event. To return selected cards to
+the unused pool, submit a raw action such as:
+
+```python
+nv.apply({"type":"end_campaign","decisions":{"discard_held":
+          {"lancastrian":["L13"],"yorkist":["Y30"]}}})
+```
+
+The returned cards join the next Levy's shuffle; unlisted cards remain Held.
 
 ### Resolving drawn Events (`play_event`)
 

@@ -18,14 +18,15 @@ is an operator's guide to the codebase as it stands.
 the agent-facing interface (`legal_moves` -> `apply_action`), rolling all dice
 from a seeded RNG:
 
-- **Levy (3.x):** Arts of War draw with immediate/Held Event resolution, Pay
-  (3.2), and the full Muster (Parley, Lord, Vassal, Transport, Troops,
-  Capability).
+- **Levy (3.x):** per-Levy Arts of War deck rebuilding/shuffling, explicit
+  first-Levy Capability allocation, immediate/Held Event resolution, Pay (3.2),
+  and the full Muster (Parley, Lord, Vassal, Transport, Troops, Capability).
 - **Campaign (4.x):** Plan (4.1), alternating Activation (4.2), and every
   Command — March (4.3, incl. Group March, Approach/Intercept into enemy
   contact), Sail (4.6.1), Supply (4.5), Tax (4.6.3), Forage (4.6.2),
   Parley (4.6.4), Pass — plus Feed (4.7) and End-Campaign (4.8): Tides of War
-  scoring, Victory check, Grow, Waste, Turn advance.
+  scoring, Victory check, Grow, Waste, selective Held-Event return, and Turn
+  advance.
 - **Combat (4.3.5 / 4.4):** the multi-Lord Battle engine with Approach/Exile,
   battle-reaction timing windows, and the Capability/Held-Event/Valour decision
   payload.
@@ -35,7 +36,7 @@ from a seeded RNG:
   battle-only (Bosworth) scenarios. Bosworth includes explicit four-Capability
   selection and three-Lord Arrays for each side before simultaneous reveal.
 
-Verification: 1015 passing tests (`pytest`), ruff clean, continuous board-invariant
+Verification: 1030 passing tests (`pytest`), ruff clean, continuous board-invariant
 checks, and two reusable bug-finding harnesses (`scripts/sweep_harness.py`,
 `scripts/battle_fuzz.py`). See [`SMOKE_TEST_FINDINGS.md`](SMOKE_TEST_FINDINGS.md)
 for the full audit/bug log and [`CHANGELOG.md`](CHANGELOG.md) for milestones.
@@ -78,7 +79,7 @@ The code also passes `mypy --strict`.
 - `scripts/` — data builders (`build_map_data.py`, `build_scenarios.py`,
   `build_grand_scenario.py`) and bug-finding sweeps (`sweep_harness.py`,
   `battle_fuzz.py`).
-- `tests/` — pytest suite (1015 tests) covering the full engine, plus
+- `tests/` — pytest suite (1030 tests) covering the full engine, plus
   property-based conservation tests and the fuzz-finding regressions.
 
 ## How to run things

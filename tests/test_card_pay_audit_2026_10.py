@@ -12,10 +12,13 @@ from plantagenet.scenarios import build_initial_state
 def _later_events():
     s = build_initial_state("warwicks_rebellion", seed=1)
     s.turn_box = (s.calendar.first_box or s.turn_box) + 1
-    deck = s.decks["lancastrian"]["draw"]
-    for cid in ("L30", "L26"):
-        deck.remove(cid)
-    deck[:0] = ["L30", "L26"]
+    # Rule 3.1.1 now reshuffles the complete unused pool before each later
+    # draw. Isolate the two cards under test and reset the RNG to a seed whose
+    # two-card shuffle preserves this order.
+    s.decks["lancastrian"]["draw"] = ["L30", "L26"]
+    s.decks["lancastrian"]["discard"] = []
+    s.seed = 0
+    s.rng_state = None
     actions.apply_action(s, {"type": "draw", "side": "lancastrian"})
     return s
 

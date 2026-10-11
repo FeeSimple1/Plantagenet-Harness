@@ -80,6 +80,13 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     if state.phase == "levy" and state.levy_step == "done":
         return [{"type": "begin_campaign"}]
     if state.phase == "levy" and state.levy_step == "arts_of_war":
+        first_levy = state.turn_box == (state.calendar.first_box or state.turn_box)
+        if first_levy:
+            from plantagenet.arts_of_war import capability_assignment_options
+            side = state.active_side
+            drawn = list(state.decks.get(side, {}).get("draw", [])[:2])
+            return [{"type": "draw", "side": side, "assignments": assignment}
+                    for assignment in capability_assignment_options(state, side, drawn)]
         return [{"type": "draw", "side": state.active_side}]
     if state.phase == "levy" and state.levy_step == "pay":
         return [{"type": "pay", "side": state.active_side}]
@@ -297,7 +304,15 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
         moves.append({"type": "end_activation", "side": side})
         return moves
     if c.step == "end":
-        return [{"type": "end_campaign"}]
+        held = {side: list(state.decks.get(side, {}).get("held", []))
+                for side in ("lancastrian", "yorkist")
+                if state.decks.get(side, {}).get("held", [])}
+        move: dict[str, Any] = {"type": "end_campaign"}
+        if held:
+            # Informational template data: the concrete no-discard action remains
+            # legal as-is; a player may instead submit decisions.discard_held.
+            move["discard_held_options"] = held
+        return [move]
     return []
 
 

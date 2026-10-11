@@ -21,12 +21,11 @@ A successful prefix does not validate the remaining recorded continuation.
 Exit code 0 = every compared oracle field in the requested range matched;
 only explicitly waived illegal actions were skipped. Nonzero rejects the replay.
 
-The seed-181 historical recording matches through step 28. That draw includes
-Y22 Loyalty and Trust, but the recording omits its mandatory target selection.
-Step 29 tries to draw for Lancaster instead, so the current engine rejects it.
-The previously identified step-69 partial-Pay error is also in that old record;
-it is now unreachable without inventing the missing choice. The original log
-is preserved as evidence, not rewritten or waived.
+The seed-181 historical recording matches through step 27. Its first later-Levy
+draw at step 28 was produced by the former no-reshuffle bug, so rule-correct
+3.1.1 deck rebuilding now deliberately diverges there. The original log is
+preserved as evidence, not rewritten or waived; a current full-campaign replay
+lives in the card-lifecycle regression fixtures.
 """
 
 from __future__ import annotations
@@ -126,8 +125,30 @@ def intent(action: str) -> dict[str, Any]:
     raise ValueError(f"unrecognised action line: {a!r}")
 
 
-def match_move(moves: list[dict[str, Any]], it: dict[str, Any]) -> dict[str, Any]:
-    """The unique legal move consistent with the parsed intent."""
+def _recorded_draw_assignment(st: dict[str, Any] | None) -> dict[str, str] | None:
+    """Recover a first-Levy Capability allocation from a historical Result line."""
+    if st is None:
+        return None
+    match = re.search(r"(?:^|; )deployed ([^;]+)", st["result"])
+    if match is None:
+        return None
+    out: dict[str, str] = {}
+    for entry in match.group(1).split(","):
+        parsed = re.fullmatch(r"\s*([YL]\d+) to (.+?)\s*", entry)
+        if parsed is None:
+            return None
+        out[parsed.group(1)] = norm(parsed.group(2))
+    return out
+
+
+def match_move(moves: list[dict[str, Any]], it: dict[str, Any],
+               st: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The unique legal move consistent with the parsed intent.
+
+    Modern first-Levy draws enumerate every legal Capability allocation. Older
+    recordings described only ``draw`` in their Action line and put the chosen
+    mats in Result, so use that oracle to select the matching concrete move.
+    """
     if it["type"] == "build_plan":
         tmpl = [mv for mv in moves if mv["type"] == "build_plan" and mv["side"] == it["side"]]
         if not tmpl:
@@ -135,6 +156,12 @@ def match_move(moves: list[dict[str, Any]], it: dict[str, Any]) -> dict[str, Any
         return {"type": "build_plan", "side": it["side"], "plan": it["plan"]}
     cands = [mv for mv in moves
              if all(mv.get(k) == v for k, v in it.items())]
+    if len(cands) > 1 and it["type"] == "draw":
+        assignment = _recorded_draw_assignment(st)
+        if assignment is not None:
+            cands = [mv for mv in cands
+                     if {cid: lid for cid, lid in mv.get("assignments", {}).items()
+                         if lid is not None} == assignment]
     if len(cands) > 1:                       # e.g. solo vs group march: prefer solo
         slim = [mv for mv in cands if "group" not in mv and not mv.get("use_ships")]
         if len(slim) == 1:
@@ -181,7 +208,7 @@ def main() -> int:
         moves = legal_moves.legal_moves(state)
         if st["n"] in waived:
             try:
-                match_move(moves, it)
+                match_move(moves, it, st)
             except LookupError:
                 print(f"step {st['n']}: WAIVED (recorded action not offered, as expected): "
                       f"{st['action']!r}")
@@ -189,7 +216,7 @@ def main() -> int:
             print(f"step {st['n']}: STALE WAIVER — the action IS offered now")
             return 2
         try:
-            mv = match_move(moves, it)
+            mv = match_move(moves, it, st)
         except LookupError as e:
             print(f"step {st['n']}: NO MATCH {e} | action={st['action']!r}")
             return 2
@@ -231,6 +258,11 @@ def compare(st: dict[str, Any], res: dict[str, Any]) -> str | None:
         want = [c.strip() for c in m.group(1).split(",")]
         if res.get("drawn") != want:
             return f"drawn {res.get('drawn')} != {want}"
+        assigned = _recorded_draw_assignment(st)
+        if assigned is not None:
+            got = {entry["card"]: entry["lord"] for entry in res.get("deployed", [])}
+            if got != assigned:
+                return f"deployed {got} != {assigned}"
     elif t == "levy_lord":
         m = re.search(r"success=(\w+); roll=(\d+) vs rating (\d+); spent=(\d+)", rec)
         if m and (str(res.get("success")) != m.group(1) or str(res.get("roll")) != m.group(2)

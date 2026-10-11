@@ -1,11 +1,10 @@
 """Historical seed-181 replay stops at its earliest corrected rule violation.
 
-The original 347-action recording is unchanged. Its first 28 recorded actions
-match, but the Turn-2 draw of Y22 needs a target before Lancaster can draw at
-step 29. The log never recorded that decision. Do not invent a choice to force
-an obsolete playthrough through the current engine. A previously identified
-step-69 Pay error remains in the historical record too; it is now unreachable.
-The current grand-campaign regression supplies all required choices explicitly.
+The original 347-action recording is unchanged. Its first 27 recorded actions
+still match. Step 28 is the first later-Levy draw and was produced before rule
+3.1.1's full unused-deck reshuffle was implemented, so the corrected engine
+must draw different cards there. Do not rewrite or waive the historical log;
+the current full-campaign regression records a complete rules-correct run.
 """
 
 from __future__ import annotations
@@ -25,19 +24,25 @@ def _replay(*args):
 
 
 def test_recorded_grand_selfplay_valid_prefix_replays_exactly():
-    """Rule 3.1: recorded fields match through the draw that now requests Y22."""
-    result = _replay("--through", "28")
+    """The pre-fix historical recording remains exact through its first Turn."""
+    result = _replay("--through", "27")
     assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
-    assert "replayed 28 actions, 0 divergences" in result.stdout
+    assert "replayed 27 actions, 0 divergences" in result.stdout
     assert "WAIVED" not in result.stdout
-    assert "step 29" not in result.stdout
 
 
-def test_full_historical_recording_rejected_at_missing_event_choice():
-    """Y22: the historical log cannot skip a mandatory player selection."""
+def test_historical_recording_exposes_old_missing_reshuffle():
+    """Rule 3.1.1: the old log diverges at its first later-Levy draw."""
+    result = _replay("--through", "28")
+    assert result.returncode == 1, result.stdout[-2000:] + result.stderr[-2000:]
+    assert "step 28: DIVERGE drawn" in result.stdout
+    assert "replayed 28 actions, 1 divergences" in result.stdout
+
+
+def test_full_historical_recording_cannot_continue_after_correct_draws():
+    """The old action stream is invalid once corrected draws change Events."""
     result = _replay()
     assert result.returncode == 2, result.stdout[-2000:] + result.stderr[-2000:]
-    assert "step 29: NO MATCH 0 candidates" in result.stdout
-    assert "'type': 'draw', 'side': 'lancastrian'" in result.stdout
+    assert "step 28: DIVERGE drawn" in result.stdout
+    assert "step 30: NO MATCH 0 candidates" in result.stdout
     assert "WAIVED" not in result.stdout
-    assert "replayed 347 actions, 0 divergences" not in result.stdout

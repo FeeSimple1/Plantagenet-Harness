@@ -6,6 +6,24 @@ internal milestones.
 
 ## [Unreleased]
 
+### Fixed — 2026-10-10 second complete grand-campaign playtest
+- Rebuild and shuffle each side's complete unused Arts of War deck before every
+  later-Levy draw, reintegrating discarded/expired cards while excluding Held,
+  active, pending, attached, and set-aside cards (3.1.1).
+- Expose every maximum-card first-Levy Capability allocation. Assignments are
+  evaluated jointly, so a greedy first placement cannot force an otherwise
+  assignable second card to be discarded (3.1.2).
+- Permit each side to return any selected Held Events at Campaign Reset while
+  preserving unselected Held cards; validate the combined choice atomically and
+  feed returned cards into the next Levy's shuffle (4.8.6).
+- Teach the historical replay adapter to recover explicit first-Levy assignments
+  from old Result lines. Preserve the seed-181 recording as evidence: it now
+  deliberately diverges at step 28, the first draw produced by the old no-shuffle
+  behavior.
+- Add 17 net regression/integration tests and a 1,053-action rules-correct grand
+  campaign covering all three Wars, both Renewed-War transitions, board
+  invariants, and fresh-versus-save/load identity. Suite: 1,030 tests.
+
 ### Fixed — 2026-10-10 complete grand-campaign playtest
 - Reject commands after a War has ended, preserving its winner and state; only
   a legal Renewed War transition may continue play.

@@ -40,15 +40,29 @@ The Levy begins with the Arts of War draw, Rebel then King:
 
 | Action | Args | Rule | Status |
 |---|---|---|---|
-| `draw` | `side` | 3.1 | done (first Levy deploys 2 Capabilities; later Levies draw 2 Events; immediate Events and targeted duration Events queue on `pending_events`) |
+| `draw` | `side`; first Levy: `assignments` mapping each drawn card to a Lord id or `null` | 3.1 | done (first Levy exposes joint Capability allocations; later Levies rebuild/shuffle all unused cards, then draw 2 Events) |
 | `play_event` | `card`, `side`, `decisions?` | 3.1.3 / 1.9.1 | done (resolve a pending drawn Event; immediate cards return to deck, duration cards stay active; only legal move while `pending_events` set) |
 
-First Levy of a scenario (3.1.2): each side draws two cards and deploys them
-as Capabilities at Mustered Lord mats (default first eligible Lord; discard
-if unassignable). Later Levies (3.1.3): each side draws two Events — Hold ->
-held pile, This Levy / This Campaign -> active (after any required target
-selection), otherwise resolve and return to the deck. After both draws ->
-Muster (first Turn) or Pay. Pending Events must be resolved in draw order: `play_event` accepts only the
+At each Levy, each side gathers and shuffles every unused card (3.1.1). The
+first Levy's setup deck is already shuffled; later `draw` actions rebuild the
+pool from `draw` plus `discard`, leaving Held Events, active/pending Events,
+set-aside cards, and Capabilities on mats out of the deck.
+
+First Levy of a scenario or renewed War (3.1.2): each side draws two cards and
+chooses which eligible Mustered Lord receives each Capability. `legal_moves`
+returns one concrete `draw` action per joint allocation that deploys the maximum
+possible number of cards; `null` is legal only when a card cannot be assigned
+without unnecessarily losing another. Example:
+
+```json
+{"type":"draw","side":"yorkist",
+ "assignments":{"Y11":"york","Y7":"march"}}
+```
+
+Later Levies (3.1.3): each side draws two Events — Hold -> held pile, This Levy /
+This Campaign -> active (after any required target selection), otherwise resolve
+and return to the unused pool. After both draws -> Muster (first Turn) or Pay.
+Pending Events must be resolved in draw order: `play_event` accepts only the
 first card in `pending_events`, for the active side. Undrawn cards cannot be
 played through this action.
 
@@ -94,7 +108,7 @@ The Campaign turn (4.0): `begin_campaign` (after Levy) -> Plan -> Activation
 | `forage` | `side`, `by_lord` | 4.6.2 | done (Friendly auto; Neutral 1-4; Enemy/adj 1-3; Depletes) |
 | `pass` | `side`, `by_lord` | 4.6.5 | done (consumes one Command action) |
 | `end_activation` | `side` | 4.2/4.7 | done (Feed, then reveal the other side's next card) |
-| `end_campaign` | — | 4.8 | done (Tides of War, Victory check, Grow, Waste, advance Turn) |
+| `end_campaign` | optional `decisions` (`charity`, `discard_held`) | 4.8 | done (Tides, Victory, Grow, Waste, selective Held return, advance Turn) |
 
 Activation: a revealed Lord takes up to its Command rating in actions; a
 Pass card or off-map Lord does nothing (4.2.3). Feed (4.7) runs at each
@@ -260,6 +274,19 @@ the first or second War of the grand scenario, set up the next War and retain
 the game history. Offered by `legal_moves` only when a next War exists. The CLI
 also accepts `plantagenet renew-war game.state.json`. Draws, standalone games,
 unfinished Wars, and the final War do not permit renewal.
+
+At Reset (4.8.6), `end_campaign` may return any selected Held Events to the
+unused pool while keeping the rest Held. Supply both sides' choices in the
+printed Rebel-then-King resolution order through one atomic payload:
+
+```json
+{"type":"end_campaign","decisions":{"discard_held":{
+  "lancastrian":["L13"],"yorkist":["Y30"]}}}
+```
+
+Omit a side or use an empty list to keep all of its Held Events. The cards move
+to `discard` and join that side's next rule-3.1.1 shuffle. Capability cards on
+Lord mats are not eligible.
 
 For We Done Deeds of Charity (Y4), `end_campaign` accepts
 `decisions.charity` keyed by Capability holder. An integer spends that Lord's

@@ -759,6 +759,7 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     victory = state.victory or _victory_check(state)
     info = season_info(state.turn_box)
     grown = wasted = False
+    discarded_held: dict[str, list[str]] = {}
     if victory is None:
         rules = _active_special_rules(state)
         ravaged = "Ravaged Land" in rules                 # IIIY/IIIL/My Kingdom: skip Grow+Waste
@@ -769,12 +770,13 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         if info["waste"] and not skip_waste:  # 4.8.5 Waste
             _waste(state)
             wasted = True
-        _reset_to_next_levy(state)            # 4.8.6
+        discarded_held = _reset_to_next_levy(state, action.get("decisions"))  # 4.8.6
     else:
         state.phase = "over"
         state.victory = victory
     return {"type": "end_campaign", "tides_of_war": tow, "disembark": disembark,
             "victory": victory, "grow": grown, "waste": wasted,
+            "discarded_held": discarded_held,
             "turn_box": state.turn_box, "phase": state.phase}
 
 
@@ -808,9 +810,48 @@ def _waste(state: GameState) -> None:
             lord.forces[f] = max(lord.forces.get(f, 0), n)
 
 
-def _reset_to_next_levy(state: GameState) -> None:
+def _discard_held_events(state: GameState,
+                         decisions: dict[str, Any] | None) -> dict[str, list[str]]:
+    """Reset choice (4.8.6): Rebel then King may return selected Held Events.
+
+    The two sides' choices do not interact, so one ``discard_held`` mapping can
+    carry both decisions while this helper still validates and resolves them in
+    the printed Rebel-then-King order. Unselected Held cards remain Held.
+    """
+    raw = (decisions or {}).get("discard_held", {})
+    _require(isinstance(raw, dict), "bad_held_discard",
+             "discard_held must map sides to lists of Held card ids (4.8.6)")
+    assert isinstance(raw, dict)
+    _require(all(side in SIDES for side in raw), "bad_held_discard",
+             "discard_held may name only lancastrian and yorkist (4.8.6)")
+    rebel = _rebel(state)
+    king = _king(state)
+    discarded: dict[str, list[str]] = {}
+    for side in (rebel, king):
+        picks = raw.get(side, [])
+        _require(isinstance(picks, list) and all(isinstance(cid, str) for cid in picks),
+                 "bad_held_discard",
+                 f"{side} discard_held must be a list of card ids (4.8.6)")
+        assert isinstance(picks, list)
+        _require(len(set(picks)) == len(picks), "bad_held_discard",
+                 f"{side} may name each Held card only once (4.8.6)")
+        deck = state.decks.setdefault(side, {"draw": [], "discard": [], "held": []})
+        held = deck.setdefault("held", [])
+        _require(all(cid in held for cid in picks), "card_not_held",
+                 f"{side} may discard only its currently Held Events (4.8.6)")
+        if picks:
+            for cid in picks:
+                held.remove(cid)
+                deck.setdefault("discard", []).append(cid)
+            discarded[side] = list(picks)
+    return discarded
+
+
+def _reset_to_next_levy(state: GameState,
+                        decisions: dict[str, Any] | None = None) -> dict[str, list[str]]:
     from plantagenet.events import expire_scope
     expire_scope(state, "this_campaign")  # discard expired This-Campaign Event cards (no leak)
+    discarded = _discard_held_events(state, decisions)
     state.turn_box += 1
     state.phase = "levy"
     # A rolled-over Turn begins at the Arts of War draw (3.1), then Pay (3.2),
@@ -823,3 +864,4 @@ def _reset_to_next_levy(state: GameState) -> None:
         lord.mustered_this_segment = False
         lord.moved_fought = False
         lord.free_troops_used = False
+    return discarded
