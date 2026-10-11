@@ -17,18 +17,19 @@ from tests._helpers import resolve_pending_events
 
 
 def _later_levy_with_top(scenario, seed, side_imm):
-    """Build a later-Levy state and force two immediate Events to the top of the
-    active (Rebel) side's draw pile. Returns (state, side, [cards])."""
+    """Build a later-Levy state whose complete unused pool is two immediates.
+
+    Rule 3.1.1 now shuffles the whole unused pool before every later draw, so a
+    test cannot force cards merely by moving them to the old draw-pile top.
+    """
     s = build_initial_state(scenario, seed=seed)
     s.turn_box = 2
     side = s.active_side
     cards = side_imm[side]
-    deck = s.decks[side]["draw"]
-    for c in cards:
-        if c in deck:
-            deck.remove(c)
-    for c in reversed(cards):
-        deck.insert(0, c)
+    s.decks[side]["draw"] = list(cards)
+    s.decks[side]["discard"] = []
+    s.seed = 0                  # Random(0).shuffle preserves this two-card order
+    s.rng_state = None
     return s, side, cards
 
 

@@ -1646,3 +1646,35 @@ The corrected full replay also exposed an executor-only terminal-state bypass:
 dispatcher now rejects all post-War commands except `renew_war`, whose handler
 checks that a next War actually exists. The full replay tests rejected suffix
 actions atomically and still traverses both legal Renewed-War transitions.
+
+## 2026-10-10 second complete grand-campaign fixes (seed 20261011)
+
+The second full Wars of the Roses run used a different seed after the prior
+grand-campaign fixes. It completed all three Wars and both legal transitions,
+then exposed three card-lifecycle/interface gaps rather than a crash or board
+invariant failure.
+
+1. **Rule 3.1.1 deck rebuilding was absent.** Later Levies drew from the
+   remaining `draw` list without shuffling or reintegrating `discard`, producing
+   deterministic four-card cycles and even zero-card draws. Each side now
+   gathers and shuffles all unused `draw`+`discard` cards before every later
+   draw, with in-play/Held/pending/set-aside cards excluded.
+2. **Rule 3.1.2 Capability placement was delegated greedily.** The menu now
+   exposes every maximum-card joint allocation and the executor validates the
+   chosen mapping atomically. This prevents a first placement from consuming the
+   only slot for a second card when another two-card allocation exists.
+3. **Rule 4.8.6 lacked voluntary Held-Event return.** End Campaign accepts a
+   selective `decisions.discard_held` mapping, processes Rebel then King, keeps
+   unselected cards Held, and returns selected cards to the next Levy's unused
+   pool.
+
+Regression coverage is in `test_card_lifecycle_2026_10.py`, with stripped-history
+reproduction snapshots and a new 1,053-action seed-20261011 campaign. The replay
+checks all three Wars, both Renewed-War transitions, invariants after every
+action, and exact fresh-versus-JSON-loaded results and final history. The old
+seed-181 recording remains unchanged; its valid prefix is now 27 actions because
+its step-28 draw records the former no-reshuffle behavior.
+
+Validation: **1,030 tests pass**, Ruff clean, `mypy --strict` clean, and
+`git diff --check` clean on Python 3.13 locally; CI validates supported Python
+versions.
