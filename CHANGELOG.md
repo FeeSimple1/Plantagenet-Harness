@@ -6,6 +6,21 @@ internal milestones.
 
 ## [Unreleased]
 
+### Improved — 2026-10-16 compact LLM interface
+- Replace default full menus with category counts, preserving all raw and
+  validated programmatic entries, including unexpanded templates.
+- Add state-bound action IDs, filters, arbitrary-size pages, parameter help,
+  precise concise results and detailed player-safe inspection.
+- Detect stale selections, external edits, reloads and perspective changes.
+  Inspection no longer auto-renews Wars or consumes strategic choices.
+- Preserve private hands, future Plans, unrevealed Bosworth choices and reaction
+  metadata. Add sealed Reset contributions around the unchanged atomic engine.
+- Test navigation set equality, optional Events, custom Plans/Groups/bids,
+  pending responses, privacy, save/resume and both grand-War transitions.
+- Add an output benchmark that includes added requests and reports cases where
+  richer decision support costs more. Budgets remain advisory, never hard caps.
+- No engine, rules data, RNG, or game-mechanic changes.
+
 ### Fixed — 2026-10-10 second complete grand-campaign playtest
 - Rebuild and shuffle each side's complete unused Arts of War deck before every
   later-Levy draw, reintegrating discarded/expired cards while excluding Held,
