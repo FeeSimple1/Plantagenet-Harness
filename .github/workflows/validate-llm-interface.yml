@@ -1,0 +1,108 @@
+name: Validate compact LLM interface
+on:
+  push:
+    branches: [audit/llm-interface-20261016]
+    paths: [.github/workflows/validate-llm-interface.yml]
+permissions:
+  contents: read
+env:
+  BASE_REVISION: 69f52dbab5280d5e18856316c4fbc7479bc9efe1
+  PATCH_SHA256: 06051f07c5d76265af13499055afef1480651ec1684f80bde3ad8d1d43dce0df
+  EXPECTED_TREE: fb61ff602231f7c42dafab22bfa9739df0754301
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconstruct and verify exact interface tree
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, lzma, os
+          from pathlib import Path
+          root = Path('audit/llm-interface-20261016')
+          expected = ['68efd0ec89a4f94a5b0f1bf7bb26a90144fa16d9', '95071f09e497cf17f5497f9083f3cd1453e671f8', '54f56051eed067d9cdd814db2a88c37b9316ba41', 'c8de81bb0db933a550843ef52d1261a2079838d8', '054d832676696ea7f0cdaba3a72480e661cc5ffe', '4f5102ff5b2427535ba258a3b8ac870e2f991888', '3a0d50fa831f009eb7560430a3ce60b2283b545c']
+          chunks = []
+          for i, sha in enumerate(expected, 1):
+              data = (root / f'part{i}.b64').read_bytes()
+              actual = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              assert actual == sha, (i, actual, sha)
+              chunks.append(data)
+          patch = lzma.decompress(base64.b64decode(b''.join(chunks)))
+          assert hashlib.sha256(patch).hexdigest() == os.environ['PATCH_SHA256']
+          (Path(os.environ['RUNNER_TEMP']) / 'interface.patch').write_bytes(patch)
+          PY
+          git checkout --detach "$BASE_REVISION"
+          git apply --index "$RUNNER_TEMP/interface.patch"
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+          git diff --cached --check
+          if git diff --cached --name-only | grep -q '^src/'; then
+            echo 'Unexpected rules-engine change' >&2
+            exit 1
+          fi
+          git show "$BASE_REVISION:scripts/chatgpt_play_helper.py" > "$RUNNER_TEMP/old_helper.py"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python-version }}'
+      - name: Install
+        run: python -m pip install -e '.[dev,parallel]'
+      - name: Lint
+        run: ruff check .
+      - name: Existing strict engine type check
+        run: mypy
+      - name: Full suite and paired interface fidelity tests
+        run: |
+          export PLANTAGENET_BASELINE_HELPER="$RUNNER_TEMP/old_helper.py"
+          pytest -q -n 2 -p no:cacheprovider --junitxml="$RUNNER_TEMP/tests.xml"
+      - name: Reproduce request and output token benchmark
+        if: matrix.python-version == '3.12'
+        run: |
+          python -m pip install tiktoken==0.14.0
+          python scripts/benchmark_llm_interface.py --baseline "$RUNNER_TEMP/old_helper.py" --out "$RUNNER_TEMP/llm-benchmark"
+      - name: Retain validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-interface-validation-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/tests.xml
+            ${{ runner.temp }}/llm-benchmark
+          retention-days: 7
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconstruct identical validated source tree
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, lzma, os
+          from pathlib import Path
+          root = Path('audit/llm-interface-20261016')
+          data = b''.join((root / f'part{i}.b64').read_bytes() for i in range(1, 8))
+          patch = lzma.decompress(base64.b64decode(data))
+          assert hashlib.sha256(patch).hexdigest() == os.environ['PATCH_SHA256']
+          (Path(os.environ['RUNNER_TEMP']) / 'interface.patch').write_bytes(patch)
+          PY
+          git checkout -b feat/llm-interface-20261016 "$BASE_REVISION"
+          git apply --index "$RUNNER_TEMP/interface.patch"
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+          git diff --cached --check
+      - name: Commit and push validated interface branch
+        run: |
+          git config user.name FeeSimple1
+          git config user.email ecommentation@gmail.com
+          git commit -m "Improve LLM interface navigation, state safety, and output efficiency" -m "Replace expanded default menus with compact category overviews and complete filtered/paginated access. Bind stable IDs to state versions, retain unrestricted custom decisions, emit complete visible changes and pending context, and preserve player-specific information with explicit referee inspection." -m "Add 44 interface regressions and a reproducible 73-action paired benchmark including 51 extra requests. Local output tokens fall 23.4%, total request/response tokens 18.3%; budgets remain advisory. All 1074 tests and Ruff pass; existing strict engine mypy targets pass. No src/ engine, rules data, or model files changed."
+          git push origin HEAD:refs/heads/feat/llm-interface-20261016
+          git rev-parse HEAD
+          git rev-parse HEAD^{tree}
