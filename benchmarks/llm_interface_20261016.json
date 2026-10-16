@@ -1,0 +1,483 @@
+{
+  "baseline_revision": "69f52dbab5280d5e18856316c4fbc7479bc9efe1",
+  "tokenizer": "o200k_base",
+  "session_ids": "UUID derived from SHA256(trajectory name); interface-only, for reproducibility",
+  "method": "All printed responses plus actual request code, including extra pages, help, card/result inspections and private Reset contributions. Return values assigned (no notebook echo). Equal full engine states after every action. Baseline receives its complete menu without extra requests and uses integer selections whenever offered. No output cap.",
+  "sequences": [
+    {
+      "name": "opening_levy_both_sides",
+      "actions": 15,
+      "state_history_rng_identical": true,
+      "baseline": {
+        "requests": 18,
+        "output_chars": 35552,
+        "request_chars": 509,
+        "total_chars": 36061,
+        "output_utf8_bytes": 35588,
+        "output_tokens": 12960,
+        "request_tokens": 168,
+        "total_tokens": 13128,
+        "by_side": {
+          "lancastrian": {
+            "requests": 8,
+            "output_chars": 15783,
+            "request_chars": 174,
+            "total_chars": 15957,
+            "output_utf8_bytes": 15799,
+            "output_tokens": 5738,
+            "request_tokens": 58,
+            "total_tokens": 5796
+          },
+          "yorkist": {
+            "requests": 10,
+            "output_chars": 19769,
+            "request_chars": 334,
+            "total_chars": 20103,
+            "output_utf8_bytes": 19789,
+            "output_tokens": 7222,
+            "request_tokens": 110,
+            "total_tokens": 7332
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "new": {
+        "requests": 31,
+        "output_chars": 22555,
+        "request_chars": 2322,
+        "total_chars": 24877,
+        "output_utf8_bytes": 22559,
+        "output_tokens": 8099,
+        "request_tokens": 791,
+        "total_tokens": 8890,
+        "by_side": {
+          "lancastrian": {
+            "requests": 13,
+            "output_chars": 9238,
+            "request_chars": 972,
+            "total_chars": 10210,
+            "output_utf8_bytes": 9240,
+            "output_tokens": 3360,
+            "request_tokens": 334,
+            "total_tokens": 3694
+          },
+          "yorkist": {
+            "requests": 18,
+            "output_chars": 13317,
+            "request_chars": 1349,
+            "total_chars": 14666,
+            "output_utf8_bytes": 13319,
+            "output_tokens": 4739,
+            "request_tokens": 457,
+            "total_tokens": 5196
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "output_char_reduction_pct": 36.56,
+      "total_char_reduction_pct": 31.01
+    },
+    {
+      "name": "muster_and_campaign_both_sides",
+      "actions": 33,
+      "state_history_rng_identical": true,
+      "baseline": {
+        "requests": 36,
+        "output_chars": 69585,
+        "request_chars": 1012,
+        "total_chars": 70597,
+        "output_utf8_bytes": 69587,
+        "output_tokens": 25162,
+        "request_tokens": 359,
+        "total_tokens": 25521,
+        "by_side": {
+          "lancastrian": {
+            "requests": 19,
+            "output_chars": 46082,
+            "request_chars": 537,
+            "total_chars": 46619,
+            "output_utf8_bytes": 46082,
+            "output_tokens": 16888,
+            "request_tokens": 192,
+            "total_tokens": 17080
+          },
+          "yorkist": {
+            "requests": 17,
+            "output_chars": 23503,
+            "request_chars": 474,
+            "total_chars": 23977,
+            "output_utf8_bytes": 23505,
+            "output_tokens": 8274,
+            "request_tokens": 167,
+            "total_tokens": 8441
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "new": {
+        "requests": 54,
+        "output_chars": 44000,
+        "request_chars": 3919,
+        "total_chars": 47919,
+        "output_utf8_bytes": 44002,
+        "output_tokens": 16162,
+        "request_tokens": 1404,
+        "total_tokens": 17566,
+        "by_side": {
+          "lancastrian": {
+            "requests": 29,
+            "output_chars": 24090,
+            "request_chars": 2153,
+            "total_chars": 26243,
+            "output_utf8_bytes": 24090,
+            "output_tokens": 8927,
+            "request_tokens": 776,
+            "total_tokens": 9703
+          },
+          "yorkist": {
+            "requests": 25,
+            "output_chars": 19910,
+            "request_chars": 1765,
+            "total_chars": 21675,
+            "output_utf8_bytes": 19912,
+            "output_tokens": 7235,
+            "request_tokens": 628,
+            "total_tokens": 7863
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "output_char_reduction_pct": 36.77,
+      "total_char_reduction_pct": 32.12
+    },
+    {
+      "name": "custom_plans_sparse_activations",
+      "actions": 22,
+      "state_history_rng_identical": true,
+      "baseline": {
+        "requests": 23,
+        "output_chars": 33081,
+        "request_chars": 711,
+        "total_chars": 33792,
+        "output_utf8_bytes": 33081,
+        "output_tokens": 11839,
+        "request_tokens": 249,
+        "total_tokens": 12088,
+        "by_side": {
+          "lancastrian": {
+            "requests": 11,
+            "output_chars": 15643,
+            "request_chars": 356,
+            "total_chars": 15999,
+            "output_utf8_bytes": 15643,
+            "output_tokens": 5623,
+            "request_tokens": 127,
+            "total_tokens": 5750
+          },
+          "yorkist": {
+            "requests": 12,
+            "output_chars": 17438,
+            "request_chars": 354,
+            "total_chars": 17792,
+            "output_utf8_bytes": 17438,
+            "output_tokens": 6216,
+            "request_tokens": 122,
+            "total_tokens": 6338
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "new": {
+        "requests": 36,
+        "output_chars": 30899,
+        "request_chars": 2598,
+        "total_chars": 33497,
+        "output_utf8_bytes": 30899,
+        "output_tokens": 11083,
+        "request_tokens": 919,
+        "total_tokens": 12002,
+        "by_side": {
+          "lancastrian": {
+            "requests": 17,
+            "output_chars": 13752,
+            "request_chars": 1242,
+            "total_chars": 14994,
+            "output_utf8_bytes": 13752,
+            "output_tokens": 4916,
+            "request_tokens": 448,
+            "total_tokens": 5364
+          },
+          "yorkist": {
+            "requests": 19,
+            "output_chars": 17147,
+            "request_chars": 1355,
+            "total_chars": 18502,
+            "output_utf8_bytes": 17147,
+            "output_tokens": 6167,
+            "request_tokens": 471,
+            "total_tokens": 6638
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "output_char_reduction_pct": 6.6,
+      "total_char_reduction_pct": 0.87
+    },
+    {
+      "name": "approach_reaction_and_battle",
+      "actions": 2,
+      "state_history_rng_identical": true,
+      "baseline": {
+        "requests": 4,
+        "output_chars": 4692,
+        "request_chars": 89,
+        "total_chars": 4781,
+        "output_utf8_bytes": 4692,
+        "output_tokens": 1683,
+        "request_tokens": 27,
+        "total_tokens": 1710,
+        "by_side": {
+          "lancastrian": {
+            "requests": 2,
+            "output_chars": 2332,
+            "request_chars": 53,
+            "total_chars": 2385,
+            "output_utf8_bytes": 2332,
+            "output_tokens": 837,
+            "request_tokens": 15,
+            "total_tokens": 852
+          },
+          "yorkist": {
+            "requests": 2,
+            "output_chars": 2360,
+            "request_chars": 35,
+            "total_chars": 2395,
+            "output_utf8_bytes": 2360,
+            "output_tokens": 846,
+            "request_tokens": 12,
+            "total_tokens": 858
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "new": {
+        "requests": 7,
+        "output_chars": 9674,
+        "request_chars": 401,
+        "total_chars": 10075,
+        "output_utf8_bytes": 9674,
+        "output_tokens": 3180,
+        "request_tokens": 134,
+        "total_tokens": 3314,
+        "by_side": {
+          "lancastrian": {
+            "requests": 3,
+            "output_chars": 3189,
+            "request_chars": 164,
+            "total_chars": 3353,
+            "output_utf8_bytes": 3189,
+            "output_tokens": 1089,
+            "request_tokens": 54,
+            "total_tokens": 1143
+          },
+          "yorkist": {
+            "requests": 4,
+            "output_chars": 6485,
+            "request_chars": 236,
+            "total_chars": 6721,
+            "output_utf8_bytes": 6485,
+            "output_tokens": 2091,
+            "request_tokens": 80,
+            "total_tokens": 2171
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "output_char_reduction_pct": -106.18,
+      "total_char_reduction_pct": -110.73
+    },
+    {
+      "name": "private_campaign_reset",
+      "actions": 1,
+      "state_history_rng_identical": true,
+      "baseline": {
+        "requests": 2,
+        "output_chars": 1946,
+        "request_chars": 135,
+        "total_chars": 2081,
+        "output_utf8_bytes": 1946,
+        "output_tokens": 642,
+        "request_tokens": 46,
+        "total_tokens": 688,
+        "by_side": {
+          "lancastrian": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          },
+          "yorkist": {
+            "requests": 2,
+            "output_chars": 1946,
+            "request_chars": 135,
+            "total_chars": 2081,
+            "output_utf8_bytes": 1946,
+            "output_tokens": 642,
+            "request_tokens": 46,
+            "total_tokens": 688
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "new": {
+        "requests": 6,
+        "output_chars": 4619,
+        "request_chars": 338,
+        "total_chars": 4957,
+        "output_utf8_bytes": 4619,
+        "output_tokens": 1553,
+        "request_tokens": 96,
+        "total_tokens": 1649,
+        "by_side": {
+          "lancastrian": {
+            "requests": 4,
+            "output_chars": 3082,
+            "request_chars": 209,
+            "total_chars": 3291,
+            "output_utf8_bytes": 3082,
+            "output_tokens": 989,
+            "request_tokens": 64,
+            "total_tokens": 1053
+          },
+          "yorkist": {
+            "requests": 2,
+            "output_chars": 1537,
+            "request_chars": 128,
+            "total_chars": 1665,
+            "output_utf8_bytes": 1537,
+            "output_tokens": 564,
+            "request_tokens": 32,
+            "total_tokens": 596
+          },
+          "referee": {
+            "requests": 0,
+            "output_chars": 0,
+            "request_chars": 0,
+            "total_chars": 0,
+            "output_utf8_bytes": 0,
+            "output_tokens": 0,
+            "request_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      },
+      "output_char_reduction_pct": -137.36,
+      "total_char_reduction_pct": -138.2
+    }
+  ],
+  "total": {
+    "baseline": {
+      "requests": 83,
+      "output_chars": 144856,
+      "request_chars": 2456,
+      "total_chars": 147312,
+      "output_tokens": 52286,
+      "request_tokens": 849,
+      "total_tokens": 53135
+    },
+    "new": {
+      "requests": 134,
+      "output_chars": 111747,
+      "request_chars": 9578,
+      "total_chars": 121325,
+      "output_tokens": 40077,
+      "request_tokens": 3344,
+      "total_tokens": 43421
+    }
+  }
+}

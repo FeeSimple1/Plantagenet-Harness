@@ -145,3 +145,15 @@ other input; then the curated `.txt` references (esp. the Arts of War
 Reference Tips); then the Background Book (examples, not a standalone rules
 source). Stay strictly within the repo files; the game's history is theme,
 not subject matter.
+
+## Compact LLM play interface
+
+`scripts/chatgpt_play_helper.py` uses compact current-position briefings, action
+category counts, state-bound IDs and filtered/paginated menus. Custom Plans,
+optional Events and other parameterized decisions remain available; `apply()`
+returns concise consequences instead of reprinting every move. Detailed and full
+programmatic inspection is retained with explicit player/referee perspectives.
+See [the play guide](CHATGPT_PLAY_PORTING_GUIDE.md) for the current API and
+[measured output comparisons](LLM_INTERFACE_BENCHMARK.md) for costs including
+additional menu/help requests. This is an interface-only change: no `src/`
+engine or rules-data files are changed.

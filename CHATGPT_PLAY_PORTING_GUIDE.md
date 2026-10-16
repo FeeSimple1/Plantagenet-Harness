@@ -1,241 +1,223 @@
-# ChatGPT plays the Plantagenet Harness — bug-hunt setup
+# Playing Plantagenet through the compact LLM interface
 
-Zip this repo, upload it to a ChatGPT **Project**, and let ChatGPT (GPT-5.x)
-play the harness in its own Python sandbox — no API key, no network — while a
-baked-in instrumentation layer auto-captures every engine anomaly (illegal
-action, crash, stall, broken board invariant). A different model walking
-different trajectories is what surfaces bugs the scripted sweeps miss.
+The player chooses strategy. The helper handles state, navigation and diagnostics;
+it does not rank moves, change rules, pick Campaign Plans, or silently advance Wars.
+The entry point is `scripts/chatgpt_play_helper.py`.
 
-This is the harness-agnostic "ChatGPT-plays-your-engine" pattern (the same one
-Nevsky used), already **ported and wired** for Plantagenet. The wiring lives in
-`scripts/chatgpt_play_helper.py`; this guide explains the contract, the
-Plantagenet-specific notes, and the project instructions to paste.
-
-## The model in one paragraph
-
-ChatGPT itself is the player. It runs the harness in its sandbox, calls
-`nv.show()` to see the active side's briefing plus a numbered list of legal
-actions, decides, calls `nv.apply(N)`, and loops. The helper validates every
-offered action against the real executor on a throwaway deep copy, so the model
-is never shown an illegal move, and any filtered move is logged as a bug. At the
-end, `nv.findings_report()` prints the triage queue you collect. There is no API
-driver and no self-play script — ChatGPT is the decision-maker.
-
-## What the harness exposes (the contract — already wired)
-
-The adapter block at the top of `scripts/chatgpt_play_helper.py` maps the
-generic contract onto this engine. For the record, the wiring is:
-
-- **scenarios** → `static_data.list_scenario_ids()`.
-- **load** → `scenarios.build_initial_state(scenario_id, seed)` (deterministic
-  from the seed; fully sets the board, so `setup_actions` is empty).
-- **briefing** → `render.render_summary(state)` plus an active-side/phase header.
-  The player controls **both** sides, so the full-board summary is correct;
-  Plantagenet has no per-side hidden *board* state (drawn-card hands are omitted).
-- **legal actions** → `legal_moves.legal_moves(state)`. The engine decides the
-  active side itself and each move is a **flat dict** carrying its own `side`
-  (e.g. `{"type":"parley","side":"yorkist","by_lord":"york","target":"lynn"}`),
-  so the adapter ignores the `side` argument and returns the engine's moves.
-- **apply** → `actions.apply_action(state, action)` (mutates in place; raises
-  `errors.IllegalAction` on an illegal move — a normal rejection, not a crash).
-- **terminal / winner** → `state.phase == "over"` / `state.victory`.
-- **deep copy** → `state.model_copy(deep=True)`.
-- **invariants** → `invariants.board_invariant_violations(state)` (co-location,
-  influence-cap, lord-status, card-zone), stringified.
-
-### First-Levy Capability allocation (`draw`)
-
-On a first Levy, the menu contains one concrete `draw` action for each legal
-joint allocation of the two revealed Capabilities. The `assignments` mapping is
-part of the action, so choose the menu entry whose Lords you prefer. Later-Levy
-draws remain forced actions: the engine first rebuilds and shuffles the complete
-unused deck, then reveals the Events.
-
-### The 4.1 Plan (`build_plan`) is a free construction
-
-`build_plan` is the one *templated* action: the player freely chooses which
-Mustered Lords to activate. The adapter expands the template into one concrete,
-ready-to-apply **default** plan (activate all of that side's Mustered Lords,
-padded with Pass to the required card count) so `nv.apply(N)` always works and
-is validated. To choose a different plan, the player submits a **raw action
-dict**, e.g.
+## Start and navigate
 
 ```python
-nv.apply({"type":"build_plan","side":"yorkist",
-          "plan":[{"lord":"york"}, {"lord":"march"}, {"pass":True}, {"pass":True}]})
-```
-
-The number of plan entries must equal the `cards_required` shown on the move
-(the `// ...` note on the menu line spells this out, including the side's
-Mustered Lord ids).
-
-### Returning Held Events at Reset (`end_campaign`)
-
-When Held Events exist, the End-Campaign menu note lists each side's choices.
-Applying the numbered entry keeps every Held Event. To return selected cards to
-the unused pool, submit a raw action such as:
-
-```python
-nv.apply({"type":"end_campaign","decisions":{"discard_held":
-          {"lancastrian":["L13"],"yorkist":["Y30"]}}})
-```
-
-The returned cards join the next Levy's shuffle; unlisted cards remain Held.
-
-### Resolving drawn Events (`play_event`)
-
-On the second and later Levies, the Arts of War draw (3.1.3) reveals Events.
-Immediate Events are queued and must be resolved before the Levy proceeds: the
-menu then offers a `play_event` move per drawn Event, and nothing else is legal
-until they are resolved. Most Events are deterministic — apply them by their menu
-number. Selection Events (e.g. Warwick's Propaganda picks Strongholds, L'Universelle
-Aragne picks Vassals) need a choice, supplied as a raw dict:
-
-```python
-nv.apply({"type":"play_event","side":"lancastrian","card":"L23",
-          "decisions":{"strongholds":{"york":"remove","coventry":"pay","hull":"remove"}}})
-```
-
-An Event whose precondition isn't met (its card text reads "No effect if …")
-resolves to no effect rather than being rejected. Resolved cards return to the
-deck (3.1.3).
-
-## §RNG — why the validated palette is safe here
-
-The validated palette deep-copies the state, applies a candidate, and discards
-the copy. That is only safe if the RNG can't leak from copy to original.
-Plantagenet stores the RNG **in the state** (`seed` + `rng_state`, each roll a
-pure function reconstructed via `state.dice()`), so `state.model_copy(deep=True)`
-isolates it perfectly. `VALIDATE = True` is correct — leave it on.
-
-## §Invariants
-
-`invariants.board_invariant_violations` runs after every applied action and is
-already the engine's full always-on set: the canonical L&C **co-location** check
-(no two opposing Mustered Lords share a Locale outside a Stronghold, exempting a
-pending Approach), plus influence-marker bounds, lord status/position
-consistency, and card-zone uniqueness. Nothing to add.
-
-## Scenarios
-
-`henry_vi`, `towton`, `somersets_return`, `warwicks_rebellion`,
-`my_kingdom_for_a_horse`, `bosworth`, `wars_of_the_roses`.
-
-- **Start with `henry_vi`** (the intro War, fewest decisions per turn).
-- `wars_of_the_roses` is the **grand** scenario: long, and a decisive War
-  victory auto-continues into the next War (the helper calls `renew_war` for
-  you and prints a transition line). Good for a deep soak run, not a first run.
-- **`bosworth` is now playable, including its mandatory setup.** Each side
-  selects four cards with `choose_battle_capability`, assigning each to an
-  eligible Lord, then chooses one of the six `array_battle` actions. The Array's
-  `front` list is Left, Center, Right. Cards stay unrevealed until both sides
-  commit. Only then does the menu offer `resolve_battle`. Choose tactical
-  Capability and Valour use through that action's `decisions`; starting Arrays
-  have already been committed. See `ACTIONS.md` for the action grammar.
-
-## Dependencies
-
-The helper's import chain needs only **pydantic** (already present in ChatGPT's
-sandbox). `typer` (the CLI dep) is not imported by the helper, so a sandbox
-without it is fine. If the sandbox lacks pydantic, `pip install pydantic` in the
-tool first.
-
-## Local smoke test (no ChatGPT needed)
-
-Proves the wiring runs end to end and exercises the validator:
-
-```python
-import sys; sys.path.insert(0, "src"); sys.path.insert(0, "scripts")
+import sys
+sys.path[:0] = ['src', 'scripts']
 import chatgpt_play_helper as nv
-nv.start("henry_vi", seed=1)
-for _ in range(200):
-    acts = nv.auto()          # fast-forward forced turns, return the next menu
-    if not acts: break
-    nv.apply(0)               # greedy stand-in for the model
-nv.findings_report()
+
+overview = nv.start('henry_vi', seed=1)
+page = nv.menu(action_type='draw', page=1, page_size=4)
+# Read the choices, then copy the chosen row's entire ID:
+receipt = nv.apply(page['items'][0]['id'])
 ```
 
-A 6-scenario × 3-seed sweep through this helper (every standalone scenario plus
-the grand scenario's War transitions) currently comes back with **zero** notable
-findings at the time of that sweep. That historical result predates the October
-interactive-play findings. Bosworth now has explicit setup and its own regression
-coverage; passing a sweep does not establish complete rules fidelity.
+`show()` prints a fresh compact position and **action categories/counts**, not
+an expanded action list. Counts are menu entries, **not the number of legal
+parameter combinations**. A `TEMPLATE` denotes a free construction; `*` denotes
+additional supported parameters. A singleton category includes its full ID so
+no extra browse request is needed merely to obtain that ID.
 
----
+The compact baseline includes position/status, effective Influence/Lordship/
+Command ratings, Lordship spent, Forces (`F`), Assets (`A`, including Provender,
+Coin and transport), attached Capabilities and Vassals, Favour/depletion,
+Influence, visible cards and Plans, active effects, Exile alignment, victory
+and pending decisions. No numeric value is rounded or replaced by a heuristic.
+Map/static data, precise bookkeeping and full card text remain inspectable.
 
-# ChatGPT Project instructions (paste into the Project's custom instructions)
+### Filters and pagination
 
-> You are playtesting GMT's *Plantagenet: Cousins' War* (a Levy & Command
-> wargame) via a Python rules engine in this project, working in your Python
-> tool. Unzip the uploaded repo if needed, then run:
->
-> ```python
-> import sys; sys.path.insert(0, "src"); sys.path.insert(0, "scripts")
-> import chatgpt_play_helper as nv
-> nv.start("henry_vi", seed=1)
-> ```
->
-> Play turn by turn. `nv.show()` prints the active side's briefing and a
-> NUMBERED list of legal actions. You control BOTH sides — play each turn to win
-> for whichever side is active. Decide, then `nv.apply(N)` to play action number
-> N. For a custom March/Campaign Plan, pass a raw dict instead:
-> `nv.apply({"type":"build_plan","side":"<side>","plan":[{"lord":"<id>"}, {"pass":true}, ...]})`
-> with exactly `cards_required` entries (the menu's `//` note lists the side's
-> Mustered Lord ids).
->
-> `nv.auto()` fast-forwards purely-forced turns (single legal action) and returns
-> the next real menu — call it between decisions to skip boilerplate. `nv.save("game.json")`
-> checkpoints; `nv.load("game.json")` restores after a sandbox reset.
->
-> Play to win: advance on objectives, Levy troops and capabilities, March,
-> Tax/Parley for coin and Favour, keep your Lords supplied, and use special
-> capabilities; pass only when it is genuinely the best move. For `bosworth`,
-> choose four Capabilities and a three-Lord Array for each side before resolving
-> its single Battle. The menu enumerates every setup choice.
->
-> The harness auto-records any engine anomaly. Periodically and at the end, run
-> `nv.findings_report()` and paste its output back to the maintainer — that list
-> is the goal of the exercise.
+```python
+page = nv.menu('parley', by_lord='york', page_size=6)
+page = nv.menu(lord='march', page=2, page_size=6,
+               expected_version=page['version'])
+page = nv.menu('draw', **{'assignments.Y11': 'march'})
+page = nv.menu('march', to='london')
+page = nv.menu(query='provender', page_size=None)
+```
 
----
+The second example illustrates the continuation guard; in actual continuation,
+retain **the same filters** used for page 1. Pages are one-based. `page_size=None`
+means every matching entry, not an arbitrary upper limit. `lord` matches actors,
+targets, groups, allocations and eligible Campaign Plan templates. `by_lord`
+means the exact actor field. Any JSON field, including a dotted nested field,
+can be matched exactly using keyword arguments; `query` searches the visible
+JSON text case-insensitively. Missing concrete fields do not match: filtering
+is navigation over the engine catalog, not a solver for parameter combinations.
 
-## What you get back
+`page['total']`, `pages`, `next_page`, `filters` and `version` make exhaustion
+explicit. No page renumbers the underlying actions.
 
-`nv.findings_report()` prints `N total, M notable`. Each notable entry is a real
-engine defect to triage:
+## Stable selections
 
-- `over_enum_filtered` — the validated menu offered a move the executor rejects
-  (enumerator/handler asymmetry — the dominant bug class).
-- `illegal_action` — a move the menu *vouched* (an index pick, or a raw dict that
-  exactly matched a menu entry) was rejected on apply: a genuine validator/handler
-  divergence.
-- `under_enum_accepted` — the handler *accepted* a move the menu never offered:
-  under-enumeration (the enumerator missed a legal move).
-- `exception` / `exception_in_probe` — applying an offered move crashed (worse
-  than an illegal: a real engine bug).
-- `no_legal_moves` — a stall/deadlock (the active side had no legal action).
-- `invariant` / `invariant_crash` — an illegal board state slipped through
-  (e.g. co-located enemies).
+An ID looks like `v0123abcd.7/26`: an opaque session namespace, a state revision,
+and a slot in that revision's complete raw catalog. It is **not a local row
+number**. Copy the whole ID. Sorting/filtering, different page sizes and changing
+validation mode do not change what it means.
 
-`player_illegal` (logged but **not** notable) is an ordinary player mistake: a
-raw-dict action — or a malformed custom `build_plan` — that wasn't on the current
-menu and the engine correctly rejected. It is excluded from the notable count so
-it doesn't masquerade as an engine defect; apply the move by its menu number (or
-re-`nv.show()`) to avoid it.
+`apply(0)` is intentionally unsupported: an unversioned integer cannot prove
+which observed menu was intended. An accepted action invalidates all old IDs,
+even if it has no visible board effect. Direct external edits to the attached
+GameState are detected by a private full-state fingerprint (including RNG and
+history). Loading or changing perspective also invalidates IDs. Public IDs do
+not encode a hash of hidden card contents.
 
-For each, fix the **root** (don't just rely on the validator hiding it) and add
-a negative test: assert the enumerator does not *offer* the bad move, not only
-that the handler rejects it — matching the round-trip discipline in
-`CROSS_PROJECT_LESSONS.md`.
+A raw/custom action must include an explicit state expectation:
 
-## Tips
+```python
+observed_version = nv.version()
+receipt = nv.apply({'type': 'parley', 'side': 'yorkist',
+                    'by_lord': 'york', 'target': 'london', 'extra_spend': 3},
+                   expected_version=observed_version)
+```
 
-- Start with `henry_vi`; even a partial game finds bugs.
-- Vary the seed and re-run; try more than one model — different decision policies
-  walk different trajectories.
-- The sandbox is ephemeral. If it resets, re-run the setup cell or `nv.load()`
-  from a checkpoint.
-- Long games run slower with validation on (a deep copy per candidate per turn).
-  That is fine for interactive play; for a fast headless over-enum sweep, use the
-  existing `scripts/roundtrip_sweep.py` / `tests/test_full_game_smoke.py` with
-  the board invariants active.
+Capture `observed_version` with the position being considered, not after making
+an unrelated move. Stale IDs/actions/page continuations raise
+`StaleSelectionError` without invoking the engine. Failed rule checks return a
+small error receipt, not a full menu redisplay, and the engine's atomic rollback
+preserves the state and RNG.
+
+## Parameters are strategic choices, not defaults
+
+```python
+help_text = nv.describe('build_plan')
+plan_row = nv.menu('build_plan')['items'][0]
+# For a four-card season only; a different season requires its own length:
+receipt = nv.apply(plan_row['id'], parameters={'plan': [
+    {'lord': 'march'}, {'lord': 'march'}, {'pass': True}, {'lord': 'york'}
+]})
+```
+
+**No default Plan is substituted.** Use exactly `cards_required` entries, any
+ordering of this side's Mustered Lords and Passes, at most three cards per Lord.
+The menu's template stands for the whole family, not a single example Plan.
+
+`describe(type_or_id)` supplies parameter names, constraints and relevant card
+text. Event descriptions also expose literal payload keys and the current
+resolver's source constraints. `describe(..., source=True)` provides detailed
+handler source; `inspect('grammar')` provides the full action grammar. These are
+uncapped on-demand tools, not additional mechanics or alternative rule validators.
+
+Parameterized choices remain accepted by the unchanged engine, including
+Influence bids; partial Group Marches; shared transport; multi-Lord Exile returns;
+Pay ordering/voluntary disbands; tactical Arrays, Flee, hit allocation, Valour and
+card choices; mandatory selection Events; and optional Held Events. A dictionary
+shown without optional parameters uses the engine defaults if applied as-is, but
+those defaults are never described as the only legal option. The deliberately
+manual-adjudicated `concede` timing remains documented, not newly enumerated.
+
+`auto()` is conservative. It stops on templates, supported parameter families,
+reactions, early Activation endings, Reset and War renewal. It does not call a
+single parameterized representative a forced action. Each genuinely forced
+unparameterized action still emits its consequences.
+
+## Results and detailed inspection
+
+`apply()` prints a concise result and the complete visible-state change patch,
+plus newly pending decisions and next category counts. Large battles are allowed
+to exceed a suggested output budget. A card's authorised information gain, such
+as Aspielles' snapshot, is included rather than omitted as cosmetic detail.
+The returned `Reply` retains the safe full result and structured changes.
+Its short representation prevents a notebook from accidentally echoing a huge
+programmatic menu. Assign replies to variables to avoid even that small echo.
+
+```python
+info = nv.inspect('influence')
+info = nv.inspect('york')               # full mat, ratings/Seat/static data
+info = nv.inspect('cards')              # owner's Held cards, public counts
+info = nv.inspect('card', card='Y22')   # complete static card text
+info = nv.inspect('effects')
+info = nv.inspect('pending')
+info = nv.inspect('result')            # full safe last engine result
+info = nv.inspect('history')           # safe receipt history
+info = nv.inspect('map')               # all locales/ways, not a local crop
+info = nv.inspect('state')             # all player-visible state fields
+```
+
+A fresh baseline is forced after loading, perspective/active-player handoff,
+external state edits, and Renewed-War transitions. `show()` always supplies a
+baseline. Inspection never changes game state, draws dice, or renews a War.
+After a decisive first/second War, select the explicit `renew_war` action.
+
+## Player views and joint decisions
+
+The default `perspective='active'` is for a trusted host controlling both sides:
+it follows the player who actually owns the next decision, **including a
+reactor different from `state.active_side`**. A handoff emits a fresh baseline.
+
+For a single player's context, start with `perspective='yorkist'` or
+`'lancastrian'`. That context sees only its own available decisions, Held Events,
+unrevealed setup and future Plan. Enemy hidden state is not leaked through
+menu annotations, return values, detailed inspection, previous receipts or
+validation probes. Enemy public mats/Capabilities remain visible. Inspecting a
+static card by ID never asserts that an opponent possesses it.
+
+The trusted host may call `set_perspective(side)` to switch contexts. This is
+**output separation, not authentication**: arbitrary Python code that can read
+`_S`, import the engine or open a save file is already a referee. Do not give
+such access to an untrusted opposing player. `perspective='referee'` deliberately
+exposes omniscient programmatic menus/results and enables `inspect('raw')` and
+`inspect('engine_history')` for debugging. Even normal card views do not print
+the next shuffled card or RNG state.
+
+Campaign Reset has one engine action containing both players' choices. In
+restricted views, collect private contributions first:
+
+```python
+# In the Yorkist context:
+nv.stage_reset({'discard_held': ['Y13']}, expected_version=nv.version())
+# The trusted host then switches to the Lancastrian context:
+overview = nv.set_perspective('lancastrian')
+nv.stage_reset({}, expected_version=nv.version())  # explicitly keep/default
+row = nv.menu('end_campaign')['items'][0]
+receipt = nv.apply(row['id'])
+```
+
+The same transport accepts `charity` and `disembark_land`, keyed by the submitting
+player's own Lords. Contributions stay sealed, are saved/resumed, and are combined
+into **one unchanged atomic engine call**. They do not consume dice or execute
+half a Reset. In referee mode, the full existing joint `decisions` payload can
+be submitted directly. Omitted own choices retain the ordinary engine defaults;
+another player's meaningful Reset choices require its contribution.
+
+## Full menus, validation and diagnostics
+
+`all_actions()` returns every safe validated record, without printing.
+`all_actions(validated=False)` also retains rejected engine candidates; all
+records keep the same IDs. In referee mode the action dictionaries correspond
+exactly to `legal_moves(state)`, including metadata and unexpanded templates.
+`show(expanded=True)` or `menu(page_size=None)` explicitly displays the full menu.
+
+Enumeration and probes operate on isolated deep copies. Validation statuses are
+cached per revision; templates are retained without pretending that an unspecified
+choice has been validated. Rejected candidates stay accessible via
+`inspect('rejected')`. `findings_report()` retains engine-divergence, rejection,
+exception, invariant and genuine under-enumeration diagnostics; custom choices
+inside supported parameter families are not mislabeled as under-enumeration.
+
+`SOFT_OUTPUT_CHARS` is advisory only. Exceeding it prints a notice and **does not
+truncate results, hide options, alter mechanics or prevent detailed inspection**.
+
+## Save and resume
+
+```python
+nv.save('game.json')
+overview = nv.load('game.json')
+```
+
+The checkpoint contains full referee state, exact RNG, diagnostics, receipts,
+perspective and private staged contributions. Keep it private. Load creates a
+new ID namespace and a fresh baseline; saved menu IDs intentionally do not survive.
+A saved finished War remains finished until the player selects `renew_war`.
+
+## Tests and output measurements
+
+See `tests/test_llm_interface.py` and `LLM_INTERFACE_BENCHMARK.md`. The benchmark
+compares the old helper against the new helper on identical engine trajectories,
+counting added browse/help/detail requests as well as responses, and reports
+expensive cases as well as savings. It is a diagnostic, not a hard output budget.
