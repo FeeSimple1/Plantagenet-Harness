@@ -1,0 +1,26 @@
+name: LLM interface tokenizer tools
+on:
+  push:
+    branches: [audit/llm-interface-20261016]
+    paths: [.github/workflows/llm-tokenizer-tools.yml]
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Prepare tokenizer and cache
+        env:
+          TIKTOKEN_CACHE_DIR: tokenizer/encoding
+        run: |
+          python -m pip download --only-binary=:all: --dest tokenizer/wheels tiktoken
+          python -m pip install --no-index --find-links tokenizer/wheels tiktoken
+          python -c "import tiktoken; print(tiktoken.get_encoding('o200k_base').name)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: llm-interface-tokenizer
+          path: tokenizer
+          retention-days: 2
