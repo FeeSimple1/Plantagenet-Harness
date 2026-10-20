@@ -74,7 +74,7 @@ Title: —
 Seat: York
 Ratings: Influence 1 / Lordship 2 / Command 1 / Valour 1
 Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
-Assets: none
+Assets: 2 Provender, 2 Coin, 1 Cart
 
 Exeter (1)
 
@@ -226,7 +226,7 @@ Norfolk
 
 Title: —
 Seat: Arundel
-Ratings: Influence 3 / Lordship 3 / Command 3 / Valour 2
+Ratings: Influence 3 / Lordship 3 / Command 2 / Valour 2
 Forces: Retinue, 2 x Men-at-Arms, 2 x Longbow, 2 x Militia
 Assets: 2 Provender, 2 Coin, 2 Cart
 

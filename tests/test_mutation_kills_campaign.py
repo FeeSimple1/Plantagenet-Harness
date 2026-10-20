@@ -387,11 +387,11 @@ def test_foreign_haven_shift_boundaries():
 
 def test_waste_resets_coin_to_setup():
     s = build_initial_state("warwicks_rebellion", seed=1)
-    cl = s.lords["clarence"]                            # setup Assets have no Coin
+    cl = s.lords["clarence"]                            # printed card starts with 2 Coin
     assert cl.status == "mustered"
     cl.assets = {"coin": 5, "provender": 4, "cart": 3, "ship": 2}
     campaign._waste(s)
-    assert cl.assets["coin"] == 0                       # reset to setup (4.8.5)
+    assert cl.assets["coin"] == 2                       # reset to printed setup (4.8.5)
     assert cl.assets["provender"] == 2 and cl.assets["cart"] == 2
     assert cl.assets["ship"] == 1                       # halve, round up
 

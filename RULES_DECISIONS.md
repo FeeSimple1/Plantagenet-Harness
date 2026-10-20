@@ -12,6 +12,10 @@ like any rule.
 
 **Date.** 2026-05-20.
 
+**Correction (2026-10-19).** D-008 supersedes only Burgundy's Sea assignment:
+Burgundy belongs to the North Sea. The original adjudication below is retained
+verbatim as the decision history.
+
 **Question.** The reference text marks Ports but does not enumerate which
 Ports share a Sea, nor the Sea adjacency used by Sail.
 
@@ -309,3 +313,30 @@ plays go through battle decisions.
 Tests: tests/test_replace_is_not_removal.py (4);
 tests/test_succession.py::test_renew_carries_removed_heirs_and_charges_minus_eight_at_third_war;
 tests/test_battle_niche_branches.py::test_culverins_discarded_exactly_once_when_firing_lord_disbands.
+
+---
+
+## D-008 — Burgundy belongs to the North Sea (corrects D-001)
+
+**Date.** 2026-10-19.
+
+**Question.** The Vassal module's map shows Burgundy's arrow entering the North
+Sea, while D-001 and the harness placed it in the English Channel.
+
+**User adjudication (verbatim).**
+> You're right, Burgundy should be in the North Sea.  Move it accordingly
+
+**Resolution.** Assign Burgundy to the North Sea in both Sea-zone membership
+and the Exile-box definition. D-001's remaining Port memberships, Sea adjacency,
+and FAQ #1 restrictions remain in effect.
+
+**Citation.** User correction; Rules of Play §1.3.1 (Exile boxes use the Sea
+indicated by their arrows), §4.6.1; Errata & Clarification FAQ #1;
+`Plantagenet_1.0.vmod`, `images/Plantagenet table.jpg`.
+
+**Encoded in.** `src/plantagenet/data/static/seas.json`,
+`src/plantagenet/data/static/exile_boxes.json`, and
+`reference/Plantagenet Map Reference.txt`. Tests: `tests/test_seas.py` and the
+Burgundy Sail, Supply, and Levy Parley cases in
+`tests/test_vassal_component_audit.py`. See the Vassal component-audit fix commit
+and `VASSAL_AUDIT.md` for the evidence and validation record.

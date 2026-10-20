@@ -186,7 +186,11 @@
       "longbow": 2,
       "militia": 2
     },
-    "assets": {}
+    "assets": {
+      "provender": 2,
+      "coin": 2,
+      "cart": 1
+    }
   },
   "exeter_1": {
     "name": "Exeter (1)",
@@ -592,7 +596,7 @@
     "ratings": {
       "influence": 3,
       "lordship": 3,
-      "command": 3,
+      "command": 2,
       "valour": 2
     },
     "forces": {

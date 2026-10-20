@@ -6,6 +6,16 @@ internal milestones.
 
 ## [Unreleased]
 
+### Fixed — 2026-10-19 Vassal component audit
+- Move Burgundy from the English Channel to the North Sea, per user correction
+  D-008 and the map arrow. Correct the curated map reference and route tests.
+- Give Clarence his printed 2 Provender, 2 Coin, and 1 Cart at setup/Muster;
+  Waste restores his printed 2 Coin.
+- Correct Norfolk's Command rating from 3 to 2, matching his mat and the final
+  rulebook's p.22 illustration.
+- Add 14 regression cases; record module provenance, evidence, and limitations
+  in `VASSAL_AUDIT.md`.
+
 ### Improved — 2026-10-16 compact LLM interface
 - Replace default full menus with category counts, preserving all raw and
   validated programmatic entries, including unexpanded templates.

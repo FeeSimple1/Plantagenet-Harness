@@ -30,7 +30,7 @@
     "name": "Burgundy",
     "land_exits": [],
     "note": "Exile box.",
-    "sea_zone": "english_channel",
+    "sea_zone": "north_sea",
     "acts_as_port": true
   }
 }

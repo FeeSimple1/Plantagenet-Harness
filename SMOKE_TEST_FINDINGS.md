@@ -1678,3 +1678,32 @@ its step-28 draw records the former no-reshuffle behavior.
 Validation: **1,030 tests pass**, Ruff clean, `mypy --strict` clean, and
 `git diff --check` clean on Python 3.13 locally; CI validates supported Python
 versions.
+
+## 2026-10-19 Vassal component audit (baseline 1210175)
+
+Compared the published Plantagenet 1.0 module's component artwork, properties,
+and saved setups with the harness and final rules. See `VASSAL_AUDIT.md` for
+the exact download, hash, archive members, source discrepancies, and scope.
+
+1. **Clarence lacked starting Assets (1.5.3 / 4.8.5).** His printed mat and
+   module Muster prototype give 2 Provender, 2 Coin, and 1 Cart, but both the
+   curated reference and runtime JSON said none. Corrected setup, Muster, and
+   Waste through the shared static data.
+2. **Norfolk had an extra Command point (4.2.2).** His mat and the final
+   rulebook's p.22 illustration show Command 2, while the harness/reference
+   said 3. Corrected the rating and verified two commands exhaust an activation.
+3. **Burgundy used the wrong Sea (1.3.1 / D-008).** The user confirmed that its
+   map arrow points to the North Sea. Moved it in both static definitions and
+   the curated map reference; preserved D-001's original text with a correction
+   note. Verified direct Sail destinations, Supply, and Levy Parley routes.
+
+All 14 new regression cases failed before the corresponding fixes and now
+pass. Updated existing expectations for Clarence's Waste and Burgundy's Sea;
+historical replay fixtures remain unchanged. Module metadata/setup errors were
+not imported into the harness.
+
+Validation on Python 3.12.14: **1,088 tests pass** (baseline 1,074), Ruff clean,
+strict mypy clean, data-check has zero errors or warnings, and whitespace
+validation is clean with `core.whitespace=cr-at-eol` for the existing CRLF
+reference file. These are component corrections, not a claim of exhaustive
+Vassal gameplay equivalence.

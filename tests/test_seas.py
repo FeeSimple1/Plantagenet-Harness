@@ -1,4 +1,4 @@
-"""Sea-zone data fidelity (RULES_DECISIONS.md D-001; Rules 4.6.1 / FAQ #1)."""
+"""Sea-zone data fidelity (RULES_DECISIONS.md D-001/D-008; Rules 4.6.1 / FAQ #1)."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ def test_three_zones_with_expected_members():
     assert set(zones) == {"irish_sea", "english_channel", "north_sea"}
     assert set(zones["irish_sea"]["ports"]) == {"bristol", "pembroke", "harlech"}
     assert zones["irish_sea"]["exile_boxes"] == ["ireland"]
-    assert "scotland" in zones["north_sea"]["exile_boxes"]
-    assert {"france", "burgundy"} == set(zones["english_channel"]["exile_boxes"])
+    assert {"scotland", "burgundy"} == set(zones["north_sea"]["exile_boxes"])
+    assert zones["english_channel"]["exile_boxes"] == ["france"]
 
 
 def test_every_port_in_exactly_one_zone(locales):
@@ -35,7 +35,7 @@ def test_adjacency_is_irish_channel_north_chain():
 def test_exile_boxes_have_sea_zone_and_act_as_port():
     boxes = static_data.load_exile_boxes()
     expected = {"scotland": "north_sea", "france": "english_channel",
-                "ireland": "irish_sea", "burgundy": "english_channel"}
+                "ireland": "irish_sea", "burgundy": "north_sea"}
     for box, zone in expected.items():
         assert boxes[box]["sea_zone"] == zone
         assert boxes[box]["acts_as_port"] is True
