@@ -53,8 +53,8 @@ CONTRACTS = {
         "constraints": "Full-group examples do not exclude partial groups. Marshal/Lieutenant precedence, Haul, Path, Truce and special restrictions apply.",
     },
     "sail": {
-        "parameters": {"to": "Port, Exile box or Sea zone", "share": "co-located friendly Lords lending transport", "group": "co-located friendly sailing Lords under command restrictions", "decisions": "Naval/tactical choices"},
-        "constraints": "Ships/capacity, Sea adjacency, enemies and entire-card costs are checked by the engine.",
+        "parameters": {"to": "Port or Sea zone", "share": "chosen co-located friendly Ship donors for a solo Sail", "group": "any subset of group_options; Marshal/Lieutenant restrictions apply", "discard": "{provender: n, cart: n} for the active Lord, or {sailing_lord_id: {provender: n, cart: n}} for chosen moving mats", "decisions": "Naval/tactical choices"},
+        "constraints": "Special Vassals count as Forces. Ships have each owner's Great Ships benefit. Discard only excess cargo needed for the selected Ship pool; no automatic discard. discard_options and discard_needed describe alternate allocations. Defaults do not exclude partial groups or Ship donor subsets. Group Sails pool only moving Lords' Ships. A cancelled Naval Blockade Sail spends Command but keeps its cargo.",
     },
     "supply": {"parameters": {"source": "Stronghold or Port", "use_ships": "bool", "share": "co-located friendly transport donors"}},
     "tax": {"parameters": {"target": "eligible Seat or Special Stronghold", "extra_spend": "0, 1 or 3 Influence"}},

@@ -333,11 +333,61 @@ def _sail_moves(state: GameState, lord_id: str, lord: LordState, side: str,
         return moves
     if side == "yorkist" and commands._active_event(state, "FRENCH FLEET"):
         return moves                                   # French Fleet bars Yorkist Sail (L21)
-    ships = commands._transport_capacity(state, [lord], "ship")
-    need = max(-(-commands._forces_units(lord) // 6),
-               -(-lord.assets.get("provender", 0) // 2),
-               -(-lord.assets.get("cart", 0) // 2))
-    if ships < need:
+    allies = []
+    for gid, ally in state.lords.items():
+        if gid == lord_id or ally.side != side or ally.status != LordStatus.MUSTERED:
+            continue
+        same = (ally.at_sea == from_sea if origin_at_sea else
+                ally.at_sea is None and (
+                    ally.exile_box == here if lord.exile_box is not None
+                    else ally.location == here))
+        if same:
+            allies.append(ally)
+    donors = [ally for ally in allies if ally.assets.get("ship", 0) > 0]
+    title = commands._effective_title(state, lord_id)
+    group = [ally for ally in allies
+             if title in ("marshal", "lieutenant")
+             and not (title == "lieutenant"
+                      and static_data.load_lords()[ally.lord_id].get("title") == "marshal")]
+    # Concrete defaults plus complete group/share/discard parameter options.
+    # Any feasible group also permits its leader to Sail solo using that
+    # group's Shared Ships, so the shared entry keeps partial groups reachable
+    # even when the full co-located group exceeds capacity.
+    variants: list[tuple[list[LordState], list[LordState], dict[str, Any]]] = [
+        ([lord], [lord], {})]
+    if donors:
+        variants.append(([lord], [lord, *donors], {"share": [a.lord_id for a in donors]}))
+    if group:
+        variants.append(([lord, *group], [lord, *group],
+                         {"group": [a.lord_id for a in group]}))
+    sail_args: list[dict[str, Any]] = []
+    for movers, owners, params in variants:
+        ships = commands._transport_capacity(state, owners, "ship")
+        if sum(commands._forces_units(m) for m in movers) > 6 * ships:
+            continue
+        excess = commands._sail_excess(movers, ships)
+        remaining = dict(excess)
+        discards: dict[str, dict[str, int]] = {}
+        options: dict[str, dict[str, int]] = {}
+        for mover in movers:
+            for asset in remaining:
+                available = min(mover.assets.get(asset, 0), excess[asset])
+                if available:
+                    options.setdefault(mover.lord_id, {})[asset] = available
+                drop = min(mover.assets.get(asset, 0), remaining[asset])
+                if drop:
+                    discards.setdefault(mover.lord_id, {})[asset] = drop
+                    remaining[asset] -= drop
+        if discards:
+            params["discard"] = discards[lord_id] if len(movers) == 1 else discards
+            params["discard_options"] = options
+            params["discard_needed"] = {a: n for a, n in excess.items() if n}
+        if group:
+            params["group_options"] = [a.lord_id for a in group]
+        if donors:
+            params["share_options"] = [a.lord_id for a in donors]
+        sail_args.append(params)
+    if not sail_args:
         return moves
     owain = side == "lancastrian" and commands._active_event(state, "OWAIN GLYNDWR")
     locales = static_data.load_locales()
@@ -346,16 +396,21 @@ def _sail_moves(state: GameState, lord_id: str, lord: LordState, side: str,
             continue
         reachable = (dsea == from_sea or frozenset({from_sea, dsea}) in adj) \
             if origin_at_sea else (dsea == from_sea)
-        if not reachable or actions.enemy_lord_at(state, dest, side):
+        enemy = actions.enemy_lord_at(state, dest, side)
+        if not reachable or (enemy and (
+                not ratings.has_capability(state, lord_id, "HIGH ADMIRAL")
+                or commands._active_event(state, "PARLIAMENT'S TRUCE"))):
             continue
         if owain and locales.get(dest, {}).get("region") == "wales":   # Owain Glyndwr (Y25)
             continue
-        if commands._shaky_allies_block(state, [lord_id], dest):        # IIY Shaky Allies
-            continue
-        moves.append({"type": "sail", "side": side, "by_lord": lord_id, "to": dest})
+        for params in sail_args:
+            if not commands._shaky_allies_block(state, [lord_id, *params.get("group", [])], dest):
+                moves.append({"type": "sail", "side": side, "by_lord": lord_id,
+                              "to": dest, **params})
     for z in zones:                                    # into the current or an adjacent Sea
         if z == from_sea or frozenset({from_sea, z}) in adj:
-            moves.append({"type": "sail", "side": side, "by_lord": lord_id, "to": z})
+            moves.extend({"type": "sail", "side": side, "by_lord": lord_id,
+                          "to": z, **params} for params in sail_args)
     return moves
 
 

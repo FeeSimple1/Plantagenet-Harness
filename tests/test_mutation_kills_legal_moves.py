@@ -211,9 +211,9 @@ def test_sail_event_gates_and_ship_capacity():
           if m["type"] == "sail"}
     assert "bristol" in to and "pembroke" not in to and "harlech" not in to
     s.active_events[:] = []
-    york.assets["cart"] = 5                            # ceil(5/2)=3 Ships needed; has 2
-    assert not any(m["type"] == "sail"
-                   for m in legal_moves._command_moves(s, "yorkist", "york"))
+    york.assets["cart"] = 5  # Two Ships fit four Carts; a legal Sail leaves one behind.
+    sails = [m for m in legal_moves._command_moves(s, "yorkist", "york") if m["type"] == "sail"]
+    assert sails and all(m.get("discard") == {"cart": 1} for m in sails)
 
 
 def test_march_menu_wales_gate_and_no_empty_groups():

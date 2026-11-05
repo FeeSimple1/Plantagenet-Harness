@@ -122,7 +122,7 @@ Phase 3a-ii adds the movement/economy Commands:
 | Action | Args | Rule | Status |
 |---|---|---|---|
 | `march` | `side`, `by_lord`, `to`, optional `group`, `decisions` | 4.3 | done (speeds + Haul + Group; into an Enemy Locale -> Approach 4.3.5) |
-| `sail` | `side`, `by_lord`, `to` (Port) | 4.6.1 | done (same/adjacent Sea, free of enemy; Ship per 6 Forces / 2 Prov / 2 Cart; whole card) |
+| `sail` | `side`, `by_lord`, `to` (Port or Sea), optional `group`, `share`, `discard` | 4.6.1 | 1 Ship per 6 Forces (including Special Vassals), 2 Provender, 2 Carts; whole card unless Seamanship |
 | `tax` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.3 | done (own Seat auto; Vassal Seat / Special via Route + Influence; strongholds Coin; Depletes) |
 | `parley` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.4 | done (own location auto; else adjacent / same-Sea Port + Influence) |
 | `supply` | `side`, `by_lord`, `source`, optional `use_ships` | 4.5 | done (Stronghold table Provender + Deplete, or Port via Ships; land Route with 1 Cart/Provender/Way; Exile box uses Ship+same-Sea Port) |
@@ -239,6 +239,44 @@ via `decisions.disembark_land`, then Feed; else Disband).
 Asset Sharing (1.5.3): `sail` and `supply` accept a `share` list of co-located
 Friendly Lords whose Ships / Carts are pooled for the capacity requirement
 (used, never transferred).
+
+### Discarding cargo to Sail (4.6.1 / 1.7.2)
+
+Sail counts Retinue, Troops, regular Vassal counters and Special Vassal counters
+as Forces. One Ship carries up to six Forces, two Provender and two Carts at
+the same time. Great Ships doubles the capacity of its holder's Ships, including
+those lent to another Lord; it does not double Ships borrowed by that holder.
+
+The owner can elect to leave excess cargo behind. No discard is automatic.
+For the active Lord, submit an Asset-to-count mapping:
+
+```json
+{"type":"sail","side":"yorkist","by_lord":"york","to":"north_sea","discard":{"provender":1}}
+```
+
+For a Group, choose which moving mats discard the required excess:
+
+```json
+{"type":"sail","side":"yorkist","by_lord":"york","to":"north_sea","group":["salisbury"],"discard":{"salisbury":{"provender":2}}}
+```
+
+Only Provender and Carts count as cargo. Greed permits no more discard than
+needed for the selected Ship pool; a smaller discard must still leave enough
+capacity. Stationary Ship donors cannot have their cargo discarded. Solo Sail
+can borrow Ships through `share`; a Group pools the moving Lords' Ships.
+
+The menu offers concrete Sail choices with any necessary discard, including
+Shared Ships and full Groups. `group_options` and `share_options` expose the
+eligible participants for custom subsets. `discard_options` and `discard_needed`
+expose alternative allocations across moving mats. Any legal subset/allocation
+can be submitted through the same action or an ID's parameter override;
+`describe("sail")` documents the grammar. These defaults do not prune choices.
+
+Naval Blockade checks only Seas whose Ports the action actually uses. Sea-to-Sea
+and Exile-box-to-Sea Sails use no Port. Command cost is committed before the
+reaction; a cancellation keeps the elected cargo. Passing the Blockade roll
+or declining the reaction applies the saved discard once before movement. `discarded` reports
+the actual per-Lord amounts. Save/load preserves an unresolved election.
 
 ### Bosworth setup and Battle (Scenario IIIb)
 

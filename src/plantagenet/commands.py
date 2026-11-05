@@ -459,10 +459,59 @@ def _forces_units(lord: LordState) -> int:
     forces_static = static_data.load_forces()
     troops_and_retinue = sum(
         n for f, n in lord.forces.items() if f in forces_static)
-    return troops_and_retinue + len(lord.vassals)
+    return troops_and_retinue + len(lord.vassals) + len(lord.special_vassals)
+
+
+def _sail_excess(movers: list[LordState], ships: int) -> dict[str, int]:
+    """Cargo to leave behind for this elected Ship pool (4.6.1/1.7.2)."""
+    return {asset: max(0, sum(m.assets.get(asset, 0) for m in movers) - 2 * ships)
+            for asset in ("provender", "cart")}
+
+
+def _sail_discards(action: dict[str, Any], movers: list[LordState],
+                    ships: int) -> dict[str, dict[str, int]]:
+    """Validate an explicit flat (leader) or per-Lord cargo election.
+
+    No discard is automatic. Greed permits only the cargo reduction needed
+    for this Sail; either owner may choose which moving mat supplies it.
+    """
+    raw = action.get("discard", {})
+    if not isinstance(raw, dict):
+        raise IllegalAction("bad_discard", "discard must be an Asset or per-Lord object")
+    if not raw:
+        return {}
+    if any(asset in raw for asset in ("provender", "cart")):
+        raw = {movers[0].lord_id: raw}
+    eligible = {m.lord_id: m for m in movers}
+    selected: dict[str, dict[str, int]] = {}
+    totals = {"provender": 0, "cart": 0}
+    for lid, assets in raw.items():
+        if lid not in eligible or not isinstance(assets, dict):
+            raise IllegalAction("bad_discard", "choose only Sailing Lords' cargo")
+        for asset, count in assets.items():
+            if (asset not in totals or not isinstance(count, int)
+                    or isinstance(count, bool) or count < 0):
+                raise IllegalAction("bad_discard",
+                                    "discard counts must be nonnegative cargo amounts")
+            _require(count <= eligible[lid].assets.get(asset, 0), "bad_discard",
+                     f"{lid} does not have {count} {asset}")
+            if count:
+                selected.setdefault(lid, {})[asset] = count
+                totals[asset] += count
+    excess = _sail_excess(movers, ships)
+    _require(all(totals[a] <= excess[a] for a in totals), "unnecessary_discard",
+             "Greed permits only the Assets needed to make this Sail (1.7.2/4.6.1)")
+    return selected
 
 
 def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """4.6.1: Sail solo or with a chosen `group`, using elected Shared Ships.
+
+    `discard` is a Provender/Cart amount mapping for the active Lord, or
+    {moving_lord_id: {asset: count}} for any moving mats. Drop only the
+    excess needed for the chosen capacity. No cargo is dropped by default;
+    a Naval Blockade cancellation leaves the elected cargo on its mats.
+    """
     lord = campaign._active_command_lord(state, action)
     assert state.campaign is not None
     seas = static_data.load_seas()
@@ -491,6 +540,7 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                      "Sail requires a Port, Exile box, or being at Sea (4.6.1)")
             from_sea = port_sea.get(here)
     _require(from_sea is not None, "no_sea", "the Lord is not on a Sea")
+    assert from_sea is not None
 
     # French Fleet (L21): Yorkist Lords may not Sail this Campaign.
     _require(not (lord.side == "yorkist" and _active_event(state, "FRENCH FLEET")),
@@ -500,6 +550,9 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Sharing Ships among the Group (4.3.1). Members must share the leader's origin.
     movers = [lord]
     group = action.get("group", [])
+    _require(isinstance(group, list) and all(isinstance(gid, str) for gid in group)
+             and len(set(group)) == len(group) and lord.lord_id not in group,
+             "bad_group", "group must list distinct other Lords")
     if group:
         title = _effective_title(state, lord.lord_id)
         _require(title in ("marshal", "lieutenant"), "not_group_leader",
@@ -563,11 +616,18 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         tot_prov = sum(m.assets.get("provender", 0) for m in movers)
         tot_carts = sum(m.assets.get("cart", 0) for m in movers)
     else:
-        owners = [lord, *_shared_lords(state, lord, action.get("share"))]
+        share = action.get("share", [])
+        _require(isinstance(share, list) and all(isinstance(lid, str) for lid in share)
+                 and len(set(share)) == len(share),
+                 "bad_share", "share must list distinct Friendly Lords")
+        owners = [lord, *_shared_lords(state, lord, share)]
         ships = _transport_capacity(state, owners, "ship")
         tot_forces = _forces_units(lord)
         tot_prov = lord.assets.get("provender", 0)
         tot_carts = lord.assets.get("cart", 0)
+    discards = _sail_discards(action, movers, ships)
+    tot_prov -= sum(assets.get("provender", 0) for assets in discards.values())
+    tot_carts -= sum(assets.get("cart", 0) for assets in discards.values())
     need = max(-(-tot_forces // 6), -(-tot_prov // 2), -(-tot_carts // 2))
     _require(ships >= need, "insufficient_ships",
              f"Sail needs {need} Ship(s) (1 per 6 Forces / 2 Provender / 2 Carts); "
@@ -588,11 +648,19 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Reaction checkpoint (Q-004): Naval Blockade may cancel a Lancastrian Sail
     # using a Port on this Sea, before the move resolves.
     from plantagenet import reactions
-    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": [from_sea, dest_sea]}
     finish_data = {"lord": lord.lord_id, "dest": dest, "into_sea": into_sea,
                    "from_sea": from_sea, "to_sea": dest_sea,
                    "movers": [m.lord_id for m in movers],
+                   "discards": discards,
                    "dest_has_enemy": dest_has_enemy, "decisions": action.get("decisions")}
+    used_ports = set()
+    if not origin_at_sea and kind == "locale":
+        used_ports.add(from_sea)
+    if not into_sea:
+        used_ports.add(dest_sea)
+    if not used_ports:  # A Sea or Exile box is not a Port (Y15).
+        return sail_finish(state, finish_data, cancelled=False)
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": sorted(used_ports)}
     return reactions.gate(state, "uses_port_on_sea", ctx, "commands:sail_finish", finish_data)
 
 
@@ -601,8 +669,14 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
     lord = state.lords[data["lord"]]
     if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
         return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
-                "cancelled": True}
+                "cancelled": True, "discarded": {}}
     movers = [state.lords[mid] for mid in data.get("movers", [data["lord"]])]
+    # A blocked Sail does not occur. Hold the elected cargo reduction until
+    # the reaction resolves, then apply it once before moving the group.
+    discards = data.get("discards", {})
+    for lid, assets in discards.items():
+        for asset, count in assets.items():
+            state.lords[lid].assets[asset] -= count
     for m in movers:
         m.exile_box = None
         m.moved_fought = True
@@ -615,11 +689,12 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
     group = [mid for mid in data.get("movers", []) if mid != data["lord"]]
     if data.get("into_sea"):
         return {"type": "sail", "by_lord": lord.lord_id, "to_sea": data["dest"],
-                "at_sea": data["dest"], "group": group}
+                "at_sea": data["dest"], "group": group, "discarded": discards}
     for m in movers:
         _apply_burgundians(state, m)                     # Y14/Y23 Burgundians at a Port
     out = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
-           "from_sea": data["from_sea"], "to_sea": data["to_sea"], "group": group}
+           "from_sea": data["from_sea"], "to_sea": data["to_sea"], "group": group,
+           "discarded": discards}
     _maybe_open_hold_window(state, "sail", [m.lord_id for m in movers], data["dest"])
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
         from plantagenet import battle

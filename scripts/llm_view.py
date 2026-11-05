@@ -133,6 +133,11 @@ def private_action(action, owner, viewer, state):
     if typ in ("build_plan", "draw", "choose_battle_capability", "array_battle", "react"):
         return {"type": typ, "side": owner, "private_parameters": "withheld"}
     out = action_view(action, viewer, state)
+    if typ == "sail":
+        # Prospective cargo elections and menu hints are private until the
+        # Sail occurs. Its result reports the actual public discards.
+        for key in ("discard", "discard_options", "discard_needed", "group_options", "share_options"):
+            out.pop(key, None)
     # Arbitrary decisions may contain private plans/choice submissions.
     out.pop("decisions", None)
     return out
