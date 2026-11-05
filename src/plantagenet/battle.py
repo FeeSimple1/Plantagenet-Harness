@@ -997,17 +997,22 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
     escaped: set[str] = set()
     used_escape_side: set[str] = set()
     if not bloody:
-        for lid in set(escape_ship):
+        for lid in dict.fromkeys(escape_ship):
             f = forces.get(lid)
             if f is None or not f.lord_routed:
                 continue
             side = state.lords[lid].side
-            cid = _side_held_event(state, side, ESCAPE_SHIP)
-            if cid is not None and _escape_route(state, locale, side):
-                if side not in used_escape_side:
-                    _use_held_event(state, side, cid)
-                    used_escape_side.add(side)
-                escaped.add(lid)
+            if not _escape_route(state, locale, side):
+                continue
+            if side not in used_escape_side:
+                cid = _side_held_event(state, side, ESCAPE_SHIP)
+                if cid is None:
+                    continue
+                # One played Event covers any selected eligible Lords of its
+                # side. Later selections do not require another Held copy.
+                _use_held_event(state, side, cid)
+                used_escape_side.add(side)
+            escaped.add(lid)
 
     # Warden (L16) / Talbot (L36) commit only now that the Death-check window is
     # known. They are consumed at Battle setup no longer; here, only when the

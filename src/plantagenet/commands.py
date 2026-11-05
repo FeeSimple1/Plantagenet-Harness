@@ -122,13 +122,23 @@ def _effective_title(state: GameState, lord_id: str) -> str | None:
     return title
 
 
+def _other_lord_ids(value: Any, leader: str, *, field: str, code: str) -> list[str]:
+    """Each physical Lord can contribute transport or move only once."""
+    _require(isinstance(value, list) and all(isinstance(lid, str) for lid in value)
+             and len(set(value)) == len(value) and leader not in value,
+             code, f"{field} must list distinct other Lords")
+    return cast(list[str], value)
+
+
 def _shared_lords(state: GameState, lord: LordState,
                   share_ids: list[str] | None) -> list[LordState]:
     """Co-located, same-side, Mustered Lords whose Assets may be Shared (1.5.3).
     Lords Share Assets (Carts, Ships, Provender, Coin) -- never Retinues,
     Vassals, Troops, or Valour -- and only while at the same Locale."""
+    ids = _other_lord_ids([] if share_ids is None else share_ids, lord.lord_id,
+                          field="share", code="bad_share")
     out: list[LordState] = []
-    for sid in share_ids or []:
+    for sid in ids:
         ally = state.lords.get(sid)
         _require(ally is not None and ally.lord_id != lord.lord_id and ally.side == lord.side
                  and ally.status == LordStatus.MUSTERED, "bad_share",
@@ -212,7 +222,8 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
     # Group March (4.3.1): a Marshal brings any; a Lieutenant all but a Marshal.
     movers = [lord]
-    group = action.get("group", [])
+    group = _other_lord_ids(action.get("group", []), lord.lord_id,
+                            field="group", code="bad_group")
     if group:
         title = _effective_title(state, lord.lord_id)
         _require(title in ("marshal", "lieutenant"), "not_group_leader",
@@ -362,7 +373,8 @@ def _try_intercept(state: GameState, dest: str, side: str,
     assert itc is not None
     from plantagenet import battle
     # 4.3.4: an Intercepting Marshal/Lieutenant may bring co-located Lords (Group).
-    group = decisions.get("intercept_group", []) or []
+    group = _other_lord_ids(decisions.get("intercept_group", []), iid,
+                            field="intercept_group", code="bad_group")
     movers = [itc]
     if group:
         title = _effective_title(state, iid)
@@ -549,10 +561,8 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Group Sail (4.6.1): a Marshal/Lieutenant may Sail with co-located Lords,
     # Sharing Ships among the Group (4.3.1). Members must share the leader's origin.
     movers = [lord]
-    group = action.get("group", [])
-    _require(isinstance(group, list) and all(isinstance(gid, str) for gid in group)
-             and len(set(group)) == len(group) and lord.lord_id not in group,
-             "bad_group", "group must list distinct other Lords")
+    group = _other_lord_ids(action.get("group", []), lord.lord_id,
+                            field="group", code="bad_group")
     if group:
         title = _effective_title(state, lord.lord_id)
         _require(title in ("marshal", "lieutenant"), "not_group_leader",
@@ -616,10 +626,8 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         tot_prov = sum(m.assets.get("provender", 0) for m in movers)
         tot_carts = sum(m.assets.get("cart", 0) for m in movers)
     else:
-        share = action.get("share", [])
-        _require(isinstance(share, list) and all(isinstance(lid, str) for lid in share)
-                 and len(set(share)) == len(share),
-                 "bad_share", "share must list distinct Friendly Lords")
+        share = _other_lord_ids(action.get("share", []), lord.lord_id,
+                                field="share", code="bad_share")
         owners = [lord, *_shared_lords(state, lord, share)]
         ships = _transport_capacity(state, owners, "ship")
         tot_forces = _forces_units(lord)

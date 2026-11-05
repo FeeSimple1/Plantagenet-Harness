@@ -109,3 +109,34 @@ Horse (two seeds, survival/aggressor policies) all reached game end over
 
 Second-audit progress: **4 of 4 Plantagenet groups fixed**. All four original
 audit groups remain fixed.
+
+## Third audit, batch 1 — P3-01 and P3-02
+
+- **P3-01 — Escape Ship:** one played Event now covers every selected eligible
+  Routed Lord of its side. Resolving a second Lord no longer requires a spare
+  Held copy. Duplicate selections are handled once in stable input order;
+  hash randomization cannot decide which Lord escapes. Port-route eligibility,
+  owner subsets, Bloody Thou Art and England Is My Home retain their rules.
+- **P3-02 — Transport lists:** Supply, March and Intercept reject repeated Lord
+  IDs before counting transport. Their list validation also rejects the leader
+  as a groupmate/donor, non-string members and malformed list structures.
+  Sail uses the same distinct-Lord validation. Valid partial groups and donor
+  choices remain available; Shared transport remains on its owner's mat.
+
+Thirty-nine regressions cover both factions, both Yorkist Event copies,
+one-card and spare-card hands, reversed/subset/duplicate escape selections,
+Port-route restrictions, England Is My Home, save/load, physical Ship/Cart
+capacity, all four Supply/March/Intercept flows, malformed inputs, full-state
+and retained-reference rollback, and equivalent legal retries. The pre-fix
+run failed 25 cases and passed 14 preservation/control cases.
+
+Validation: **1,227 tests passed**, including all 202 focused cases;
+repository-wide Ruff and strict mypy passed. Separate-process Escape Ship
+results match with hash seeds 1 and 4, which previously produced different
+victims. Twelve smoke games across Henry VI, Warwick's Rebellion and My
+Kingdom for a Horse (two seeds, survival/aggressor policies) completed over
+1,784 actions, with zero findings.
+
+Third-audit progress: **2 of 3 Plantagenet groups fixed** (2 of 23 across all
+five games). P3-03, Warden refuge and Lord-selection choices, remains open.
+All findings from the first two audits remain closed.
