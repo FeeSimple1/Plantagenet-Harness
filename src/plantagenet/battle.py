@@ -731,7 +731,21 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     # Lancastrian) must not burn the card. Warden is legal only in the North.
     warden = talbot = False
     warden_cid = talbot_cid = None
-    if decisions.get("warden"):
+    warden_to: dict[str, str] | None = None
+    if "warden_to" in decisions:
+        raw = decisions["warden_to"]
+        _require(isinstance(raw, dict), "bad_warden_choice",
+                 "warden_to must map participating Lancastrian Lords to North refuges (L16)")
+        destinations = _friendly_north_strongholds(state, exclude=locale)
+        for lid, dest in raw.items():
+            _require(isinstance(lid, str) and lid in attackers + defenders
+                     and state.lords[lid].side == "lancastrian"
+                     and isinstance(dest, str) and dest in destinations,
+                     "bad_warden_choice",
+                     "Warden selects participating Lancastrians and Friendly North "
+                     "Strongholds other than the Battle Locale (L16)")
+        warden_to = cast(dict[str, str], raw)
+    if decisions.get("warden") or warden_to:
         warden_cid = _side_held_event(state, "lancastrian", WARDEN)
         _require(warden_cid is not None, "no_warden",
                  "Lancastrian has no Warden of the Marches Held Event (L16)")
@@ -924,6 +938,7 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     res = _ending(state, locale, forces, attackers, defenders, rounds,
                   decisions.get("escape_ship", []), warden=warden, talbot=talbot,
                   warden_cid=warden_cid, talbot_cid=talbot_cid,
+                  warden_to=warden_to,
                   spoils_to=decisions.get("spoils_to"))
     if susp is not None:
         res["suspicion"] = susp
@@ -932,19 +947,22 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     return res
 
 
-def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> str | None:
+def _friendly_north_strongholds(state: GameState, exclude: str | None = None) -> list[str]:
     locs = static_data.load_locales()
-    for loc, meta in locs.items():
-        if (isinstance(meta, dict) and meta.get("region") == "north"
-                and loc != exclude and state.locales[loc].favour == "lancastrian"):
-            return loc
-    return None
+    return [loc for loc, meta in locs.items()
+            if isinstance(meta, dict) and meta.get("region") == "north"
+            and loc != exclude and state.locales[loc].favour == "lancastrian"]
+
+
+def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> str | None:
+    return next(iter(_friendly_north_strongholds(state, exclude)), None)
 
 
 def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers: list[str],
             defenders: list[str], rounds: list[dict[str, Any]], escape_ship: list[str],
             *, warden: bool = False, talbot: bool = False,
             warden_cid: str | None = None, talbot_cid: str | None = None,
+            warden_to: dict[str, str] | None = None,
             spoils_to: dict[str, Any] | None = None) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
@@ -1032,7 +1050,13 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
                       and state.lords[lid].side == "lancastrian"
                       and _faces_death_check(lid)
                       for lid in defenders + attackers)
-    warden = warden and routed_lanc
+    # An explicit map elects only those Lords. A preselected Lord who never
+    # faces Death (e.g. Escape Ship or Capture of the King) cannot spend Warden
+    # merely because another, unselected Lancastrian does face Death.
+    warden = warden and (routed_lanc if warden_to is None else any(
+        lid in warden_to and forces[lid].lord_routed
+        and state.lords[lid].side == "lancastrian" and _faces_death_check(lid)
+        for lid in defenders + attackers))
     talbot = talbot and routed_lanc
     if warden and warden_cid is not None:
         _use_held_event(state, "lancastrian", warden_cid)
@@ -1080,9 +1104,11 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
                 ld0.calendar_box = None
                 result.setdefault("captured", []).append({"lord": "henry_vi", "by": holder})
                 continue
-        if warden and ld0.side == "lancastrian" and \
+        if warden and ld0.side == "lancastrian" \
+                and (warden_to is None or lid in warden_to) and \
                 static_data.load_locales().get(locale, {}).get("region") == "north":
-            dest = _friendly_north_stronghold(state, exclude=locale)   # L16 (not the Battle Locale)
+            dest = (warden_to[lid] if warden_to is not None
+                    else _friendly_north_stronghold(state, exclude=locale))
             if dest is not None:
                 ld0.location = dest
                 # L16 keeps only Unrouted Troops. The battle-local routed
@@ -1094,6 +1120,7 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
                     else:
                         ld0.forces.pop(troop, None)
                 result.setdefault("warden_moved", []).append(lid)
+                result.setdefault("warden_to", {})[lid] = dest
                 if not any(ld0.forces.get(t, 0) for t in _TROOP_TYPES):  # no Troops left -> Disband
                     campaign._disband_lord(state, ld0)
                     disbands.append(lid)

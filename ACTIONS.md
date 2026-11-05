@@ -234,6 +234,22 @@ Escape Ship, not Henry VI captured), and never under Bloody Thou Art (Y33), whic
 suppresses Death checks. Patrick de la Mote (Y37) requires a Yorkist Culverins
 and Falconets in the Battle.
 
+For Warden of the Marches, the Lancastrian owner may supply
+`decisions.warden_to`, for example
+`{"somerset_1": "carlisle", "buckingham": "appleby"}`. Each selected Lord who
+is Routed and faces a Death check moves to the chosen Friendly Stronghold in
+the North, excluding the Battle Locale. Unselected Lords resolve their normal
+aftermath. All subsets and separate destinations are allowed; an empty map
+selects no Lords and retains L16. A nonempty map requests the Event without a
+separate `warden` flag. If none of the selected Lords faces Death (for example,
+all escape by Ship or Henry VI is captured), L16 stays Held. Its other timing
+restrictions still apply. The menu's `warden_options` lists participating
+Lancastrians and every legal refuge, while `describe('combat')` explains the
+selection. The Battle result records the completed moves in `warden_to`.
+Legacy `warden=True` without a map uses all eligible Lords and the first
+Friendly North refuge in map order. York is a separate Area, so it cannot be
+selected as a North refuge for L16.
+
 ### Edge-case completeness (Phase 5j)
 
 `muster_exiles` (3.3.1): {`side`, `lords`, `exile_boxes?`} — during the Muster

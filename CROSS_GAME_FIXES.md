@@ -140,3 +140,35 @@ Kingdom for a Horse (two seeds, survival/aggressor policies) completed over
 Third-audit progress: **2 of 3 Plantagenet groups fixed** (2 of 23 across all
 five games). P3-03, Warden refuge and Lord-selection choices, remains open.
 All findings from the first two audits remain closed.
+
+## Third audit, batch 2 — P3-03
+
+Warden of the Marches now accepts the Lancastrian owner's `warden_to` map,
+selecting any subset of participating Lords and an independent Friendly North
+Stronghold for each. A nonempty map requests L16; an empty map selects none.
+Only selected Routed Lords facing Death use it. Unselected Lords resolve
+normally, and the Event stays Held if no selected Lord faces Death. Existing
+`warden=True` calls retain their all-eligible, first-refuge default.
+
+The original audit's example incorrectly treated York as part of the North;
+York is its own Area. The selection defect is confirmed with Appleby and
+Carlisle, both actual North Strongholds. The engine rejects non-North,
+non-Friendly and Battle-Locale refuges, malformed maps, opponents and absent
+participants. The menu lists all potential participating Lancastrians and
+all valid refuges. Combat help documents the map and defaults; completed
+moves report their destinations. Save/load preserves the choice and outcome.
+
+Thirty-one regressions cover all nine subset/destination combinations for
+two Lords and two refuges, legacy defaults, implicit play, empty selection,
+invalid-action rollback with retained references and legal retries, actual
+Routed Troop cleanup, empty-mat Disband, and the Escape Ship, Capture of the
+King and Bloody Thou Art timing exceptions. Against preceding main, 28 fail
+and three preservation cases pass.
+
+Validation: **1,258 tests passed**, including all 124 focused cases;
+repository-wide Ruff and strict mypy passed. Twelve smoke games across Henry
+VI, Warwick's Rebellion and My Kingdom for a Horse (two seeds,
+survival/aggressor policies) completed over 2,274 actions with zero findings.
+
+Third-audit progress: **all 3 Plantagenet groups fixed** (3 of 23 across all
+five games; 20 remain). All findings from the first two audits remain closed.
