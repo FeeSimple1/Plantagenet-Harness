@@ -579,6 +579,15 @@ def apply(choice, *, expected_version=None, parameters=None):
     side = action.get("side", viewer if viewer != "referee" else _view.decision_side(_state()))
     if viewer != "referee" and side != viewer:
         raise PermissionError("This action belongs to the other player.")
+    if action.get("type") == "end_activation" and viewer != "referee":
+        orders = action.get("feed_order", {})
+        if isinstance(orders, dict) and set(orders) - {viewer}:
+            raise PermissionError("Cannot choose the other player's Feed order.")
+        pillagers = action.get("pillage_by", {})
+        if isinstance(pillagers, dict) and any(
+                lid not in _state().lords or _state().lords[lid].side != viewer
+                for lid in pillagers.values()):
+            raise PermissionError("Cannot select the other player's Pillaging Lord.")
     # End-Campaign accepts joint owner choices; their sealed contribution is
     # a host-level transport, not an additional game mechanic.
     action = _reset_action(action)

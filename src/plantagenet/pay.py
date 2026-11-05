@@ -178,8 +178,7 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
         if not unpaid:
             paid_groups.append(key)
         for lord in unpaid:
-            inf = static_data.load_lords()[lord.lord_id]["ratings"]["influence"]
-            influence.spend_influence(state, side, inf + len(lord.vassals))
+            influence.spend_influence(state, side, campaign._disband_influence_cost(lord))
             campaign._disband_lord(state, lord)
             disbanded.append(lord.lord_id)
 

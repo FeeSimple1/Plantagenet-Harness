@@ -1080,8 +1080,16 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
             dest = _friendly_north_stronghold(state, exclude=locale)   # L16 (not the Battle Locale)
             if dest is not None:
                 ld0.location = dest
+                # L16 keeps only Unrouted Troops. The battle-local routed
+                # counts must be committed to the persistent mat on escape.
+                for troop in _TROOP_TYPES:
+                    kept = max(0, ld0.forces.get(troop, 0) - f.routed.get(troop, 0))
+                    if kept:
+                        ld0.forces[troop] = kept
+                    else:
+                        ld0.forces.pop(troop, None)
                 result.setdefault("warden_moved", []).append(lid)
-                if not any(forces[lid].avail(t) for t in _TROOP_TYPES):  # no Troops left -> Disband
+                if not any(ld0.forces.get(t, 0) for t in _TROOP_TYPES):  # no Troops left -> Disband
                     campaign._disband_lord(state, ld0)
                     disbands.append(lid)
                 continue

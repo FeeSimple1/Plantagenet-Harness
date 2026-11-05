@@ -170,7 +170,7 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"it is the {state.active_side} side's Activation")
     state.flags.pop("surprise_march_lord", None)   # L33 grant does not carry over
     # 4.7 Feed at end of each card for BOTH sides, Rebel then King.
-    feed = {s: _feed(state, s) for s in (_rebel(state), _king(state))}
+    feed = {s: _feed(state, s, action) for s in (_rebel(state), _king(state))}
     c.plan_index[side] += 1
     c.active_lord = None
     c.actions_remaining = 0
@@ -385,7 +385,8 @@ def _co_located_group(state: GameState, lord: LordState) -> list[LordState]:
         return [lord]
     group = [lord]
     for m in state.lords.values():
-        if (m is not lord and m.side == lord.side and m.status == LordStatus.MUSTERED
+        if (m is not lord and m.side == lord.side
+                and m.status in (LordStatus.MUSTERED, LordStatus.EXILE)
                 and (m.location, m.exile_box) == pos):
             group.append(m)
     return group
@@ -402,42 +403,98 @@ def _drain_provender(group: list[LordState], amount: int) -> None:
         amount -= take
 
 
-def _feed(state: GameState, side: str) -> dict[str, Any]:
-    """Moved-Fought Lords remove 1 Provender per 6 Troops, rounded up (4.7).
-    A Lord short on Provender Pillages its Locale (if an Unexhausted
-    Stronghold) and Feeds from the gain; if still short, it Unfed-Disbands,
-    costing the side its Influence rating + 1 per Vassal (3.2.1)."""
+def _disband_influence_cost(lord: LordState) -> int:
+    """Unpaid/Unfed/Shipwreck: printed Influence plus every Vassal (3.2.1)."""
+    return (int(static_data.load_lords()[lord.lord_id]["ratings"]["influence"])
+            + len(lord.vassals) + len(lord.special_vassals))
+
+
+def _feed(state: GameState, side: str,
+          decisions: dict[str, Any] | None = None) -> dict[str, Any]:
+    """4.7 imports Pay's own-first Sharing and full requirement after Pillage.
+
+    Optional feed_order maps each side to its chosen Lord order; pillage_by
+    maps a Locale to the Unfed Lord who Pillages there. Unspecified choices
+    retain deterministic defaults. Only Moved-Fought Lords owe food.
+    """
+    decisions = decisions or {}
+    orders = decisions.get("feed_order", {})
+    pillage_by = decisions.get("pillage_by", {})
+    _require(isinstance(orders, dict)
+             and set(orders) <= {"yorkist", "lancastrian"}, "bad_feed_order",
+             "feed_order must map player sides to Lord-order lists (4.7)")
+    order = orders.get(side, [])
+    feeders = [lord for lord in state.lords.values()
+               if lord.side == side and lord.moved_fought]
+    eligible = {lord.lord_id for lord in feeders}
+    _require(isinstance(order, list) and all(isinstance(lid, str) for lid in order)
+             and len(set(order)) == len(order) and set(order) <= eligible,
+             "bad_feed_order", "feed_order must name distinct feeding Lords of that side")
+    _require(isinstance(pillage_by, dict)
+             and all(isinstance(k, str) and isinstance(v, str)
+                     for k, v in pillage_by.items()), "bad_pillager",
+             "pillage_by must map Locales to Unfed Lord IDs (3.2.1/4.7)")
+    rank = {lid: i for i, lid in enumerate(order)}
+    feeders.sort(key=lambda lord: rank.get(lord.lord_id, len(rank)))
+    skipped = set()
+    groups: dict[tuple[str | None, str | None, str | None], list[LordState]] = {}
+    for lord in feeders:
+        lord.moved_fought = False
+        if lord.ignore_next_feed:
+            lord.ignore_next_feed = False
+            skipped.add(lord.lord_id)
+            continue
+        key = (lord.location, lord.exile_box,
+               lord.lord_id if lord.location is None and lord.exile_box is None else None)
+        groups.setdefault(key, []).append(lord)
+
+    def feed_round(group: list[LordState], owing: list[LordState]) -> list[LordState]:
+        remaining = {}
+        # Reserve every owing Lord's own food before drawing anyone's surplus.
+        for lord in owing:
+            need = -(-_troop_count(lord) // 6)
+            take = min(need, lord.assets.get("provender", 0))
+            lord.assets["provender"] = lord.assets.get("provender", 0) - take
+            remaining[lord.lord_id] = need - take
+        unfed = []
+        for lord in owing:
+            need = remaining[lord.lord_id]
+            take = min(need, sum(m.assets.get("provender", 0) for m in group))
+            _drain_provender(group, take)
+            if take < need:
+                unfed.append(lord)
+        return unfed
+
+    unfed_ids: set[str] = set()
+    for owing in groups.values():
+        group = _co_located_group(state, owing[0])
+        unfed = feed_round(group, owing)
+        loc = _lord_locale(owing[0])
+        if (unfed and loc is not None and loc[0] == "stronghold"
+                and state.locales[loc[1]].depletion != "exhausted"):
+            chooser = pillage_by.get(loc[1])
+            _require(chooser is None or any(member.lord_id == chooser for member in unfed),
+                     "bad_pillager", "only an Unfed Lord may Pillage during Feed (4.7)")
+            pillager = next((member for member in unfed if member.lord_id == chooser), unfed[0])
+            _pillage(state, pillager, loc[1])
+            # Earlier partial food is spent; each still-Unfed Lord owes the
+            # FULL requirement again, as in 3.2.1 Pay after Pillage.
+            unfed = feed_round(group, unfed)
+        unfed_ids.update(member.lord_id for member in unfed)
+
     fed: list[dict[str, Any]] = []
     disbanded: list[str] = []
-    for lid, lord in list(state.lords.items()):
-        if lord.side != side or not lord.moved_fought:
-            continue
-        lord.moved_fought = False
-        if lord.ignore_next_feed:           # Rebel Supply Depot (L28)
-            lord.ignore_next_feed = False
+    for lord in feeders:
+        lid = lord.lord_id
+        if lid in skipped:
             fed.append({"lord": lid, "skipped": "rebel_supply_depot"})
-            continue
-        need = -(-_troop_count(lord) // 6)  # ceil(troops / 6)
-        # Sharing (1.5.3): a Lord Feeds from the Provender of all Friendly Lords
-        # at its Locale, not just its own mat.
-        group = _co_located_group(state, lord)
-        have = sum(m.assets.get("provender", 0) for m in group)
-        if have < need:
-            loc = _lord_locale(lord)
-            if (loc is not None and loc[0] == "stronghold"
-                    and state.locales[loc[1]].depletion != "exhausted"):
-                _pillage(state, lord, loc[1])
-                have = sum(m.assets.get("provender", 0) for m in group)
-        spend = min(need, have)
-        _drain_provender(group, spend)   # own mat first, then co-located allies
-        if spend < need:   # still Unfed -> Disband, with Influence penalty (3.2.1)
-            inf = static_data.load_lords()[lid]["ratings"]["influence"]
-            penalty = inf + len(lord.vassals)
-            influence.spend_influence(state, side, penalty)
+        elif lid in unfed_ids:
+            influence.spend_influence(state, side, _disband_influence_cost(lord))
             _disband_lord(state, lord, from_exile=lord.exile_box is not None)
             disbanded.append(lid)
         else:
-            fed.append({"lord": lid, "fed": spend, "needed": need})
+            need = -(-_troop_count(lord) // 6)
+            fed.append({"lord": lid, "fed": need, "needed": need})
     return {"fed": fed, "disbanded": disbanded}
 
 
@@ -716,8 +773,7 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
             sea = ls.at_sea
             roll = roller.d6()
             if roll <= 4:                              # Shipwreck (permanent, like Death)
-                inf = static_data.load_lords()[lid]["ratings"]["influence"]
-                penalty = inf + len(ls.vassals)
+                penalty = _disband_influence_cost(ls)
                 influence.spend_influence(state, side, penalty)   # Unpaid penalty (3.2.1)
                 ls.at_sea = None
                 battle._kill_lord(state, lid)                     # remove + Succession (6.2.2)
@@ -741,7 +797,7 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
                     _disband_lord(state, ls)
                     rolls.append({"lord": lid, "roll": roll, "disbanded": True})
     state.store_dice(roller)
-    feed = {s: _feed(state, s) for s in (rebel, king) if s in landed_sides}
+    feed = {s: _feed(state, s, decisions) for s in (rebel, king) if s in landed_sides}
     return {"rolls": rolls, "feed": feed}
 
 

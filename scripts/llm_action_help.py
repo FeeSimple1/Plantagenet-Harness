@@ -58,7 +58,7 @@ CONTRACTS = {
     },
     "supply": {"parameters": {"source": "Stronghold or Port", "use_ships": "bool", "share": "co-located friendly transport donors"}},
     "tax": {"parameters": {"target": "eligible Seat or Special Stronghold", "extra_spend": "0, 1 or 3 Influence"}},
-    "end_activation": {"constraints": "Ends this Command card and Feeds both sides. Ending early is a choice, not automatically forced."},
+    "end_activation": {"optional": {"feed_order": "{side: [feeding_lord_id, ...]}; reserve own food before sharing in this order", "pillage_by": "{locale_id: unfed_lord_id}; only a still-Unfed Lord may Pillage"}, "constraints": "Ends this Command card and Feeds both sides, Rebel then King. Ending early is a choice. Feed uses Pay rules: spend partial food, then full requirement again after Pillage."},
     "end_campaign": {
         "parameters": {"decisions.discard_held": "side -> any subset of that side's Held Events; omitted/empty keeps all", "decisions.charity": "Capability holder -> 0/1/2 Provender, or {'pay': n, 'share': [donors]}", "decisions.disembark_land": "Lord -> legal Enemy-free Port for successful End-Campaign landing"},
         "constraints": "Each player owns its choices. stage_reset() collects private contributions; referee mode can submit the combined atomic payload. No Capability discard. Costs, Sharing and landing legality remain engine-validated.",
