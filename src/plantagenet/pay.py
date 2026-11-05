@@ -179,7 +179,7 @@ def _pay_troops(state: GameState, side: str, action: dict[str, Any]) -> dict[str
             paid_groups.append(key)
         for lord in unpaid:
             influence.spend_influence(state, side, campaign._disband_influence_cost(lord))
-            campaign._disband_lord(state, lord)
+            campaign._disband_lord(state, lord, from_exile=lord.exile_box is not None)
             disbanded.append(lord.lord_id)
 
     return {"paid_groups": paid_groups, "pillaged": pillaged, "unpaid_disbanded": disbanded}

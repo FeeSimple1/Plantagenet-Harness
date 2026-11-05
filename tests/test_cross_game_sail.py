@@ -301,6 +301,15 @@ def test_declined_blockade_resumes_saved_discard_once():
     assert state.model_dump_json() == before
 
 
+def test_sailing_from_a_port_out_to_sea_checks_that_ports_blockade():
+    state = blockade_position()
+    result = sail(state, "irish_sea", discard={"provender": 1, "cart": 1})
+    assert result["type"] == "pending_reactions"
+    assert result["awaiting"]["card"] == "Y15"
+    assert state.lords["henry_vi"].location == "bristol"
+    assert state.lords["henry_vi"].assets["provender"] == 3
+
+
 def test_proposed_discards_and_menu_hints_stay_private_until_the_sail_occurs():
     state = blockade_position()
     action = {"type": "sail", "side": "lancastrian", "by_lord": "henry_vi",

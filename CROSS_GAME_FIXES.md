@@ -70,3 +70,42 @@ all reached game end over 2,502 actions, with zero findings.
 Second-audit progress: **2 of 4 Plantagenet groups fixed**. P2-1 (Unpaid
 Exile markers) and P2-4 (Approach Exile Spoils allocation) remain open. All
 four original audit groups remain fixed.
+
+## Second audit, batch 2 — P2-1 and P2-4
+
+- **P2-1 — Unpaid Disband in Exile:** Unpaid Troops now preserve the Lord's
+  Exile marker when placing its cylinder on the Calendar. The normal Influence
+  penalty and Calendar delay still apply. Once ready, the saved/loaded Lord
+  can return through free Muster Exiles to its side's permitted Exile box.
+- **P2-4 — Approach Exile Spoils:** the approaching owner can distribute Carts
+  and Provender among approaching Lords. `exile_spoils_to` controls this pool;
+  `spoils_to` is also accepted when no Battle follows. When some defenders
+  Exile and others fight, Exile allocation completes before the Battle and
+  `spoils_to` retains its existing meaning for the later Battle's Spoils.
+  Neutral Exile Spoils still round separately for each Exiling Lord, unlike
+  the aggregate calculation for ordinary Battle Spoils. Default allocation
+  to the first approaching Lord and England Is My Home remain intact.
+
+Battle and Exile allocation share validation of eligible recipients,
+nonnegative integer counts, permitted Assets, and exact totals. This also
+closes a Battle loophole allowing negative allocations balanced by extra
+Assets on another mat. Invalid public actions restore the entire preceding
+state, including movement, earlier Exiles, Influence, history and RNG.
+The action reference and chat combat help document both allocation keys.
+
+This batch also corrects a regression introduced by batch 1: the Sail origin
+check used `locale` where the location helper returns `stronghold`, allowing
+Port-to-Sea Sail to skip Naval Blockade. The origin Port now triggers the
+reaction before cargo is discarded or movement occurs.
+
+Validation: **1,188 tests passed**, including 28 new Exile/allocation cases
+and one new Port-to-Sea Blockade case; repository-wide Ruff and strict mypy
+passed. The targeted Exile/Sail suites passed all 80 cases. Comparison with
+the preceding main revision produced 25 failures and four passes across the
+29 new cases (including assertions for the new allocation result fields).
+Twelve smoke games across Henry VI, Warwick's Rebellion and My Kingdom for a
+Horse (two seeds, survival/aggressor policies) all reached game end over
+2,555 actions, with zero findings.
+
+Second-audit progress: **4 of 4 Plantagenet groups fixed**. All four original
+audit groups remain fixed.

@@ -654,7 +654,7 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                    "discards": discards,
                    "dest_has_enemy": dest_has_enemy, "decisions": action.get("decisions")}
     used_ports = set()
-    if not origin_at_sea and kind == "locale":
+    if not origin_at_sea and kind == "stronghold":
         used_ports.add(from_sea)
     if not into_sea:
         used_ports.add(dest_sea)

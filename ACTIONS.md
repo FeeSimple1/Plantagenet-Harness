@@ -187,6 +187,20 @@ Approach, Avoid Battle, Withdraw, Battle Array choices, Hit allocation,
 Reserve advance, etc. flow through a decision context and are documented
 when implemented.
 
+On Approach, `decisions.responses` can select `"exile"` for each defending
+Lord. Exile Spoils transfer before any remaining defenders fight (4.3.5).
+Use `decisions.exile_spoils_to` to distribute those Carts and Provender among
+approaching Lords, for example
+`{"york": {"cart": 2}, "salisbury": {"provender": 2}}`. Counts must be
+nonnegative integers and each Asset's allocations must total the available
+pool. Neutral Spoils round up separately for each Exiling Lord. Without a
+split, the first approaching Lord receives the pool.
+
+`decisions.spoils_to` chooses Battle Spoils among Unrouted winning Lords
+(4.4.3). When every defender Exiles, it also works as an alias for
+`exile_spoils_to`. When some Exile and others fight, use `exile_spoils_to`
+for the earlier Exile pool and `spoils_to` for the later Battle pool.
+
 Naval Blockade (Y15) gates Lancastrian Sea actions via the `uses_port_on_sea`
 reaction trigger: `sail`, `tax`, `parley` (campaign), and `supply` pause for a
 Yorkist Warwick (Y15) at a Port whenever the action uses a Port on his Sea. The
@@ -229,6 +243,8 @@ Henry VI / War I; later Wars use their own current box alignments. A sole legal
 destination is implicit; with multiple destinations provide a mapping such as
 `"exile_boxes": {"jasper_tudor_1": "france"}`. The menu offers each choice.
 Enemy/unmarked boxes, premature returns, and duplicate Lords are rejected.
+Unpaid Troops Disbanding from an Exile box retain their Exile marker on the
+Calendar, so they can return through this free Muster when ready (3.2.1).
 
 `sail` into a Sea (4.6.1): `to` may name a Sea zone (same/adjacent), leaving the
 Lord at Sea (`LordState.at_sea`); a later `sail` from at Sea reaches a Port. At

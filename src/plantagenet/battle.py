@@ -1121,6 +1121,35 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
     return result
 
 
+def _distribute_spoils(state: GameState, recipients: list[str], taken: dict[str, int],
+                       spoils_to: dict[str, Any] | None) -> dict[str, dict[str, int]]:
+    """Validate and distribute a complete Spoils pool, for Battle or Exile."""
+    allocation: dict[str, dict[str, int]] = {}
+    if spoils_to is None or spoils_to == {}:
+        allocation = {recipients[0]: dict(taken)} if recipients else {}
+    else:
+        _require(isinstance(spoils_to, dict), "bad_spoils_split",
+                 "spoils_to must map eligible Lords to Asset amounts (4.4.3)")
+        for lid, amounts in spoils_to.items():
+            _require(lid in recipients, "bad_spoils_target",
+                     f"{lid} is not an eligible Spoils recipient (4.4.3)")
+            _require(isinstance(amounts, dict), "bad_spoils_split",
+                     "each Spoils recipient needs an Asset mapping (4.4.3)")
+            for asset, count in amounts.items():
+                _require(asset in taken and isinstance(count, int)
+                         and not isinstance(count, bool) and count >= 0,
+                         "bad_spoils_split", "Spoils require nonnegative Cart/Provender counts")
+            allocation[lid] = dict(amounts)
+        for asset, total in taken.items():
+            _require(sum(amounts.get(asset, 0) for amounts in allocation.values()) == total,
+                     "bad_spoils_split", f"Spoils split of {asset} must total {total} (4.4.3)")
+    for lid, amounts in allocation.items():
+        for asset, count in amounts.items():
+            if count:
+                state.lords[lid].assets[asset] = state.lords[lid].assets.get(asset, 0) + count
+    return allocation
+
+
 def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list[str],
             result: dict[str, Any], spoils_to: dict[str, Any] | None = None) -> None:
     if not winners:
@@ -1134,10 +1163,6 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
     # 4.4.3: Spoils are distributed "as desired" among the Unrouted winning Lords.
     # ``spoils_to`` ({lord: {cart, provender}}) lets the owner choose; default piles
     # everything on the first Unrouted winner.
-    if spoils_to:
-        for lid in spoils_to:
-            _require(lid in win_ids, "bad_spoils_target",
-                     f"{lid} is not an Unrouted winning Lord (4.4.3)")
     taken = {"cart": 0, "provender": 0}
     # 4.4.3 SPOILS: at a Friendly locale take all losers' Carts/Provender; at a
     # Neutral locale total each across ALL losers and halve (round up) before
@@ -1154,15 +1179,7 @@ def _spoils(state: GameState, locale: str, winners: list[_Force], lose_ids: list
             take = min(remaining, lassets.get(a, 0))
             lassets[a] = lassets.get(a, 0) - take
             remaining -= take
-        if spoils_to:                                    # distribute as the owner chose
-            assigned = sum(amts.get(a, 0) for amts in spoils_to.values())
-            _require(assigned == move, "bad_spoils_split",
-                     f"Spoils split of {a} must total {move} (4.4.3)")
-            for lid, amts in spoils_to.items():
-                state.lords[lid].assets[a] = state.lords[lid].assets.get(a, 0) + amts.get(a, 0)
-        else:
-            state.lords[win_ids[0]].assets[a] = \
-                state.lords[win_ids[0]].assets.get(a, 0) + move
+    _distribute_spoils(state, win_ids, taken, spoils_to)
     result["spoils"] = taken
 
 
@@ -1236,21 +1253,32 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
     result: dict[str, Any] = {"locale": locale, "exiles": [], "battle": None,
                               "blocked_ford": blocked_ford}
     battling: list[str] = []
+    exile_spoils = {"cart": 0, "provender": 0}
     for d in defenders:
         if not blocked_ford and responses.get(d, "battle") == "exile":
-            _exile(state, locale, d, attackers[0])
+            _exile(state, locale, d, attackers[0], spoils_taken=exile_spoils)
             result["exiles"].append(d)
             if d == "warwick_lancastrian" and _foreign_haven_active(state):
                 campaign._foreign_haven_shift(state)     # Foreign Haven (Warwick exiles)
                 result["foreign_haven"] = True
         else:
             battling.append(d)
+    # Exile precedes any Battle. Round each Exiling Lord's Neutral Spoils
+    # separately, then let the approaching owner distribute the combined pool.
+    # Preserve spoils_to's Battle meaning when both kinds of transfer occur.
+    if result["exiles"]:
+        choice = decisions.get("exile_spoils_to",
+                               decisions.get("spoils_to") if not battling else None)
+        result["exile_spoils"] = exile_spoils
+        result["exile_spoils_allocation"] = _distribute_spoils(
+            state, attackers, exile_spoils, choice)
     if battling:
         result["battle"] = resolve_battle(state, locale, attackers, battling, decisions)
     return result
 
 
-def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str) -> None:
+def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str, *,
+           spoils_taken: dict[str, int] | None = None) -> None:
     lord = state.lords[lord_id]
     if _lord_has_capability(state, lord_id, "ENGLAND IS MY HOME"):   # Y8
         campaign._disband_lord(state, lord)          # plain Disband, no Influence loss
@@ -1264,7 +1292,7 @@ def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str) -> Non
     aside: str = state.lords[attacker_id].side
     frac = 1.0 if fav == aside else (0.5 if fav == "neutral" else 0.0)
     if frac > 0.0:
-        wmat = state.lords[attacker_id].assets
+        wmat = state.lords[attacker_id].assets if spoils_taken is None else spoils_taken
         for a in ("cart", "provender"):
             amt = lord.assets.get(a, 0)
             move = amt if frac == 1.0 else ceil(amt * 0.5)
