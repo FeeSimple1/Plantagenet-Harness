@@ -172,3 +172,18 @@ survival/aggressor policies) completed over 2,274 actions with zero findings.
 
 Third-audit progress: **all 3 Plantagenet groups fixed** (3 of 23 across all
 five games; 20 remain). All findings from the first two audits remain closed.
+
+## Fourth audit, fourth tranche
+
+- **P4-01.** Battle troop Capabilities draw from one physical pool. The
+  engine allocates available pieces in Defender-first Array order and
+  keeps the additions temporary.
+- **P4-02.** Warden survivors Disband Routed Vassals through the standard
+  Battle cleanup. Unrouted Vassals keep their mat and Service.
+- **P4-03.** Talbot accepts a list of participating Lancastrian Lords.
+  The Event applies to selected Routed Lords who would roll for Death.
+  An empty list declines the Event. The boolean all-eligible choice also
+  works. The reaction catalog shows potential participants to their owner.
+
+Fourth-audit progress is **16 of 21 groups**, including all three
+Plantagenet findings.

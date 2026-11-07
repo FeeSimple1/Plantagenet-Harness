@@ -625,6 +625,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
             out.extend(_sail_moves(state, lord_id, lord, side, lord.at_sea,
                                    here=None, origin_at_sea=True))
         out.extend(_capability_command_moves(state, side, lord_id, lord, loc))
+        _attach_battle_reactions(state, side, out)
         return out
     kind, here = loc
     # Forage (4.6.2): any Locale not yet Exhausted (Exile boxes are foragable and
@@ -693,6 +694,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     # Event/Capability Command actions (Y8 Exile Pact, Y10 Agitators,
     # L30 Merchants, L4 Heralds) -- none require a Friendly Locale here.
     out.extend(_capability_command_moves(state, side, lord_id, lord, loc))
+    _attach_battle_reactions(state, side, out)
 
     if not friendly_here:
         return out
@@ -760,7 +762,6 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
                 out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": t})
     except (KeyError, AttributeError, IndexError):
         pass
-    _attach_battle_reactions(state, side, out)
     return out
 
 

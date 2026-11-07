@@ -338,12 +338,14 @@ def available_battle_reactions(state: GameState, attackers: Sequence[str],
                                                    attackers, defenders, locale):
                         option = {"side": side, "card": cid, **{m: meta[m] for m in
                                   ("effect", "window", "priority")}}
+                        if meta["effect"] in ("warden", "talbot"):
+                            option[f"{meta['effect']}_options"] = {
+                                "lords": [lid for lid in [*attackers, *defenders]
+                                          if state.lords[lid].side == side]}
                         if meta["effect"] == "warden":
                             from plantagenet import battle
-                            option["warden_options"] = {
-                                "lords": [lid for lid in list(attackers) + list(defenders)
-                                          if state.lords[lid].side == "lancastrian"],
-                                "destinations": battle._friendly_north_strongholds(state, locale)}
+                            option["warden_options"]["destinations"] = (
+                                battle._friendly_north_strongholds(state, locale))
                         out.append(option)
                     break
     for lid in list(attackers) + list(defenders):

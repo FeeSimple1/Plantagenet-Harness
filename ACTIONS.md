@@ -250,6 +250,14 @@ Legacy `warden=True` without a map uses all eligible Lords and the first
 Friendly North refuge in map order. York is a separate Area, so it cannot be
 selected as a North refuge for L16.
 
+For Talbot to the Rescue, the Lancastrian owner can set `decisions.talbot`
+to a list of distinct participating Lancastrian Lord IDs, such as
+`["henry_tudor"]`. L36 Disbands the selected Routed Lords who would
+otherwise roll for Death. An empty list or `false` keeps the card. The
+boolean `true` selects all eligible Lords. The reaction catalog lists
+potential participants under `talbot_options`, and the Battle result
+records the Lords saved by the card in `talbot_disbands`.
+
 ### Edge-case completeness (Phase 5j)
 
 `muster_exiles` (3.3.1): {`side`, `lords`, `exile_boxes?`} — during the Muster

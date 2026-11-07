@@ -199,13 +199,22 @@ _BATTLE_TROOP_CAPS = {
 
 def _apply_battle_troop_caps(state: GameState, forces: dict[str, _Force],
                              locale: str) -> None:
+    from plantagenet.actions import _troops_in_play
+
+    remaining: dict[str, int] = {}
+    pools = static_data.load_forces()
     for lid, f in forces.items():
         for cid in state.lords[lid].capabilities:
             spec = _BATTLE_TROOP_CAPS.get(cid)
             if spec and spec[0](state, lid, locale):
                 for t, n in spec[1].items():
-                    f.count[t] = f.count.get(t, 0) + n
-                    f.routed.setdefault(t, 0)
+                    if t not in remaining:
+                        remaining[t] = max(0, pools[t]["pool"] - _troops_in_play(state, t))
+                    give = min(n, remaining[t])
+                    if give:
+                        f.count[t] = f.count.get(t, 0) + give
+                        f.routed.setdefault(t, 0)
+                        remaining[t] -= give
 
 
 def _apply_armour_caps(state: GameState, forces: dict[str, _Force]) -> None:
@@ -608,6 +617,15 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     decisions = decisions or {}
     attackers = [attacker] if isinstance(attacker, str) else list(attacker)
     defenders = [defender] if isinstance(defender, str) else list(defender)
+    talbot = decisions.get("talbot", False)
+    if isinstance(talbot, list):
+        _require(all(isinstance(lid, str) and lid in attackers + defenders
+                     and state.lords[lid].side == "lancastrian" for lid in talbot)
+                 and len(talbot) == len(set(talbot)),
+                 "bad_talbot_choice", "Talbot must select distinct participating Lancastrians")
+    else:
+        _require(isinstance(talbot, bool), "bad_talbot_choice",
+                 "talbot must be a boolean or a list of participating Lancastrians")
     # FLEE schedule (4.4.2): a Lord may Flee at the start of any Round, not only
     # Round 1. ``flee`` lists Round-1 flees; ``flee_rounds`` maps lord_id -> Round.
     flee = set(decisions.get("flee", []))
@@ -729,7 +747,7 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     # now, but CONSUMED only when the Death-check window actually opens (below).
     # A window suppressed by Bloody Thou Art (Y33) or that never opens (no Routed
     # Lancastrian) must not burn the card. Warden is legal only in the North.
-    warden = talbot = False
+    warden = False
     warden_cid = talbot_cid = None
     warden_to: dict[str, str] | None = None
     if "warden_to" in decisions:
@@ -753,13 +771,13 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                  "warden_not_north",
                  "Warden of the Marches is played only upon a Death check in the North (L16)")
         warden = True
-    if decisions.get("talbot"):
+    if talbot:
         talbot_cid = _side_held_event(state, "lancastrian", TALBOT)
         _require(talbot_cid is not None, "no_talbot",
                  "Lancastrian has no Talbot to the Rescue Held Event (L36)")
-        talbot = True
 
-    forces = {lid: _Force(state, lid) for lid in attackers + defenders}
+    # Battle Capabilities draw from one pool as Defenders then Attackers Array (4.4.1).
+    forces = {lid: _Force(state, lid) for lid in defenders + attackers}
     _apply_battle_troop_caps(state, forces, locale)
     _apply_barricades(state, forces, locale)
     _apply_special_vassal_armour(state, forces)
@@ -958,9 +976,24 @@ def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> 
     return next(iter(_friendly_north_strongholds(state, exclude)), None)
 
 
+def _disband_routed_vassals(state: GameState, force: _Force, result: dict[str, Any]) -> None:
+    lord = state.lords[force.lord_id]
+    remaining = [vid for vid in force.vassal_ids if vid not in force.routed_vassal_ids]
+    routed = (force.routed_vassal_ids + remaining)[:force.routed.get("vassal", 0)]
+    for vid in routed:
+        if vid in lord.special_vassals:
+            campaign._disband_special_vassal(state, lord, vid)
+        elif vid in lord.vassals:
+            campaign._disband_vassal(state, vid)
+            lord.vassals.remove(vid)
+        else:
+            continue  # Lord already Disbanded during Losses.
+        result.setdefault("vassal_disbands", []).append(vid)
+
+
 def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers: list[str],
             defenders: list[str], rounds: list[dict[str, Any]], escape_ship: list[str],
-            *, warden: bool = False, talbot: bool = False,
+            *, warden: bool = False, talbot: bool | list[str] = False,
             warden_cid: str | None = None, talbot_cid: str | None = None,
             warden_to: dict[str, str] | None = None,
             spoils_to: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -992,18 +1025,7 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
     for w in winners:                                    # LOSSES (4.4.3)
         _losses(state, w, dice, result)
     for w in winners:                                    # 4.4.3: Routed Vassals of Unrouted Lords
-        lord = state.lords[w.lord_id]
-        remaining = [vid for vid in w.vassal_ids if vid not in w.routed_vassal_ids]
-        routed = (w.routed_vassal_ids + remaining)[:w.routed.get("vassal", 0)]
-        for vid in routed:
-            if vid in lord.special_vassals:
-                campaign._disband_special_vassal(state, lord, vid)
-            elif vid in lord.vassals:
-                campaign._disband_vassal(state, vid)
-                lord.vassals.remove(vid)
-            else:
-                continue                     # Lord already Disbanded during Losses
-            result.setdefault("vassal_disbands", []).append(vid)
+        _disband_routed_vassals(state, w, result)
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
     # go into Exile (4.3.5) instead of rolling Death.
     # Bloody Thou Art (Y33): if Richard III is among the winners, skip all Death
@@ -1046,21 +1068,25 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
                 and "Capture of the King" in campaign._active_special_rules(state)):
             return False
         return True
-    routed_lanc = any(forces[lid].lord_routed
-                      and state.lords[lid].side == "lancastrian"
-                      and _faces_death_check(lid)
-                      for lid in defenders + attackers)
+    routed_lanc = [lid for lid in defenders + attackers
+                   if forces[lid].lord_routed and state.lords[lid].side == "lancastrian"
+                   and _faces_death_check(lid)]
     # An explicit map elects only those Lords. A preselected Lord who never
     # faces Death (e.g. Escape Ship or Capture of the King) cannot spend Warden
     # merely because another, unselected Lancastrian does face Death.
-    warden = warden and (routed_lanc if warden_to is None else any(
-        lid in warden_to and forces[lid].lord_routed
-        and state.lords[lid].side == "lancastrian" and _faces_death_check(lid)
-        for lid in defenders + attackers))
-    talbot = talbot and routed_lanc
-    if warden and warden_cid is not None:
+    warden_selected = [lid for lid in routed_lanc if warden
+                       and (warden_to is None or lid in warden_to)]
+    refuges: dict[str, str] = {}
+    if warden_selected and static_data.load_locales().get(locale, {}).get("region") == "north":
+        if warden_to is not None:
+            refuges = {lid: warden_to[lid] for lid in warden_selected}
+        elif (refuge := _friendly_north_stronghold(state, exclude=locale)) is not None:
+            refuges = dict.fromkeys(warden_selected, refuge)
+    talbot_selected = {lid for lid in routed_lanc if lid not in refuges
+                       and (talbot is True or isinstance(talbot, list) and lid in talbot)}
+    if warden_selected and warden_cid is not None:
         _use_held_event(state, "lancastrian", warden_cid)
-    if talbot and talbot_cid is not None:
+    if talbot_selected and talbot_cid is not None:
         _use_held_event(state, "lancastrian", talbot_cid)
 
     deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
@@ -1104,30 +1130,28 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
                 ld0.calendar_box = None
                 result.setdefault("captured", []).append({"lord": "henry_vi", "by": holder})
                 continue
-        if warden and ld0.side == "lancastrian" \
-                and (warden_to is None or lid in warden_to) and \
-                static_data.load_locales().get(locale, {}).get("region") == "north":
-            dest = (warden_to[lid] if warden_to is not None
-                    else _friendly_north_stronghold(state, exclude=locale))
-            if dest is not None:
-                ld0.location = dest
-                # L16 keeps only Unrouted Troops. The battle-local routed
-                # counts must be committed to the persistent mat on escape.
-                for troop in _TROOP_TYPES:
-                    kept = max(0, ld0.forces.get(troop, 0) - f.routed.get(troop, 0))
-                    if kept:
-                        ld0.forces[troop] = kept
-                    else:
-                        ld0.forces.pop(troop, None)
-                result.setdefault("warden_moved", []).append(lid)
-                result.setdefault("warden_to", {})[lid] = dest
-                if not any(ld0.forces.get(t, 0) for t in _TROOP_TYPES):  # no Troops left -> Disband
-                    campaign._disband_lord(state, ld0)
-                    disbands.append(lid)
-                continue
-        if talbot and ld0.side == "lancastrian":          # L36: Disband instead of Death roll
+        if lid in refuges:
+            dest = refuges[lid]
+            ld0.location = dest
+            # L16 keeps only Unrouted Troops. The battle-local routed
+            # counts must be committed to the persistent mat on escape.
+            for troop in _TROOP_TYPES:
+                kept = max(0, ld0.forces.get(troop, 0) - f.routed.get(troop, 0))
+                if kept:
+                    ld0.forces[troop] = kept
+                else:
+                    ld0.forces.pop(troop, None)
+            _disband_routed_vassals(state, f, result)
+            result.setdefault("warden_moved", []).append(lid)
+            result.setdefault("warden_to", {})[lid] = dest
+            if not any(ld0.forces.get(t, 0) for t in _TROOP_TYPES):  # no Troops left -> Disband
+                campaign._disband_lord(state, ld0)
+                disbands.append(lid)
+            continue
+        if lid in talbot_selected:                       # L36: Disband instead of Death roll
             campaign._disband_lord(state, ld0)
             disbands.append(lid)
+            result.setdefault("talbot_disbands", []).append(lid)
             continue
         roll = dice.d6() - (2 if f.fled else 0)
         if roll >= 3:
