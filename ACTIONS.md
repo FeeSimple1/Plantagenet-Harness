@@ -201,6 +201,12 @@ split, the first approaching Lord receives the pool.
 `exile_spoils_to`. When some Exile and others fight, use `exile_spoils_to`
 for the earlier Exile pool and `spoils_to` for the later Battle pool.
 
+For Capture of the King (Scenario Ia), the Yorkist player can set
+`decisions.capture_holder` to an Unrouted Yorkist Lord at the Battle.
+The selection applies if Henry VI is captured. Omission selects the first
+eligible Lord. If the chosen captor Disbands during Aftermath, Henry VI
+returns to the Calendar and the Lancastrians gain 10 Influence.
+
 Naval Blockade (Y15) gates Lancastrian Sea actions via the `uses_port_on_sea`
 reaction trigger: `sail`, `tax`, `parley` (campaign), and `supply` pause for a
 Yorkist Warwick (Y15) at a Port whenever the action uses a Port on his Sea. The

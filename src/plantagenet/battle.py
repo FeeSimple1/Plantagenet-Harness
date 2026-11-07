@@ -212,6 +212,7 @@ def _apply_battle_troop_caps(state: GameState, forces: dict[str, _Force],
                         remaining[t] = max(0, pools[t]["pool"] - _troops_in_play(state, t))
                     give = min(n, remaining[t])
                     if give:
+                        f.has_temporary_troops = True
                         f.count[t] = f.count.get(t, 0) + give
                         f.routed.setdefault(t, 0)
                         remaining[t] -= give
@@ -267,6 +268,7 @@ class _Force:
             if lord.forces.get(t):
                 self.count[t] = lord.forces[t]
         self.routed: dict[str, int] = {t: 0 for t in self.count}
+        self.has_temporary_troops = False
         self.valour = ratings.rating(state, lord_id, "valour")
         self.fled = False
         self.lord_routed = False
@@ -626,6 +628,9 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     else:
         _require(isinstance(talbot, bool), "bad_talbot_choice",
                  "talbot must be a boolean or a list of participating Lancastrians")
+    capture_holder = decisions.get("capture_holder")
+    _require(capture_holder is None or isinstance(capture_holder, str),
+             "bad_capture_holder", "capture_holder must be a Yorkist Lord ID")
     # FLEE schedule (4.4.2): a Lord may Flee at the start of any Round, not only
     # Round 1. ``flee`` lists Round-1 flees; ``flee_rounds`` maps lord_id -> Round.
     flee = set(decisions.get("flee", []))
@@ -957,7 +962,14 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                   decisions.get("escape_ship", []), warden=warden, talbot=talbot,
                   warden_cid=warden_cid, talbot_cid=talbot_cid,
                   warden_to=warden_to,
-                  spoils_to=decisions.get("spoils_to"))
+                  spoils_to=decisions.get("spoils_to"), capture_holder=capture_holder)
+    # Added Troops leave in Aftermath (4.4.4), after the Death/Capture step.
+    for f in forces.values():
+        lord = state.lords[f.lord_id]
+        if (f.has_temporary_troops and lord.status == LordStatus.MUSTERED
+                and not any(lord.forces.get(t, 0) for t in _TROOP_TYPES)):
+            campaign._disband_lord(state, lord)
+            res.setdefault("aftermath_disbands", []).append(f.lord_id)
     if susp is not None:
         res["suspicion"] = susp
     if ftrust is not None:
@@ -996,7 +1008,8 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
             *, warden: bool = False, talbot: bool | list[str] = False,
             warden_cid: str | None = None, talbot_cid: str | None = None,
             warden_to: dict[str, str] | None = None,
-            spoils_to: dict[str, Any] | None = None) -> dict[str, Any]:
+            spoils_to: dict[str, Any] | None = None,
+            capture_holder: str | None = None) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -1026,6 +1039,11 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
         _losses(state, w, dice, result)
     for w in winners:                                    # 4.4.3: Routed Vassals of Unrouted Lords
         _disband_routed_vassals(state, w, result)
+    captors = []
+    if "henry_vi" in lose_ids and "Capture of the King" in campaign._active_special_rules(state):
+        captors = [w.lord_id for w in winners
+                   if state.lords[w.lord_id].side == "yorkist"
+                   and state.lords[w.lord_id].status == LordStatus.MUSTERED]
     # Escape Ship (4.4.3): selected Routed Lords with a Friendly Route to a Port
     # go into Exile (4.3.5) instead of rolling Death.
     # Bloody Thou Art (Y33): if Richard III is among the winners, skip all Death
@@ -1063,9 +1081,7 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
     def _faces_death_check(lid: str) -> bool:
         if bloody or lid in escaped:
             return False
-        if (lid == "henry_vi" and win_ids
-                and state.lords[win_ids[0]].side == "yorkist"
-                and "Capture of the King" in campaign._active_special_rules(state)):
+        if lid == "henry_vi" and captors:
             return False
         return True
     routed_lanc = [lid for lid in defenders + attackers
@@ -1119,17 +1135,17 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
         ld0 = state.lords[lid]
         # Capture of the King (Scenario Ia): Yorkists beating Henry VI capture him
         # onto an Unrouted Yorkist Lord's mat (no Death roll) for +10 Influence.
-        if (lid == "henry_vi" and win_ids and state.lords[win_ids[0]].side == "yorkist"
-                and "Capture of the King" in campaign._active_special_rules(state)):
-            holder = next((w for w in win_ids if not forces[w].lord_routed), None)
-            if holder is not None:
-                influence.gain_influence(state, "yorkist", 10)
-                campaign._disband_lord(state, ld0)        # Disband him ...
-                ld0.status = LordStatus.CAPTURED          # ... onto the holder's mat
-                ld0.captured_by = holder
-                ld0.calendar_box = None
-                result.setdefault("captured", []).append({"lord": "henry_vi", "by": holder})
-                continue
+        if lid == "henry_vi" and captors:
+            holder = captors[0] if capture_holder is None else capture_holder
+            _require(holder in captors, "bad_capture_holder",
+                     "Henry VI's captor must be an Unrouted Yorkist Lord at the Battle")
+            influence.gain_influence(state, "yorkist", 10)
+            campaign._disband_lord(state, ld0)
+            ld0.status = LordStatus.CAPTURED
+            ld0.captured_by = holder
+            ld0.calendar_box = None
+            result.setdefault("captured", []).append({"lord": "henry_vi", "by": holder})
+            continue
         if lid in refuges:
             dest = refuges[lid]
             ld0.location = dest
@@ -1246,7 +1262,7 @@ def _losses(state: GameState, winner: _Force, dice: DiceRoller,
     base_prot = {fid: f["protection"] for fid, f in static_data.load_forces().items()
                  if not fid.startswith("_")}
     for t in [x for x in winner.count if x in _TROOP_TYPES]:
-        persistent = lord.forces.get(t, 0)   # mat Troops; battle-local adds vanish (no Loss roll)
+        persistent = lord.forces.get(t, 0)   # roll Losses only for persistent mat Troops
         for _ in range(min(winner.routed.get(t, 0), persistent)):
             lo, hi = base_prot[t]            # unmodified Protection for Losses (4.4.3)
             if lo <= dice.d6() <= hi:
@@ -1258,7 +1274,8 @@ def _losses(state: GameState, winner: _Force, dice: DiceRoller,
     # one who had Troops at the start and now has none. A Retinue-only Lord who
     # never had Troops is NOT disbanded.
     had_troops = any(winner.count.get(t, 0) for t in _TROOP_TYPES)
-    if had_troops and not any(lord.forces.get(t, 0) for t in _TROOP_TYPES):
+    if (had_troops and not winner.has_temporary_troops
+            and not any(lord.forces.get(t, 0) for t in _TROOP_TYPES)):
         campaign._disband_lord(state, lord)
         result.setdefault("loss_disbands", []).append(winner.lord_id)
     result.setdefault("losses", {})[winner.lord_id] = {"recovered": recovered, "lost": lost}

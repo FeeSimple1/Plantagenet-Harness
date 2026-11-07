@@ -381,7 +381,7 @@ def _tax_collectors(state: GameState, side: str, d: dict[str, Any]) -> dict[str,
     regular = static_data.load_vassals()["regular"]
     targets = d.get("tax_targets", {})
     out: dict[str, Any] = {}
-    for lid in d.get("lords", []):
+    for lid in dict.fromkeys(d.get("lords", [])):
         ls = state.lords.get(lid)
         if ls is None or ls.side != "yorkist" or ls.status != LordStatus.MUSTERED:
             continue
@@ -396,13 +396,13 @@ def _tax_collectors(state: GameState, side: str, d: dict[str, Any]) -> dict[str,
             continue
         if state.locales[target].depletion == "exhausted":
             continue
-        auto = (target == own_seat)
-        if not auto:                                  # must trace a Route and pass the check
+        if target != here:                            # even when Taxing the Lord's own Seat
             gs = ratings.has_capability(state, lid, "GREAT SHIPS")
             way = commands._tax_route_cost(state, here, target, "yorkist",
                                            ls.assets.get("ship", 0) > 0, all_seas=gs)
             if way is None:
                 continue
+        if target != own_seat:
             chk = influence.check_influence(state, lid, "yorkist", action="tax")  # no per-Way
             if not chk["success"]:
                 out[lid] = {"target": target, "success": False}
