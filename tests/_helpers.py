@@ -15,8 +15,10 @@ def fill_event_decisions(state, card, side):
         targets = loyalty_and_trust_targets(state, side)
         return {"target": targets[0]} if targets else {}
     if card in ("L23", "L24"):                  # Warwick's Propaganda: min(3, available)
-        ys = [loc for loc, ls in state.locales.items() if ls.favour == "yorkist"]
-        return {"strongholds": {loc: "remove" for loc in ys[:min(3, len(ys))]}}
+        if side == "yorkist":
+            return {"stronghold": events.propaganda_next_stronghold(state.pending_events[0]),
+                    "choice": "remove"}
+        return {"strongholds": events.propaganda_strongholds(state)[:3]}
     if card == "L27":                           # L'Universelle Aragne: min(2, available)
         if side == "yorkist":
             target = events.aragne_next_check(state.pending_events[0])

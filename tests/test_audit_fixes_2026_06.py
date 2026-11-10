@@ -1058,6 +1058,7 @@ def test_y10_tax_collectors_doubles_coin_via_full_procedure():
     s = build_initial_state("henry_vi", seed=1)
     s.lords["york"].status = LordStatus.MUSTERED
     s.lords["york"].location = "cambridge"
+    s.locales["cambridge"].favour = "yorkist"
     s.lords["york"].assets = {"coin": 0}
     base = static_data.stronghold_yields("ely")["tax"]["coin"]   # York's Seat (Ely, a City)
     r = events._tax_collectors(s, "yorkist",

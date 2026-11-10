@@ -326,6 +326,7 @@ def test_tax_route_by_ship_needs_a_ship():
     def prep(st):
         st.lords["henry_vi"].location = "dover"
         st.locales["dover"].favour = "lancastrian"
+        st.locales["calais"].favour = "lancastrian"
         st.lords["henry_vi"].assets = {}
     s = _to_lancastrian(_campaign(prep=prep))
     with pytest.raises(IllegalAction) as e:
@@ -760,6 +761,7 @@ def test_blockade_skips_a_sea_routed_around_by_land():
     def prep(st):
         st.lords["henry_vi"].location = "dorchester"
         st.locales["dorchester"].favour = "lancastrian"
+        st.locales["exeter"].favour = "lancastrian"
         st.lords["henry_vi"].assets = {"ship": 1}
         st.lords["henry_vi"].vassals = ["devon"]           # Vassal Seat: exeter
         st.lords["york"].location = "plymouth"             # Blockade the Channel
@@ -777,6 +779,7 @@ def test_blockade_recompute_keeps_other_sea_hops():
     def prep(st):
         st.lords["henry_vi"].location = "hastings"
         st.locales["hastings"].favour = "lancastrian"
+        st.locales["calais"].favour = "lancastrian"
         st.lords["henry_vi"].assets = {"ship": 1}          # exactly one Ship
         st.lords["york"].location = "scarborough"          # Blockade the North Sea
         st.lords["york"].capabilities.append("Y15")

@@ -10,6 +10,7 @@ from __future__ import annotations
 from plantagenet import legal_moves
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordState, LordStatus
+from tests._helpers import queue_drawn_event
 
 
 def _muster_state(seed=1):
@@ -317,11 +318,12 @@ def test_pending_immediate_event_is_kept_unprobed_by_validated_palette():
     # Yorkist-Favour Locale exists; probing the bare move raises bad_count and
     # the palette would drop the agent's only legal move (a soft-lock).
     s = build_initial_state("henry_vi", seed=1)
-    s.locales["lynn"].favour = "yorkist"       # a third Yorkist Locale (setup has two)
-    s.pending_events.append({"card": "L23", "side": "lancastrian"})
-    s.active_side = "lancastrian"
+    for loc in ("ely", "ludlow", "lynn", "london"):
+        s.locales[loc].favour = "yorkist"     # Lancaster must choose three of four.
+    queue_drawn_event(s, "L23")
     vm = legal_moves.validated_legal_moves(s)
-    bare = {"type": "play_event", "side": "lancastrian", "card": "L23"}
-    assert bare in vm["moves"]
-    assert bare in vm["unvalidated"]
+    selection, = vm["moves"]
+    assert selection["side"] == "lancastrian" and selection["card"] == "L23"
+    assert "decisions" not in selection
+    assert selection in vm["unvalidated"]
     assert vm["rejected"] == []

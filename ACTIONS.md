@@ -98,6 +98,24 @@ Omit `decisions` to delegate to the deterministic default.
 Edward IV check Influence with `decisions.extra_spend` set to 0, 1, or 3.
 The menu offers these choices when both Lords are at Strongholds or in Exile.
 
+**Warwick's Propaganda (L23/L24)** starts with Lancaster selecting three distinct
+Yorkist Stronghold IDs in `decisions.strongholds`, or all if fewer qualify.
+The menu lists eligible Strongholds and fills the selection when it is forced.
+The Event then awaits York's response for each selected Stronghold in order.
+York submits `play_event` with the same card, `side: "yorkist"`, and
+`decisions: {"stronghold": "<pending ID>", "choice": "pay"}` to pay two Influence,
+or `"choice": "remove"` to remove one Favour marker. Both responses are offered
+in the menu. The card returns to Lancaster's deck only after York's last response.
+
+**Tax Collectors (Y10)** accepts `decisions.lords` in Tax order,
+`decisions.tax_targets` mapping each elected Lord to a qualifying Stronghold,
+and optional `decisions.extra_spend` mapping each Lord to 0, 1, or 3 Influence.
+The menu lists all eligible targets and the spending options. Omitted Lords
+decline and omitted spending is zero. Each Lord Taxes at most once, using the
+normal Friendly-source, Route, Influence, Coin-bonus, and depletion rules, with
+Coin doubled. **So Wise, So Young (Y34)** adds its Coin even when a Tax check
+fails; a failed check does not Deplete the Stronghold.
+
 **L'Universelle Aragne (L27)** starts with a Lancastrian `play_event` naming
 two distinct Yorkist Mustered Vassal IDs in `decisions.vassals`, or one if only
 one qualifies. Hastings is eligible. York then submits a separate

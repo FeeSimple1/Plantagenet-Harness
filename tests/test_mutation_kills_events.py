@@ -193,11 +193,11 @@ def test_aragne_targets_and_need():
 def test_warwicks_propaganda():
     s = build_initial_state("henry_vi", seed=1)          # Yorkist Favour: ely, ludlow
     with pytest.raises(IllegalAction) as e:              # London Favours Lancaster
-        _play(s, "L23", "lancastrian", strongholds={"ely": "remove", "london": "remove"})
+        _play(s, "L23", "lancastrian", strongholds=["ely", "london"])
     assert e.value.code == "not_yorkist"
     s2 = build_initial_state("henry_vi", seed=1)
     s2.locales["ely"].favour_extra = 1
-    _play(s2, "L23", "lancastrian", strongholds={"ely": "remove", "ludlow": "remove"})
+    _play(s2, "L23", "lancastrian", strongholds=["ely", "ludlow"])
     assert s2.locales["ely"].favour == "yorkist"         # extra marker removed first
     assert s2.locales["ely"].favour_extra == 0
     assert s2.locales["ludlow"].favour == "neutral"
@@ -305,16 +305,20 @@ def test_tudor_banners_and_yorkist_parade():
 def test_tax_collectors():
     s = build_initial_state("henry_vi", seed=2)          # seed 2: York's checks succeed
     s.lords["york"].location = "ipswich"
+    s.locales["ipswich"].favour = "yorkist"
     s.lords["york"].vassals = ["suffolk"]
     del s.lords["york"].assets["coin"]
     r = _play(s, "Y10", "yorkist", lords=["york", "henry_vi"],
               tax_targets={"york": "ipswich", "henry_vi": "london"})
-    assert r["taxes"]["york"] == {"target": "ipswich", "coin": 2, "success": True}
+    assert r["taxes"]["york"]["target"] == "ipswich"
+    assert r["taxes"]["york"]["coin"] == 2 and r["taxes"]["york"]["success"]
+    assert r["taxes"]["york"]["spent"] == 1
     assert s.lords["york"].assets["coin"] == 2           # double Tax, no phantom base
     assert s.lords["henry_vi"].assets["coin"] == 4       # Lancastrians never Tax here
     assert s.locales["ipswich"].depletion == "depleted"
     s2 = build_initial_state("henry_vi", seed=2)         # London is a listed Tax target
     s2.lords["york"].location = "london"
+    s2.locales["london"].favour = "yorkist"
     r2 = _play(s2, "Y10", "yorkist", lords=["york"], tax_targets={"york": "london"})
     assert r2["taxes"]["york"]["coin"] == 6
     s3 = build_initial_state("henry_vi", seed=2)         # a Lord in Exile cannot Tax

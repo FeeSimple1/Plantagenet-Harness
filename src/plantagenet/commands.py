@@ -829,6 +829,8 @@ def _tax_route_cost(state: GameState, here: str, target: str, side: str,
     """Shortest Route (Friendly chain free of Enemy Lords) from the Lord to
     the Taxed Stronghold (4.6.3). Returns Way count, or None."""
     from plantagenet.actions import _parley_route_cost
+    if not is_friendly_stronghold(state, target, side):
+        return None
     return _parley_route_cost(state, ("stronghold", here), target, side, has_ship,
                               all_seas=all_seas, block_sea=block_sea)
 
@@ -926,25 +928,35 @@ def tax_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> di
     target = data["target"]
     if cancelled:                       # Blockaded: no Influence paid (Y15 tips), no Coin.
         return {"type": "tax", "by_lord": lord.lord_id, "target": target, "cancelled": True}
-    if data["auto"]:
+    return {"type": "tax", "by_lord": lord.lord_id, "target": target,
+            **_resolve_tax_attempt(state, lord.lord_id, target, auto=data["auto"],
+                                   extra_spend=data["extra"])}
+
+
+def _resolve_tax_attempt(state: GameState, lord_id: str, target: str, *, auto: bool,
+                         extra_spend: int = 0, coin_multiplier: int = 1) -> dict[str, Any]:
+    """Apply a qualified Tax, shared by Command Tax and Tax Collectors (Y10)."""
+    lord = state.lords[lord_id]
+    if auto:
         chk = {"success": True, "auto": True, "roll": None, "spent": 0}
     else:
         chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                        extra_spend=data["extra"], action="tax")  # no per-Way
+                                        extra_spend=extra_spend, action="tax")  # no per-Way
     coin_added = 0
     if chk["success"]:
         coin_added = static_data.stronghold_yields(target).get("tax", {}).get("coin", 0)
-        if (ratings.has_capability(state, lord.lord_id, "SO WISE, SO YOUNG")
-                and lord.lord_id != "richard_iii"):
-            coin_added += 1                      # Y34 (Gloucester): +1 Coin per Tax
         if (ratings.has_capability(state, lord.lord_id, "STAFFORD BRANCH")
                 and _exeter_or_adjacent(target)):
             coin_added += 1                      # Y29 (Devon): Exeter & adjacent +1 Coin
-        lord.assets["coin"] = lord.assets.get("coin", 0) + coin_added
         ls = state.locales[target]
         ls.depletion = "exhausted" if ls.depletion == "depleted" else "depleted"
-    return {"type": "tax", "by_lord": lord.lord_id, "target": target,
-            "coin_added": coin_added, **chk}
+    if (ratings.has_capability(state, lord.lord_id, "SO WISE, SO YOUNG")
+            and lord.lord_id != "richard_iii"):
+        coin_added += 1                          # Y34: even an unsuccessful attempt.
+    coin_added *= coin_multiplier
+    if coin_added:
+        lord.assets["coin"] = lord.assets.get("coin", 0) + coin_added
+    return {"coin_added": coin_added, **chk}
 
 
 # ------------------------------------------------------------- 4.6.4 Parley

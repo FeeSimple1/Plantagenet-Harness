@@ -319,28 +319,59 @@ def _aragne_influence_check(state: GameState, side: str, d: dict[str, Any]) -> d
 
 
 # L23/L24
+def propaganda_strongholds(state: GameState) -> list[str]:
+    return sorted(loc for loc, ls in state.locales.items() if ls.favour == "yorkist")
+
+
+def propaganda_next_stronghold(event: dict[str, Any]) -> str:
+    response = event["propaganda"]
+    return cast(str, response["targets"][len(response["results"])])
+
+
 def _warwicks_propaganda(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
-    available = [loc for loc, ls in state.locales.items() if ls.favour == "yorkist"]
+    if side == "yorkist":
+        return _propaganda_response(state, side, d)
+    _require(d.keys() <= {"strongholds"}, "bad_event_decisions",
+             "Lancaster selects Strongholds; York chooses whether to pay (L23/L24)")
+    available = propaganda_strongholds(state)
     if not available:                                        # "No effect if no ... Favour"
         return {"no_effect": "no Yorkist Favour to target (L23/L24)"}
     need = min(3, len(available))                            # "Select 3 ... or all if fewer"
-    choices = d.get("strongholds", {})   # {locale: "pay" | "remove"}
-    _require(len(choices) == need, "bad_count",
-             f"Warwick's Propaganda selects {need} Yorkist Strongholds (L23/L24)")
-    out: list[dict[str, str]] = []
-    for loc, how in choices.items():
-        _require(loc in state.locales and state.locales[loc].favour == "yorkist",
-                 "not_yorkist", f"{loc} must Favour Yorkist (L23/L24)")
-        if how == "pay":
-            influence.spend_influence(state, "yorkist", 2)
-            out.append({loc: "paid 2 Influence"})
+    targets = d.get("strongholds", [])
+    _require(isinstance(targets, list) and all(isinstance(loc, str) for loc in targets)
+             and len(targets) == len(set(targets)) == need, "bad_count",
+             f"Warwick's Propaganda selects {need} distinct Yorkist Strongholds (L23/L24)")
+    _require(all(loc in available for loc in targets), "not_yorkist",
+             "select only Strongholds with Yorkist Favour (L23/L24)")
+    state.pending_events[0]["propaganda"] = {"targets": list(targets), "results": []}
+    return {"strongholds": targets, "awaiting_side": "yorkist"}
+
+
+def _propaganda_response(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    _require(d.keys() <= {"stronghold", "choice"}, "bad_event_decisions",
+             "York chooses pay or remove for the pending Stronghold (L23/L24)")
+    response = state.pending_events[0]["propaganda"]
+    loc = propaganda_next_stronghold(state.pending_events[0])
+    _require(d.get("stronghold") == loc, "bad_event_target",
+             f"Warwick's Propaganda awaits York's response for {loc} (L23/L24)")
+    choice = d.get("choice")
+    _require(choice in ("pay", "remove"), "bad_event_decisions",
+             "choose pay or remove (L23/L24)")
+    if choice == "pay":
+        influence.spend_influence(state, side, 2)
+        outcome = "paid 2 Influence"
+    else:
+        locale = state.locales[loc]
+        if locale.favour_extra > 0:
+            locale.favour_extra -= 1
         else:
-            if state.locales[loc].favour_extra > 0:
-                state.locales[loc].favour_extra -= 1
-            else:
-                state.locales[loc].favour = cast(Favour, Favour.NEUTRAL.value)
-            out.append({loc: "Favour removed"})
-    return {"results": out}
+            locale.favour = cast(Favour, Favour.NEUTRAL.value)
+        outcome = "Favour removed"
+    response["results"].append({loc: outcome})
+    result: dict[str, Any] = {"results": list(response["results"])}
+    if len(response["results"]) < len(response["targets"]):
+        result["awaiting_side"] = "yorkist"
+    return result
 
 
 # L25
@@ -511,46 +542,61 @@ def _tudor_banners(state: GameState, side: str, d: dict[str, Any]) -> dict[str, 
 
 
 # Y10
+def tax_collectors_targets(state: GameState) -> dict[str, list[str]]:
+    """All qualifying Tax sources for every on-map Yorkist Lord (4.6.3)."""
+    from plantagenet import commands
+
+    statics = static_data.load_lords()
+    regular = static_data.load_vassals()["regular"]
+    available = {}
+    for lid, lord in _on_map(state, "yorkist"):
+        here = lord.location
+        if here is None or here not in state.locales or state.locales[here].favour != "yorkist":
+            continue
+        candidates = {statics[lid]["seat"], "london", "calais", "harlech"}
+        candidates.update(regular[v]["seat"] for v in lord.vassals if v in regular)
+        targets = []
+        for target in sorted(candidates):
+            locale = state.locales[target]
+            if locale.favour != "yorkist" or locale.depletion == "exhausted":
+                continue
+            if target != here and commands._tax_route_cost(
+                    state, here, target, "yorkist", lord.assets.get("ship", 0) > 0,
+                    all_seas=ratings.has_capability(state, lid, "GREAT SHIPS")) is None:
+                continue
+            targets.append(target)
+        if targets:
+            available[lid] = targets
+    return available
+
+
 def _tax_collectors(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     """Each Yorkist Lord may immediately Tax (full 4.6.3 procedure: Influence check,
     a qualifying Stronghold reached by Route, Deplete) for DOUBLE the Coin.
-    Decisions: ``lords`` (electing Lords) and ``tax_targets`` ({lord: Stronghold})."""
+    Decisions: ``lords``, ``tax_targets`` ({lord: Stronghold}), and optional
+    ``extra_spend`` ({lord: 0, 1, or 3 Influence}), chosen before rolling."""
     from plantagenet import commands
-    statics = static_data.load_lords()
-    regular = static_data.load_vassals()["regular"]
+
+    _require(d.keys() <= {"lords", "tax_targets", "extra_spend"}, "bad_event_decisions",
+             "choose Lords, Tax targets, and each Lord's extra Influence (Y10)")
+    lords = d.get("lords", [])
     targets = d.get("tax_targets", {})
+    spending = d.get("extra_spend", {})
+    _require(isinstance(lords, list) and all(isinstance(lid, str) for lid in lords)
+             and isinstance(targets, dict) and isinstance(spending, dict),
+             "bad_event_decisions", "lords is a list; tax_targets and extra_spend are maps (Y10)")
+    extra = {lid: _event_extra_spend(value) for lid, value in spending.items()}
     out: dict[str, Any] = {}
-    for lid in dict.fromkeys(d.get("lords", [])):
-        ls = state.lords.get(lid)
-        if ls is None or ls.side != "yorkist" or ls.status != LordStatus.MUSTERED:
-            continue
-        here = ls.location
+    for lid in dict.fromkeys(lords):
         target = targets.get(lid)
-        own_seat = statics[lid]["seat"]
-        vassal_seats = {regular[v]["seat"] for v in ls.vassals if v in regular}
-        if target is None or here is None:
+        # Earlier elected Lords can Exhaust a shared source. Recheck live eligibility.
+        if target not in tax_collectors_targets(state).get(lid, []):
             continue
-        if not (target == own_seat or target in vassal_seats
-                or target in {"london", "calais", "harlech"}):
-            continue
-        if state.locales[target].depletion == "exhausted":
-            continue
-        if target != here:                            # even when Taxing the Lord's own Seat
-            gs = ratings.has_capability(state, lid, "GREAT SHIPS")
-            way = commands._tax_route_cost(state, here, target, "yorkist",
-                                           ls.assets.get("ship", 0) > 0, all_seas=gs)
-            if way is None:
-                continue
-        if target != own_seat:
-            chk = influence.check_influence(state, lid, "yorkist", action="tax")  # no per-Way
-            if not chk["success"]:
-                out[lid] = {"target": target, "success": False}
-                continue
-        coin = static_data.stronghold_yields(target).get("tax", {}).get("coin", 0) * 2
-        ls.assets["coin"] = ls.assets.get("coin", 0) + coin
-        st = state.locales[target]
-        st.depletion = "exhausted" if st.depletion == "depleted" else "depleted"
-        out[lid] = {"target": target, "coin": coin, "success": True}
+        result = commands._resolve_tax_attempt(
+            state, lid, target, auto=target == static_data.load_lords()[lid]["seat"],
+            extra_spend=extra.get(lid, 0), coin_multiplier=2)
+        coin = result.pop("coin_added")
+        out[lid] = {"target": target, "coin": coin, **result}
     return {"taxes": out}
 
 
@@ -743,7 +789,10 @@ _PERSIST = {"Y34"}   # immediate Events that stay in effect (active_events)
 
 def pending_event_side(event: dict[str, Any]) -> str:
     """The owner of the head Event's current decision."""
-    return "yorkist" if event["card"] == "L27" and "aragne" in event else cast(str, event["side"])
+    if ((event["card"] == "L27" and "aragne" in event)
+            or (event["card"] in ("L23", "L24") and "propaganda" in event)):
+        return "yorkist"
+    return cast(str, event["side"])
 
 
 def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:

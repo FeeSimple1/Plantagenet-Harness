@@ -145,14 +145,41 @@ def contract(state, typ, move=None):
             resolver = (events._IMMEDIATE if typ == "play_event" else events._HELD_PLAYS).get(cid)
             if cid == "L27" and (move or {}).get("side") == "yorkist":
                 resolver = events._aragne_influence_check
+            if cid in ("L23", "L24") and (move or {}).get("side") == "yorkist":
+                resolver = events._propaganda_response
             if resolver is not None:
                 info["resolver_contract"] = resolver_parameters(resolver)
             choices = (move or {}).get("event_choices")
             if choices is not None:
                 info["event_choices"] = deepcopy(choices)
-            if cid == "Y26":
+            if cid == "Y10":
+                info["parameters"]["decisions"] = (
+                    "lords lists elected Yorkist Lord IDs in Tax order. tax_targets maps each "
+                    "Lord to a listed Stronghold. extra_spend maps each Lord to 0, 1, or 3."
+                )
+                info["constraints"] = (
+                    "Each Lord may Tax once. Omitted Lords decline; omitted spending is zero. "
+                    "Use the normal Tax procedure, including Coin bonuses, with Coin doubled. "
+                    "Choose spending before rolling. Exhausted sources cannot be used again."
+                )
+            elif cid == "Y26":
                 info["parameters"]["decisions"] = "extra_spend is 0, 1, or 3 to check. {} declines."
                 info["constraints"] = "York elects whether Edward IV checks to Disband Clarence."
+            elif cid in ("L23", "L24"):
+                if (move or {}).get("side") == "yorkist":
+                    info["parameters"]["decisions"] = (
+                        "stronghold is the pending Stronghold ID. choice is pay or remove."
+                    )
+                    info["constraints"] = (
+                        "York answers separately at each selected Stronghold: pay 2 Influence "
+                        "or remove one Yorkist Favour marker."
+                    )
+                else:
+                    info["parameters"]["decisions"] = "strongholds lists distinct Stronghold IDs."
+                    info["constraints"] = (
+                        "Lancaster selects exactly three Yorkist Strongholds, or all if fewer. "
+                        "York then chooses whether to pay or remove Favour for each."
+                    )
             elif cid == "L25" and choices is not None:
                 info["parameters"]["decisions"] = (
                     "troops maps every listed Lord ID to a list of unit IDs"

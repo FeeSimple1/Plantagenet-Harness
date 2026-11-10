@@ -109,6 +109,7 @@ def test_tax_route_over_sea_pauses_for_blockade():
     # Warwick at pembroke blockades the Irish Sea; Tax of harlech (special) must
     # sea-hop bristol->harlech, so it uses a Port on the blockaded Sea.
     s, lanc, _ = _camp(warwick_at="pembroke")
+    s.locales["harlech"].favour = "lancastrian"  # Tax requires a Friendly source.
     r = actions.apply_action(s, {"type": "tax", "side": "lancastrian",
                                  "by_lord": lanc, "target": "harlech"})
     assert r["type"] == "pending_reactions"

@@ -73,7 +73,8 @@ def test_tax_collectors_checks_own_seat_route_and_taxes_each_lord_once(origin, e
                                       "decisions": {"lords": ["york", "york"],
                                                     "tax_targets": {"york": "ely"}}})
     if eligible:
-        assert result["taxes"] == {"york": {"target": "ely", "coin": 4, "success": True}}
+        assert result["taxes"] == {"york": {"target": "ely", "coin": 4, "success": True,
+                                            "auto": True, "roll": None, "spent": 0}}
         assert york.assets["coin"] == 4
         assert state.locales["ely"].depletion == "depleted"
     else:

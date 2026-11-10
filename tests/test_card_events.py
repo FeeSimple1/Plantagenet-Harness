@@ -7,7 +7,7 @@ import pytest
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordStatus, VassalStatus
-from tests._helpers import apply_drawn_event
+from tests._helpers import apply_drawn_event, resolve_pending_events
 
 
 def _muster_all(state, side):
@@ -84,7 +84,8 @@ def test_warwicks_propaganda_removes_favour():
     for loc in locs:
         s.locales[loc].favour = "yorkist"
     apply_drawn_event(s, {"type": "play_event", "card": "L23", "side": "lancastrian",
-                             "decisions": {"strongholds": {loc: "remove" for loc in locs}}})
+                             "decisions": {"strongholds": locs}})
+    resolve_pending_events(s)
     assert all(s.locales[loc].favour == "neutral" for loc in locs)
 
 

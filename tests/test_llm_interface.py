@@ -475,6 +475,8 @@ def test_selection_event_template_retained_and_parameters_resolve_pending():
     s.active_side = "lancastrian"
     s.phase = "levy"
     s.levy_step = "arts_of_war"
+    for loc in ("ely", "ludlow", "london", "calais"):
+        s.locales[loc].favour = "yorkist"
     for pile in s.decks["lancastrian"].values():
         if "L23" in pile:
             pile.remove("L23")
@@ -486,8 +488,16 @@ def test_selection_event_template_retained_and_parameters_resolve_pending():
     assert "d.strongholds" in detail["resolver_contract"]["payload_keys_read"]
     targets = [lid for lid, locale in s.locales.items() if locale.favour == "yorkist"][:3]
     r, _ = quiet(nv.apply, e["id"], parameters={"decisions": {
-        "strongholds": {lid: "remove" for lid in targets}}})
-    assert r["kind"] == "result" and not s.pending_events
+        "strongholds": targets}})
+    assert r["kind"] == "result" and s.pending_events
+    assert nv._view.decision_side(s) == "yorkist"
+    attach(s, "yorkist")
+    for _ in targets:
+        response = next(e for e in nv.all_actions()
+                        if e["action"].get("decisions", {}).get("choice") == "remove")
+        r, _ = quiet(nv.apply, response["id"])
+        assert r["kind"] == "result"
+    assert not s.pending_events
     assert not any(f["kind"] == "over_enum_filtered" for f in nv._S["findings"])
 
 

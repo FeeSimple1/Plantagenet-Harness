@@ -53,7 +53,10 @@ def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
     side = events.pending_event_side(pe)
     card = pe["card"]
     move: dict[str, Any] = {"type": "play_event", "side": side, "card": card}
-    if card == "Y22":
+    if card == "Y10":
+        move["event_choices"] = {"tax_targets": events.tax_collectors_targets(state),
+                                  "extra_spend": list(events.EVENT_INFLUENCE_SPENDS)}
+    elif card == "Y22":
         targets = events.loyalty_and_trust_targets(state, side)
         if targets:
             return [{**move, "decisions": {"target": lid}} for lid in targets]
@@ -63,6 +66,17 @@ def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
             return [decline]
         return [decline] + [{**move, "decisions": {"extra_spend": extra}}
                             for extra in events.EVENT_INFLUENCE_SPENDS]
+    elif card in ("L23", "L24"):
+        if side == "yorkist":
+            stronghold = events.propaganda_next_stronghold(pe)
+            move["event_choices"] = {"stronghold": stronghold}
+            return [{**move, "decisions": {"stronghold": stronghold, "choice": choice}}
+                    for choice in ("remove", "pay")]
+        targets = events.propaganda_strongholds(state)
+        move["event_choices"] = {"strongholds": {"available": targets,
+                                                "select": min(3, len(targets))}}
+        if len(targets) <= 3:
+            move["decisions"] = {"strongholds": targets}
     elif card == "L25":
         move["event_choices"] = events.welsh_rebellion_options(state)
     elif card == "L27":

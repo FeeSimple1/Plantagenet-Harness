@@ -186,10 +186,11 @@ def test_warwicks_propaganda_sizes_to_available():
     with pytest.raises(IllegalAction) as e:
         actions.apply_action(s, {"type": "play_event", "card": "L23",
                                  "side": "lancastrian", "decisions": {
-                                     "strongholds": {loc: "remove"
-                                                     for loc in list(s.locales)[:3]}}})
+                                     "strongholds": list(s.locales)[:3]}})
     assert e.value.code == "bad_count"
     actions.apply_action(s, {"type": "play_event", "card": "L23",
                              "side": "lancastrian", "decisions": {
-                                 "strongholds": {loc: "remove" for loc in picks}}})
+                                 "strongholds": picks}})
+    assert all(s.locales[loc].favour == "yorkist" for loc in picks)
+    resolve_pending_events(s)
     assert all(s.locales[loc].favour == "neutral" for loc in picks)
