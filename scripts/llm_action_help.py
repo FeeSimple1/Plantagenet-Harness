@@ -140,4 +140,16 @@ def contract(state, typ, move=None):
             resolver = (events._IMMEDIATE if typ == "play_event" else events._HELD_PLAYS).get(cid)
             if resolver is not None:
                 info["resolver_contract"] = resolver_parameters(resolver)
+            if cid == "L25" and move and "event_choices" in move:
+                choices = move["event_choices"]
+                info["event_choices"] = deepcopy(choices)
+                info["parameters"]["decisions"] = (
+                    "troops maps every listed Lord ID to a list of unit IDs"
+                    if "troops" in choices else "strongholds lists Locale IDs of Favour markers"
+                )
+                info["constraints"] = (
+                    "Lancaster chooses exactly the listed removal count for each selection. "
+                    "Repeat an ID only when multiple pieces are available. "
+                    "Omit decisions to use the deterministic default."
+                )
     return info

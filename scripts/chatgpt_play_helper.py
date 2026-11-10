@@ -41,7 +41,8 @@ from plantagenet.state import GameState  # noqa: E402
 
 VALIDATE = True
 SOFT_OUTPUT_CHARS = None  # advisory only: never truncates a result or excludes a choice
-_NON_ACTION_KEYS = {"note", "cards_required", "discard_held_options", "battle_reactions"}
+_NON_ACTION_KEYS = {"note", "cards_required", "discard_held_options", "battle_reactions",
+                    "event_choices"}
 _S = {"state": None, "scenario": None, "seed": 1, "history": [], "findings": [],
       "turn": 0, "transitions": 0, "perspective": "active", "epoch": "", "revision": 0,
       "fingerprint": None, "catalog": None, "baseline": None, "receipts": [],

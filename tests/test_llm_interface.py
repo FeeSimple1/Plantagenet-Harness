@@ -491,6 +491,31 @@ def test_selection_event_template_retained_and_parameters_resolve_pending():
     assert not any(f["kind"] == "over_enum_filtered" for f in nv._S["findings"])
 
 
+def test_welsh_rebellion_template_advertises_and_applies_the_lancastrian_choice():
+    from tests.test_immediate_events_draw import _welsh_rebellion_draw
+
+    state = _welsh_rebellion_draw()
+    attach(state, "yorkist")
+    assert not nv.all_actions()
+    attach(state, "lancastrian")
+    menu, _ = quiet(nv.menu, "play_event", lord="pembroke")
+    entry, = menu["items"]
+    assert entry["status"] == "template" and entry["has_parameters"]
+    detail, _ = quiet(nv.describe, entry["id"])
+    assert detail["event_choices"]["troops"]["pembroke"]["remove"] == 2
+    assert detail["parameters"]["decisions"].startswith("troops maps")
+    auto, _ = quiet(nv.auto)
+    assert auto["steps"] == 0
+    reply, _ = quiet(nv.apply, entry["id"], parameters={"decisions": {
+        "troops": {"pembroke": ["longbow", "militia"]},
+    }})
+    assert reply["kind"] == "result"
+    assert state.lords["pembroke"].forces == {
+        "retinue": 1, "men_at_arms": 1, "longbow": 2, "militia": 1,
+    }
+    assert "event_choices" not in state.history[-1]["action"]
+
+
 def test_legal_optional_events_survive_normal_category_browsing():
     s = states()[1]
     attach(s, "yorkist")

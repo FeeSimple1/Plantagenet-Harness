@@ -13,6 +13,7 @@ import pytest
 from plantagenet import actions, invariants, legal_moves
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
+from plantagenet.state import GameState, LordStatus
 from tests._helpers import resolve_pending_events
 
 
@@ -82,6 +83,90 @@ def test_precondition_unmet_event_has_no_effect_not_rejected():
                                  "side": "lancastrian"})
     assert "no_effect" in r
     assert invariants.board_invariant_violations(s) == []
+
+
+def _welsh_rebellion_draw():
+    state, side, _ = _later_levy_with_top(
+        "warwicks_rebellion", 19, {"lancastrian": ["L25", "L30"]},
+    )
+    actions.apply_action(state, {"type": "draw", "side": side})
+    return state
+
+
+def test_welsh_rebellion_removes_chosen_troops_from_each_lord_atomically():
+    state = _welsh_rebellion_draw()
+    edward, pembroke = state.lords["edward_iv"], state.lords["pembroke"]
+    edward.location = "ludlow"
+    edward.forces = {"retinue": 1, "militia": 1}
+    move, = legal_moves.legal_moves(state)
+    assert move["event_choices"] == {"troops": {
+        "edward_iv": {"available": {"militia": 1}, "remove": 1},
+        "pembroke": {"available": {"men_at_arms": 1, "longbow": 3, "militia": 2}, "remove": 2},
+    }}
+    choices = {"pembroke": ["militia", "militia"], "edward_iv": ["militia"]}
+    before = state.model_dump_json()
+    for decisions, code in (
+        ({"troops": {**choices, "edward_iv": ["retinue"]}}, "bad_event_target"),
+        ({"troops": {**choices, "pembroke": ["men_at_arms", "men_at_arms"]}}, "bad_event_target"),
+        ({"troops": {"pembroke": ["militia", "militia"]}}, "bad_event_target"),
+        ({"troops": {**choices, "pembroke": ["militia"]}}, "bad_count"),
+        ({"strongholds": ["pembroke", "ludlow"]}, "bad_event_decisions"),
+    ):
+        with pytest.raises(IllegalAction) as error:
+            actions.apply_action(state, {**move, "decisions": decisions})
+        assert error.value.code == code
+        assert state.model_dump_json() == before
+
+    action = {**move, "decisions": {"troops": choices}}
+    loaded = GameState.model_validate_json(before)
+    result = actions.apply_action(state, action)
+    assert actions.apply_action(loaded, action) == result
+    assert loaded.model_dump_json() == state.model_dump_json()
+    assert result["troops_removed"] == {"edward_iv": 1, "pembroke": 2}
+    assert result["disbanded"] == ["edward_iv"] and edward.status == LordStatus.CALENDAR
+    assert pembroke.forces == {"retinue": 1, "men_at_arms": 1, "longbow": 3, "militia": 0}
+    assert state.locales["ludlow"].favour == "yorkist"
+    assert state.pending_events == [{"side": "lancastrian", "card": "L30"}]
+    assert state.decks["lancastrian"]["draw"].count("L25") == 1
+    assert invariants.board_invariant_violations(state) == []
+
+
+@pytest.mark.parametrize("targets", [[], ["hereford"], ["hereford", "ludlow"]])
+def test_welsh_rebellion_removes_exact_chosen_favour(targets):
+    state = _welsh_rebellion_draw()
+    state.lords["pembroke"].location = "london"
+    available = set(targets)
+    if len(targets) == 2:
+        available.add("pembroke")
+    for loc in ("hereford", "ludlow", "pembroke"):
+        state.locales[loc].favour = "yorkist" if loc in available else "neutral"
+    move, = legal_moves.legal_moves(state)
+    assert move["event_choices"] == {"strongholds": {
+        "available": dict.fromkeys(available, 1), "remove": len(targets),
+    }}
+    if len(targets) == 2:
+        before = state.model_dump_json()
+        for bad in (["ludlow", "ludlow"], ["ludlow", "london"]):
+            with pytest.raises(IllegalAction, match="bad_event_target"):
+                actions.apply_action(state, {**move, "decisions": {"strongholds": bad}})
+            assert state.model_dump_json() == before
+    result = actions.apply_action(state, {**move, "decisions": {"strongholds": targets}})
+    assert result["favour_removed"] == len(targets)
+    for loc in available:
+        assert state.locales[loc].favour == ("neutral" if loc in targets else "yorkist")
+    assert state.locales["london"].favour == "yorkist"
+    assert invariants.board_invariant_violations(state) == []
+
+
+def test_welsh_rebellion_default_does_not_depend_on_force_dictionary_order():
+    state = _welsh_rebellion_draw()
+    reordered = state.model_copy(deep=True)
+    forces = reordered.lords["pembroke"].forces
+    reordered.lords["pembroke"].forces = dict(reversed(list(forces.items())))
+    for position in (state, reordered):
+        move, = legal_moves.legal_moves(position)
+        actions.apply_action(position, move)
+    assert state.lords["pembroke"].forces == reordered.lords["pembroke"].forces
 
 
 def test_warwicks_propaganda_sizes_to_available():

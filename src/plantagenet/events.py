@@ -8,6 +8,7 @@ active_events + per-handler hooks); this module covers the "immediate" type.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
 from typing import Any, cast
 
@@ -290,42 +291,80 @@ def _warwicks_propaganda(state: GameState, side: str, d: dict[str, Any]) -> dict
 
 
 # L25
-def _welsh_rebellion(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+def welsh_rebellion_options(state: GameState) -> dict[str, Any]:
+    """Return the eligible pieces and required counts for the current branch."""
     wales = _region_locales("wales")
-    yorkist_in_wales = [(lid, ls) for lid, ls in _on_map(state, "yorkist")
-                        if ls.location in wales]
-    if yorkist_in_wales:
-        removed: dict[str, int] = {}
-        for lid, ls in yorkist_in_wales:
-            troops = [t for t in ls.forces if t in
-                      {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners"}]
-            taken = 0
-            for t in troops:
-                while taken < 2 and ls.forces.get(t, 0) > 0:
-                    ls.forces[t] -= 1
-                    taken += 1
-            removed[lid] = taken
-        # "If left without Troops, that Lord Disbands (1.6, 3.2.4)" (L25). Troops
-        # are wooden units; a Lord with only a Retinue (and Vassals) has none.
+    troop_types = [unit for unit, data in static_data.load_forces().items() if "pool" in data]
+    troops = {}
+    for lid, lord in _on_map(state, "yorkist"):
+        if lord.location in wales:
+            available = {unit: lord.forces[unit] for unit in troop_types
+                         if lord.forces.get(unit, 0) > 0}
+            troops[lid] = {"available": available, "remove": min(2, sum(available.values()))}
+    if troops:
+        return {"troops": troops}
+    markers = {loc: 1 + state.locales[loc].favour_extra for loc in wales
+               if state.locales[loc].favour == "yorkist"}
+    return {"strongholds": {"available": markers, "remove": min(2, sum(markers.values()))}}
+
+
+def _rebellion_default(available: dict[str, int]) -> list[str]:
+    selected: list[str] = []
+    for item, count in available.items():
+        selected.extend([item] * min(count, 2 - len(selected)))
+        if len(selected) == 2:
+            break
+    return selected
+
+
+def _rebellion_removals(selection: Any, options: dict[str, Any], target: str) -> Counter[str]:
+    _require(isinstance(selection, list) and all(isinstance(item, str) for item in selection),
+             "bad_event_decisions", f"choose {target} as a list of IDs (L25)")
+    need = options["remove"]
+    _require(len(selection) == need, "bad_count", f"select {need} {target} (L25)")
+    counts = Counter(selection)
+    _require(all(count <= options["available"].get(item, 0) for item, count in counts.items()),
+             "bad_event_target", f"select only available {target} (L25)")
+    return counts
+
+
+def _welsh_rebellion(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    options = welsh_rebellion_options(state)
+    _require(isinstance(d, dict) and d.keys() <= options.keys(), "bad_event_decisions",
+             "choose only the applicable Welsh Rebellion branch (L25)")
+    if "troops" in options:
+        eligible = options["troops"]
+        requested = d.get("troops", {lid: _rebellion_default(spec["available"])
+                                     for lid, spec in eligible.items()})
+        _require(isinstance(requested, dict) and requested.keys() == eligible.keys(),
+                 "bad_event_target", "select Troops for each Yorkist Lord in Wales (L25)")
+        removals = {lid: _rebellion_removals(requested[lid], spec, f"Troops from {lid}")
+                    for lid, spec in eligible.items()}
+        for lid, units in removals.items():
+            for unit, count in units.items():
+                state.lords[lid].forces[unit] -= count
+
+        # A Lord left with only Retinue and Vassals immediately Disbands.
         from plantagenet import campaign
-        troop_units = {"men_at_arms", "longbow", "militia", "mercenaries", "handgunners"}
-        disbanded: list[str] = []
-        for lid, ls in yorkist_in_wales:
-            if not any(ls.forces.get(t, 0) > 0 for t in troop_units):
-                campaign._disband_lord(state, ls)
-                disbanded.append(lid)
+        removed = {lid: sum(units.values()) for lid, units in removals.items()}
+        disbanded = [lid for lid, spec in eligible.items()
+                     if removed[lid] == sum(spec["available"].values())]
+        for lid in disbanded:
+            campaign._disband_lord(state, state.lords[lid])
         out: dict[str, Any] = {"troops_removed": removed}
         if disbanded:
             out["disbanded"] = disbanded
         return out
-    n = 0
-    for loc in wales:
-        if n >= 2:
-            break
-        if state.locales[loc].favour == "yorkist":
-            state.locales[loc].favour = cast(Favour, Favour.NEUTRAL.value)
-            n += 1
-    return {"favour_removed": n}
+
+    markers = options["strongholds"]
+    strongholds = d.get("strongholds", _rebellion_default(markers["available"]))
+    removed_markers = _rebellion_removals(strongholds, markers, "Yorkist Favour markers in Wales")
+    for loc, count in removed_markers.items():
+        locale = state.locales[loc]
+        if count > locale.favour_extra:
+            locale.favour = cast(Favour, Favour.NEUTRAL.value)
+        locale.favour_extra = max(0, locale.favour_extra - count)
+    return {"favour_removed": len(strongholds)}
 
 
 # L29

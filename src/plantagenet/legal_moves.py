@@ -49,14 +49,18 @@ def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
     some Events are deterministic). ``apply_action`` rejects all else."""
     side = state.active_side
     pe = state.pending_events[0]
-    if pe.get("side") == side and pe["card"] == "Y22":
+    if pe.get("side") != side:
+        return []
+    move: dict[str, Any] = {"type": "play_event", "side": side, "card": pe["card"]}
+    if pe["card"] == "Y22":
         from plantagenet.events import loyalty_and_trust_targets
         targets = loyalty_and_trust_targets(state, side)
         if targets:
-            return [{"type": "play_event", "side": side, "card": "Y22",
-                     "decisions": {"target": lid}} for lid in targets]
-    return ([{"type": "play_event", "side": side, "card": pe["card"]}]
-            if pe.get("side") == side else [])
+            return [{**move, "decisions": {"target": lid}} for lid in targets]
+    elif pe["card"] == "L25":
+        from plantagenet.events import welsh_rebellion_options
+        move["event_choices"] = welsh_rebellion_options(state)
+    return [move]
 
 
 def legal_moves(state: GameState) -> list[dict[str, Any]]:

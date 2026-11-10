@@ -81,6 +81,18 @@ explicit allocation. An empty list or allocation declines all reinforcements.
 Omitting both choices requests both types for every eligible Lord. The
 available Troop pool limits every addition.
 
+**Welsh Rebellion (L25)** lets Lancaster choose two wooden Troops from each
+Yorkist Lord in Wales, or all of a Lord's wooden Troops if fewer remain.
+Use `decisions.troops` to map every
+affected Lord ID to the unit IDs to remove, for example
+`{"troops":{"pembroke":["men_at_arms","militia"]}}`. Choose the exact
+count for each Lord. A Lord left without wooden Troops immediately Disbands.
+With no Yorkist Lords in Wales, `decisions.strongholds` lists the IDs of the
+two Welsh Yorkist Favour markers to remove, or one if only one is available.
+Repeat a unit or Stronghold ID only when multiple pieces are available there.
+The event menu and `describe(ID)` show eligible pieces and required counts.
+Omit `decisions` to delegate to the deterministic default.
+
 ### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 
 All Muster actions take `{"type", "side", "by_lord", ...}` and spend one
