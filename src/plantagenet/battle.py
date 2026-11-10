@@ -613,12 +613,35 @@ def _resolve_for_trust(state: GameState, attackers: list[str], defenders: list[s
     return {"by": by, "target": vid, "from_lord": old, **chk}
 
 
+def death_order_options(state: GameState, attackers: list[str],
+                        defenders: list[str]) -> dict[str, list[str]]:
+    """Group the potential Death-check priorities by their owning faction."""
+    options: dict[str, list[str]] = {}
+    for lid in defenders + attackers:
+        options.setdefault(state.lords[lid].side, []).append(lid)
+    return options
+
+
+def _death_priorities(state: GameState, attackers: list[str], defenders: list[str],
+                      order: Any) -> dict[str, list[str]]:
+    _require(isinstance(order, dict), "bad_death_order",
+             "death_order must map factions to lists of Lord IDs (4.4.3)")
+    options = death_order_options(state, attackers, defenders)
+    for side, lords in order.items():
+        _require(side in options and isinstance(lords, list)
+                 and all(isinstance(lid, str) and lid in options[side] for lid in lords)
+                 and len(lords) == len(set(lords)), "bad_death_order",
+                 "each death_order list must contain distinct Lords of that faction in the Battle")
+    return cast(dict[str, list[str]], order)
+
+
 def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                    defender: str | list[str],
                    decisions: dict[str, Any] | None = None) -> dict[str, Any]:
     decisions = decisions or {}
     attackers = [attacker] if isinstance(attacker, str) else list(attacker)
     defenders = [defender] if isinstance(defender, str) else list(defender)
+    death_order = _death_priorities(state, attackers, defenders, decisions.get("death_order", {}))
     talbot = decisions.get("talbot", False)
     if isinstance(talbot, list):
         _require(all(isinstance(lid, str) and lid in attackers + defenders
@@ -962,7 +985,8 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                   decisions.get("escape_ship", []), warden=warden, talbot=talbot,
                   warden_cid=warden_cid, talbot_cid=talbot_cid,
                   warden_to=warden_to,
-                  spoils_to=decisions.get("spoils_to"), capture_holder=capture_holder)
+                  spoils_to=decisions.get("spoils_to"), capture_holder=capture_holder,
+                  death_order=death_order)
     # Added Troops leave in Aftermath (4.4.4), after the Death/Capture step.
     for f in forces.values():
         lord = state.lords[f.lord_id]
@@ -1009,7 +1033,8 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
             warden_cid: str | None = None, talbot_cid: str | None = None,
             warden_to: dict[str, str] | None = None,
             spoils_to: dict[str, Any] | None = None,
-            capture_holder: str | None = None) -> dict[str, Any]:
+            capture_holder: str | None = None,
+            death_order: dict[str, list[str]] | None = None) -> dict[str, Any]:
     a_alive = any(not forces[a].lord_routed for a in attackers)
     d_alive = any(not forces[d].lord_routed for d in defenders)
     if a_alive and not d_alive:
@@ -1084,8 +1109,8 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
         if lid == "henry_vi" and captors:
             return False
         return True
-    routed_lanc = [lid for lid in defenders + attackers
-                   if forces[lid].lord_routed and state.lords[lid].side == "lancastrian"
+    routed = [lid for lid in defenders + attackers if forces[lid].lord_routed]
+    routed_lanc = [lid for lid in routed if state.lords[lid].side == "lancastrian"
                    and _faces_death_check(lid)]
     # An explicit map elects only those Lords. A preselected Lord who never
     # faces Death (e.g. Escape Ship or Capture of the King) cannot spend Warden
@@ -1105,11 +1130,23 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
     if talbot_selected and talbot_cid is not None:
         _use_held_event(state, "lancastrian", talbot_cid)
 
+    checks = {lid for lid in routed if _faces_death_check(lid)
+              and lid not in refuges and lid not in talbot_selected}
+    ordered_checks: list[str] = []
+    for faction, group in death_order_options(state, attackers, defenders).items():
+        eligible = [lid for lid in group if lid in checks]
+        chosen = [lid for lid in (death_order or {}).get(faction, []) if lid in eligible]
+        ordered_checks.extend(chosen)
+        ordered_checks.extend(lid for lid in eligible if lid not in chosen)
+    result["death_order"] = ordered_checks
+
+    # Reassign only actual roll slots, preserving the placement of other fates.
+    checks_in_order = iter(ordered_checks)
     deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
-    for lid in defenders + attackers:                    # Defenders first
+    for lid in routed:                                   # Defenders first
+        if lid in checks:
+            lid = next(checks_in_order)
         f = forces[lid]
-        if not f.lord_routed:
-            continue
         if bloody:                                       # Y33: no Death roll/upon-Death cards
             if state.lords[lid].side == "lancastrian":   # Routed Lancastrians Die
                 _kill_lord(state, lid)

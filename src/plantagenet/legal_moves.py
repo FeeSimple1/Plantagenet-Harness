@@ -597,8 +597,9 @@ def _attach_battle_reactions(state: GameState, side: str,
     playable there -- the catalog gated by location/capability (e.g. Warden only
     in the North, Patrick only with Culverins). A menu-driven player can then see
     which Held Events / Capabilities it may pass in the move's ``decisions``.
+    Include potential Death-check priorities when either faction has a choice.
     Advisory metadata only: apply_action ignores the extra key."""
-    from plantagenet import reactions
+    from plantagenet import battle, reactions
     for mv in moves:
         if mv.get("type") not in ("march", "sail"):
             continue
@@ -611,6 +612,8 @@ def _attach_battle_reactions(state: GameState, side: str,
                      and ls.location == dest]
         try:
             av = reactions.available_battle_reactions(state, attackers, defenders, locale=dest)
+            if max(len(attackers), len(defenders)) > 1:
+                mv["death_order_options"] = battle.death_order_options(state, attackers, defenders)
         except (KeyError, AttributeError):
             continue
         if av:

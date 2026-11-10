@@ -228,6 +228,17 @@ The selection applies if Henry VI is captured. Omission selects the first
 eligible Lord. If the chosen captor Disbands during Aftermath, Henry VI
 returns to the Calendar and the Lancastrians gain 10 Influence.
 
+For Death checks (4.4.3), submit each faction's chosen priority list with the
+Battle decisions in `decisions.death_order`, for example
+`{"lancastrian":["northumberland_lancastrian","somerset_1"]}`. Each list may
+contain any subset of distinct Lords of that faction participating in the
+Battle. The resolver applies the priorities after Routing and the Death-check
+Events. Other eligible Lords follow in the default order. Defenders always
+roll before Attackers. `death_order_options` in the March or Sail menu lists
+the expected participants when either side has multiple Lords. For Bosworth,
+`describe('resolve_battle')` lists the committed Fronts. The Battle result's
+`death_order` lists the Lords who rolled in order.
+
 Naval Blockade (Y15) gates Lancastrian Sea actions via the `uses_port_on_sea`
 reaction trigger: `sail`, `tax`, `parley` (campaign), and `supply` pause for a
 Yorkist Warwick (Y15) at a Port whenever the action uses a Port on his Sea. The

@@ -91,10 +91,11 @@ CONTRACTS = {
 
 COMBAT = {
     "notice": "These are parameter families, not an exhaustive set of combinations. Preserve each side's own choices. Full accepted payload and defaults are documented in ACTIONS.md and battle.py/commands.py; describe(..., source=True) exposes handler code without live hidden state.",
-    "parameters": "attacker_positions/defender_positions (indices 0,1,2; JSON string indices accepted); flank_choice; engagement_order; absorb_order/absorb_lords/absorb_plan; reposition; flee/flee_rounds; valour; leeward; caltrops; ravine; suspicion; for_trust_not_him; culverins; yeomen; caltrops_split; regroup; vanguard; swift_maneuver/swift_maneuver_end; final_charge; patrick; warden/warden_to; talbot; escape_ship; capture_holder; spoils_to; exile_spoils_to; responses; blocked_ford; intercept/intercept_group/flank_attack",
+    "parameters": "attacker_positions/defender_positions (indices 0,1,2; JSON string indices accepted); flank_choice; engagement_order; absorb_order/absorb_lords/absorb_plan; reposition; flee/flee_rounds; valour; leeward; caltrops; ravine; suspicion; for_trust_not_him; culverins; yeomen; caltrops_split; regroup; vanguard; swift_maneuver/swift_maneuver_end; final_charge; patrick; warden/warden_to; talbot; escape_ship; capture_holder; death_order; spoils_to; exile_spoils_to; responses; blocked_ford; intercept/intercept_group/flank_attack",
     "warden_to": "Lancastrian owner's {participating_lord_id: friendly_north_stronghold_id}; only selected Routed Lords facing Death move, each to its chosen refuge (not the Battle Locale). Nonempty map requests L16; {} selects none and keeps it. Without a map, warden=True retains the all-eligible/first-refuge default. Inspect battle_reactions.warden_options for participants and destinations.",
     "talbot": "Lancastrian owner's list of distinct participating Lancastrian Lord IDs. L36 Disbands only selected Routed Lords who would otherwise roll for Death. [] or false keeps L36. true selects all eligible Lords. Inspect battle_reactions.talbot_options for participants.",
     "capture_holder": "Yorkist owner's Lord ID for Capture of the King (Scenario Ia). Applies if Henry VI is captured. The holder must be an Unrouted Yorkist Lord still at the Battle. Omit to use the first eligible Lord.",
+    "death_order": "Each faction supplies its own priority list of distinct participating Lord IDs under lancastrian or yorkist. Only Lords who face a Death check use that priority. Any unlisted eligible Lords follow in the default order. Defenders roll before Attackers.",
     "constraints": "Only participating Lords in each side's Array. Troop/Vassal hit allocation, Reserve advances, Flee, Valour and card timing follow the engine and current card text. Exile Spoils precede Battle: exile_spoils_to distributes them among approaching Lords; spoils_to distributes Battle Spoils among Unrouted winners (also an Exile alias when no Battle follows). Both map Lord IDs to nonnegative integer cart/provender amounts totaling their pool. Replacing a menu example's decisions is allowed; it is not the only legal tactical policy.",
 }
 
@@ -132,6 +133,10 @@ def contract(state, typ, move=None):
         info["example_policy"] = "No default plan is substituted. Choose any legal construction."
     if typ in ("march", "sail", "resolve_battle", "react"):
         info["combat"] = deepcopy(COMBAT)
+    if move and "death_order_options" in move:
+        info["death_order_options"] = deepcopy(move["death_order_options"])
+    if typ == "resolve_battle" and state.battle_setup and state.battle_setup.complete:
+        info["death_order_options"] = deepcopy(state.battle_setup.arrays)
     cid = (move or {}).get("card") or (move or {}).get("play")
     if cid in static_data.load_cards():
         info["card"] = deepcopy(static_data.load_cards()[cid])

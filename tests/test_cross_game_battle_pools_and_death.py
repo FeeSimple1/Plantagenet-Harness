@@ -206,3 +206,81 @@ def test_talbot_choices_are_discoverable_without_revealing_the_enemy_hold():
     options = llm_view.action_view(move, "lancastrian", state)["battle_reactions"]
     assert options[0]["talbot_options"] == {"lords": ["henry_tudor", "oxford"]}
     assert "list" in llm_action_help.COMBAT["talbot"]
+
+
+def death_order_position():
+    state = position("henry_vi", "york", "ely", seed=5)
+    place(state, "salisbury", "ely").forces["militia"] = 1
+    for lid in ("somerset_1", "northumberland_lancastrian"):
+        place(state, lid, "cambridge").forces["militia"] = 1
+    move = next(m for m in legal_moves.legal_moves(state)
+                if m["type"] == "march" and m["to"] == "cambridge"
+                and m.get("group") == ["salisbury"])
+    return state, move
+
+
+@pytest.mark.parametrize("choose_priorities", [False, True])
+def test_death_order_prioritizes_each_faction_with_defenders_first(choose_priorities):
+    state, move = death_order_position()
+    defenders = ["somerset_1", "northumberland_lancastrian"]
+    attackers = ["york", "salisbury"]
+    options = {"lancastrian": defenders, "yorkist": attackers}
+    assert move["death_order_options"] == options
+    help_info = llm_action_help.contract(state, "march", move)
+    assert help_info["death_order_options"] == options
+    assert "Defenders roll before Attackers" in help_info["combat"]["death_order"]
+    choices = {"flee": defenders + attackers, "valour": False}
+    if choose_priorities:
+        # Put the attacker's key first and leave both lists partial.
+        choices["death_order"] = {"yorkist": ["salisbury"],
+                                  "lancastrian": ["northumberland_lancastrian"]}
+        defenders.reverse()
+        attackers.reverse()
+    action = {**move, "decisions": choices}
+    restored = GameState.model_validate_json(state.model_dump_json())
+    result = fight(state, action)
+    assert result["death_order"] == defenders + attackers
+    assert result["deaths"] == [defenders[0], attackers[0]]
+    assert result["disbands"] == [defenders[1], attackers[1]]
+    assert fight(restored, action) == result
+    assert restored.model_dump_json() == state.model_dump_json()
+
+
+@pytest.mark.parametrize("selection", [
+    None, ["somerset_1"], {"defender": ["somerset_1"]}, {"lancastrian": "somerset_1"},
+    {"lancastrian": ["somerset_1", "somerset_1"]}, {"yorkist": ["somerset_1"]},
+    {"lancastrian": ["somerset_1", "henry_vi"]}, {"lancastrian": [["somerset_1"]]},
+])
+def test_death_order_rejects_invalid_priorities_atomically(selection):
+    state, move = death_order_position()
+    action = {**move, "decisions": {"death_order": selection}}
+    before, submitted = state.model_dump_json(), deepcopy(action)
+    with pytest.raises(IllegalAction, match="bad_death_order"):
+        actions.apply_action(state, action)
+    assert state.model_dump_json() == before and action == submitted
+
+
+def test_death_order_omits_talbot_disbands_and_unrouted_lords():
+    state, action = talbot_position()
+    action["decisions"].update(talbot=["henry_tudor"], death_order={
+        "lancastrian": ["henry_tudor", "oxford"], "yorkist": ["richard_iii"],
+    })
+    result = fight(state, action)
+    assert result["death_order"] == result["deaths"] == ["oxford"]
+    assert result["talbot_disbands"] == ["henry_tudor"]
+
+
+def test_bosworth_death_order_uses_committed_participants():
+    from tests.test_bosworth_setup import complete_setup
+
+    state = build_initial_state("bosworth", seed=5)
+    complete_setup(state)
+    move, = legal_moves.legal_moves(state)
+    options = llm_action_help.contract(state, "resolve_battle", move)["death_order_options"]
+    assert options == state.battle_setup.arrays
+    priorities = {side: list(reversed(front)) for side, front in options.items()}
+    result = actions.apply_action(state, {**move, "decisions": {
+        "death_order": priorities, "flee": options["yorkist"] + options["lancastrian"],
+    }})
+    assert result["death_order"] == priorities["yorkist"] + priorities["lancastrian"]
+    assert not invariants.board_invariant_violations(state)
