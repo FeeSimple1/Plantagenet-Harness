@@ -74,13 +74,40 @@ def _earl_rivers(state: GameState, side: str, d: dict[str, Any]) -> dict[str, An
 
 # L14: up to 1 MaA + 1 Militia
 def _scots(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
-    add: dict[str, dict[str, int]] = {}
-    sel = d.get("lords", [lid for lid, _ in _on_map(state, "lancastrian")])
-    for lid in sel:
-        ls = state.lords[lid]
-        a = _pool_add(state, ls, "men_at_arms", 1) + 0
-        b = _pool_add(state, ls, "militia", 1)
-        add[lid] = {"men_at_arms": a, "militia": b}
+    """Select each Mustered Lancastrian once, including Lords in Exile boxes.
+
+    Use lords to request both types on the listed mats, or reinforcements to
+    map Lord IDs to explicit 0 or 1 counts of men_at_arms and militia.
+    Omit both fields to request both types for every eligible Lord.
+    """
+    _require(isinstance(d, dict), "bad_event_decisions", "decisions must be an object")
+    eligible = {lid: lord for lid, lord in state.lords.items()
+                if lord.side == side and lord.status in (LordStatus.MUSTERED, LordStatus.EXILE)}
+    units = ("men_at_arms", "militia")
+    if "reinforcements" in d:
+        _require("lords" not in d, "bad_event_decisions",
+                 "choose lords or reinforcements for Scots (L14)")
+        requested = d.get("reinforcements")
+        if not isinstance(requested, dict):
+            raise IllegalAction("bad_event_decisions",
+                                "reinforcements must map Lords to Troop counts (L14)")
+    else:
+        selected = d.get("lords", list(eligible))
+        _require(isinstance(selected, list) and all(isinstance(lid, str) for lid in selected),
+                 "bad_event_decisions", "lords must be a list of Lord IDs (L14)")
+        _require(len(selected) == len(set(selected)), "duplicate_lords",
+                 "name each Scots recipient only once (L14)")
+        requested = {lid: dict.fromkeys(units, 1) for lid in selected}
+
+    for lid, counts in requested.items():
+        _require(lid in eligible, "bad_lord", "name a Mustered Lancastrian Lord (L14)")
+        _require(isinstance(counts, dict) and all(
+            unit in units and type(count) is int and count in (0, 1)
+            for unit, count in counts.items()
+        ), "bad_event_decisions", "Scots grants 0 or 1 of each listed Troop type (L14)")
+    add = {lid: {unit: _pool_add(state, eligible[lid], unit, counts.get(unit, 0))
+                 for unit in units}
+           for lid, counts in requested.items()}
     return {"added": add}
 
 

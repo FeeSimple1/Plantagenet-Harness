@@ -72,6 +72,15 @@ activating without one. `legal_moves` offers concrete `play_event` choices with
 Capability while pending/active, gives only that Lord +3 Lordship, and expires
 at the end of the Levy. An invalid/missing target cannot advance the draw.
 
+**Scots (L14)** accepts a unique list of Mustered Lancastrian Lord IDs in
+`decisions.lords` to request one Men-at-Arms and one Militia for each. This
+includes Lords in Exile boxes. For separate unit choices, use
+`"decisions":{"reinforcements":{"henry_vi":{"men_at_arms":1}}}` to request
+only one Men-at-Arms for Henry. Omitted units and Lords receive zero in an
+explicit allocation. An empty list or allocation declines all reinforcements.
+Omitting both choices requests both types for every eligible Lord. The
+available Troop pool limits every addition.
+
 ### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 
 All Muster actions take `{"type", "side", "by_lord", ...}` and spend one
