@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from plantagenet import actions
+from plantagenet import actions, legal_moves
 from plantagenet.errors import IllegalAction
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordStatus, VassalState, VassalStatus
@@ -16,8 +16,11 @@ from tests._helpers import apply_drawn_event
 
 
 def _play(s, card, side, **decisions):
-    return apply_drawn_event(s, {"type": "play_event", "card": card, "side": side,
-                                    "decisions": decisions})
+    result = apply_drawn_event(s, {"type": "play_event", "card": card, "side": side,
+                                   "decisions": decisions})
+    while result.get("awaiting_side") == "yorkist":
+        result = actions.apply_action(s, legal_moves.legal_moves(s)[0])
+    return result
 
 
 def _net_lanc(s):
@@ -156,8 +159,8 @@ def test_dubious_clarence():
     r = _play(s, "Y26", "yorkist")
     assert "no_effect" in r
     s2 = build_initial_state("warwicks_rebellion", seed=1)   # both on the map
-    r2 = _play(s2, "Y26", "yorkist")
-    assert r2["spent"] == 1                              # base spend, no extra by default
+    r2 = _play(s2, "Y26", "yorkist", extra_spend=0)
+    assert r2["spent"] == 1                              # York elected the base check
 
 
 # sites 2493/2494 (L211), 1405 (L216), 1412 (L221)
@@ -177,13 +180,13 @@ def test_aragne_targets_and_need():
     assert len(r2["checks"]) == 2                        # need stays min(2, available)
     # site 2544 (L231): a failed check Disbands the regular Vassal (3.2.4)
     s3 = build_initial_state("henry_vi", seed=1)         # seed 1: March's check fails
-    s3.vassals["suffolk"] = VassalState(vassal_id="suffolk", status=VassalStatus.MUSTERED,
-                                        on_lord="march", service_box=4)
-    s3.lords["march"].vassals = ["suffolk"]
-    r3 = _play(s3, "L27", "lancastrian", vassals=["suffolk"])
+    s3.vassals["dudley"] = VassalState(vassal_id="dudley", status=VassalStatus.MUSTERED,
+                                      on_lord="march", service_box=4)
+    s3.lords["march"].vassals = ["dudley"]
+    r3 = _play(s3, "L27", "lancastrian", vassals=["dudley"])
     assert r3["checks"][0]["disbanded"] is True
-    assert s3.vassals["suffolk"].status == VassalStatus.DISBANDED
-    assert "suffolk" not in s3.lords["march"].vassals
+    assert s3.vassals["dudley"].status == VassalStatus.DISBANDED
+    assert "dudley" not in s3.lords["march"].vassals
 
 
 # sites 2586 (L251), 3690 (L257)

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from plantagenet import actions
-from plantagenet.state import LordStatus, VassalStatus
+from plantagenet import actions, events, legal_moves
 
 
 def fill_event_decisions(state, card, side):
@@ -19,14 +18,12 @@ def fill_event_decisions(state, card, side):
         ys = [loc for loc, ls in state.locales.items() if ls.favour == "yorkist"]
         return {"strongholds": {loc: "remove" for loc in ys[:min(3, len(ys))]}}
     if card == "L27":                           # L'Universelle Aragne: min(2, available)
-        av = [vid for vid, v in state.vassals.items()
-              if v.status == VassalStatus.MUSTERED and v.on_lord is not None
-              and state.lords.get(v.on_lord) is not None
-              and state.lords[v.on_lord].side == "yorkist"]
-        for ld in state.lords.values():         # Special Vassals count too (handler parity)
-            if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED:
-                av.extend(ld.special_vassals)
-        return {"vassals": av[:min(2, len(av))]}
+        if side == "yorkist":
+            target = events.aragne_next_check(state.pending_events[0])
+            return {"vassal": target["vassal"], "extra_spend": 0}
+        return {"vassals": list(events.aragne_vassal_owners(state))[:2]}
+    if card == "L29":
+        return {"strongholds": events.wilful_disobedience_targets(state)[:2]}
     return {}
 
 
@@ -34,10 +31,10 @@ def resolve_pending_events(state):
     """Resolve every immediate Event queued by an Arts of War draw (3.1.3),
     supplying minimal legal decisions."""
     while state.pending_events:
-        pe = state.pending_events[0]
-        actions.apply_action(state, {
-            "type": "play_event", "side": pe["side"], "card": pe["card"],
-            "decisions": fill_event_decisions(state, pe["card"], pe["side"])})
+        move = legal_moves.legal_moves(state)[0]
+        if "decisions" not in move:
+            move["decisions"] = fill_event_decisions(state, move["card"], move["side"])
+        actions.apply_action(state, move)
     return state
 
 
@@ -53,13 +50,17 @@ def to_muster(state):
 
 
 def apply_drawn_event(state, action):
+    queue_drawn_event(state, action["card"])
+    return actions.apply_action(state, action)
+
+
+def queue_drawn_event(state, card):
     """Place an immediate Event in a legal later-Levy draw window for effect tests.
 
     The fixture deliberately chooses the drawn card; production callers must
     obtain pending Events through draw (3.1.3).
     """
     from plantagenet import static_data
-    card = action["card"]
     side = static_data.load_cards()[card]["side"]
     state.phase = "levy"
     state.levy_step = "arts_of_war"
@@ -69,4 +70,3 @@ def apply_drawn_event(state, action):
         while card in pile:
             pile.remove(card)
     state.pending_events = [{"card": card, "side": side}]
-    return actions.apply_action(state, action)

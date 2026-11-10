@@ -63,8 +63,9 @@ Later Levies (3.1.3): each side draws two Events — Hold -> held pile, This Lev
 This Campaign -> active (after any required target selection), otherwise resolve
 and return to the unused pool. After both draws -> Muster (first Turn) or Pay.
 Pending Events must be resolved in draw order: `play_event` accepts only the
-first card in `pending_events`, for the active side. Undrawn cards cannot be
-played through this action.
+first card in `pending_events`, from the faction that owns the current
+decision. The drawing faction remains `active_side` until its draw resolves.
+Undrawn cards cannot be played through this action.
 
 **Loyalty and Trust (Y22)** queues a required target choice rather than silently
 activating without one. `legal_moves` offers concrete `play_event` choices with
@@ -92,6 +93,24 @@ two Welsh Yorkist Favour markers to remove, or one if only one is available.
 Repeat a unit or Stronghold ID only when multiple pieces are available there.
 The event menu and `describe(ID)` show eligible pieces and required counts.
 Omit `decisions` to delegate to the deterministic default.
+
+**Dubious Clarence (Y26)** lets York decline with `decisions: {}` or have
+Edward IV check Influence with `decisions.extra_spend` set to 0, 1, or 3.
+The menu offers these choices when both Lords are at Strongholds or in Exile.
+
+**L'Universelle Aragne (L27)** starts with a Lancastrian `play_event` naming
+two distinct Yorkist Mustered Vassal IDs in `decisions.vassals`, or one if only
+one qualifies. Hastings is eligible. York then submits a separate
+`play_event` for L27 with `side: "yorkist"`, `decisions.vassal` naming the
+pending Vassal, and `decisions.extra_spend` set to 0, 1, or 3 before each roll.
+The checks follow the selected order. The menu
+shows the current Vassal and its Lord. After the last check, the card returns
+to the Lancastrian deck and its draw resumes.
+
+**To wilful disobedience and Rebel! (L29)** requires two distinct eligible
+Stronghold IDs in `decisions.strongholds`, or one when only one qualifies.
+The menu lists all eligible Strongholds. When two or fewer qualify, omitting
+the selection removes Yorkist Favour from every eligible Stronghold.
 
 ### Levy — Muster segment (3.4) — IMPLEMENTED in Phase 2
 

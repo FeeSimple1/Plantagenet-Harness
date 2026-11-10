@@ -14,9 +14,10 @@ from typing import Any, cast
 
 from plantagenet import influence, ratings, static_data
 from plantagenet.errors import IllegalAction
-from plantagenet.state import Favour, GameState, LordState, LordStatus
+from plantagenet.state import Favour, GameState, LordState, LordStatus, VassalStatus
 
 _OTHER = {"yorkist": "lancastrian", "lancastrian": "yorkist"}
+EVENT_INFLUENCE_SPENDS = (0, 1, 3)
 
 
 def _require(cond: object, code: str, msg: str) -> None:
@@ -215,54 +216,106 @@ def _henrys_proclamation(state: GameState, side: str, d: dict[str, Any]) -> dict
     return {"shifted": shifted}
 
 
+def _at_stronghold_or_exile(lord: LordState | None) -> bool:
+    return (lord is not None and lord.status in (LordStatus.MUSTERED, LordStatus.EXILE)
+            and (lord.location is not None or lord.exile_box is not None))
+
+
+def _event_extra_spend(extra: Any) -> int:
+    if type(extra) is not int or extra not in EVENT_INFLUENCE_SPENDS:
+        raise IllegalAction("bad_extra_spend", "choose 0, 1, or 3 extra Influence (1.4.2)")
+    return extra
+
+
 # Y26
+def dubious_clarence_available(state: GameState) -> bool:
+    return all(_at_stronghold_or_exile(state.lords.get(lid))
+               for lid in ("edward_iv", "clarence"))
+
+
 def _dubious_clarence(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
-    ed = state.lords.get("edward_iv")
-    clar = state.lords.get("clarence")
-    if not (ed is not None and ed.status == LordStatus.MUSTERED
-            and clar is not None and clar.status == LordStatus.MUSTERED):
+    _require(d.keys() <= {"extra_spend"}, "bad_event_decisions",
+             "use extra_spend to elect Edward IV's Influence check (Y26)")
+    if not dubious_clarence_available(state):
         return {"no_effect": "requires Edward IV and Clarence on the map (Y26)"}
-    chk = influence.check_influence(state, "edward_iv", "yorkist",
-                                    extra_spend=int(d.get("extra_spend", 0)))
+    if "extra_spend" not in d:
+        return {"no_effect": "York declined the Influence check (Y26)"}
+    chk = influence.check_influence(state, "edward_iv", side,
+                                    extra_spend=_event_extra_spend(d.get("extra_spend")))
     if chk["success"]:
         from plantagenet import campaign
-        campaign._disband_lord(state, clar)
+        clarence = state.lords["clarence"]
+        campaign._disband_lord(state, clarence, from_exile=clarence.exile_box is not None)
     return {"disbanded": chk["success"], **chk}
 
 
 # L27
+def aragne_vassal_owners(state: GameState) -> dict[str, str]:
+    lords = {lid: lord for lid, lord in state.lords.items()
+             if lord.side == "yorkist" and lord.status in (LordStatus.MUSTERED, LordStatus.EXILE)}
+    owners = {vid: v.on_lord for vid, v in state.vassals.items()
+              if v.status == VassalStatus.MUSTERED and v.on_lord is not None
+              and v.on_lord in lords}
+    owners.update({vid: lid for lid, lord in lords.items() for vid in lord.special_vassals})
+    return owners
+
+
+def aragne_next_check(event: dict[str, Any]) -> dict[str, str]:
+    response = event["aragne"]
+    return cast(dict[str, str], response["targets"][len(response["checks"])])
+
+
 def _luniverselle_aragne(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
-    from plantagenet import campaign
-    from plantagenet.state import LordStatus, VassalStatus
-    owner: dict[str, str] = {}                               # vid -> Yorkist Lord id
-    for vid, v in state.vassals.items():
-        if (v.status == VassalStatus.MUSTERED and v.on_lord is not None
-                and state.lords.get(v.on_lord) is not None
-                and state.lords[v.on_lord].side == "yorkist"):
-            owner[vid] = v.on_lord
-    for lid, ld in state.lords.items():                      # Special Vassals (Hastings)
-        if ld.side == "yorkist" and ld.status == LordStatus.MUSTERED:
-            for vid in ld.special_vassals:
-                owner[vid] = lid
-    if not owner:                                            # "No effect if no ... Vassals"
-        return {"no_effect": "no Yorkist Mustered Vassals (L27)"}
-    need = min(2, len(owner))                                # "Select 2 ... or fewer if fewer"
+    if side == "yorkist":
+        return _aragne_influence_check(state, side, d)
+
+    _require(d.keys() <= {"vassals"}, "bad_event_decisions",
+             "Lancaster selects the Vassals. York chooses spending for each check (L27)")
+    owners = aragne_vassal_owners(state)
+    need = min(2, len(owners))
     targets = d.get("vassals", [])
-    _require(len(targets) == need, "bad_targets",
-             f"L'Universelle Aragne targets {need} Yorkist Mustered Vassals (L27)")
-    out: list[dict[str, Any]] = []
-    for vid in targets:
-        _require(vid in owner, "bad_vassal", f"{vid} not a Yorkist Mustered Vassal")
-        lord = state.lords[owner[vid]]
-        chk = influence.check_influence(state, lord.lord_id, lord.side)
-        if not chk["success"]:
-            if vid in state.vassals:                         # regular Vassal -> Calendar (3.2.4)
-                campaign._disband_vassal(state, vid)
-                lord.vassals = [x for x in lord.vassals if x != vid]
-            else:                                            # Special Vassal -> discard Y24
-                campaign._disband_special_vassal(state, lord, vid)
-        out.append({"vassal": vid, "disbanded": not chk["success"], **chk})
-    return {"checks": out}
+    _require(isinstance(targets, list) and all(isinstance(vid, str) for vid in targets)
+             and len(targets) == len(set(targets)) == need, "bad_targets",
+             f"L'Universelle Aragne requires {need} distinct Yorkist Mustered Vassals (L27)")
+    _require(all(vid in owners for vid in targets), "bad_vassal",
+             "select only Yorkist Mustered Vassals (L27)")
+    if not targets:
+        return {"no_effect": "no Yorkist Mustered Vassals (L27)"}
+    state.pending_events[0]["aragne"] = {
+        "targets": [{"vassal": vid, "lord": owners[vid]} for vid in targets],
+        "checks": [],
+    }
+    return {"vassals": targets, "awaiting_side": "yorkist"}
+
+
+def _aragne_influence_check(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    from plantagenet import actions, campaign
+
+    _require(d.keys() <= {"vassal", "extra_spend"}, "bad_event_decisions",
+             "name the pending Vassal and choose extra Influence (L27)")
+    event = state.pending_events[0]
+    response = event["aragne"]
+    target = aragne_next_check(event)
+    vid, lid = target["vassal"], target["lord"]
+    _require(d.get("vassal") == vid, "bad_event_target", f"the pending check is for {vid} (L27)")
+    regular = vid in state.vassals
+    chk = influence.check_influence(
+        state, lid, side, extra_spend=_event_extra_spend(d.get("extra_spend")),
+        loyalty_mod=actions._loyalty_mod(vid, side) if regular else 0,
+    )
+    if not chk["success"]:
+        lord = state.lords[lid]
+        if regular:
+            campaign._disband_vassal(state, vid)
+            lord.vassals = [v for v in lord.vassals if v != vid]
+        else:
+            campaign._disband_special_vassal(state, lord, vid)
+    checks = response["checks"]
+    checks.append({"vassal": vid, "disbanded": not chk["success"], **chk})
+    result: dict[str, Any] = {"checks": [dict(check) for check in checks]}
+    if len(checks) < len(response["targets"]):
+        result["awaiting_side"] = "yorkist"
+    return result
 
 
 # L23/L24
@@ -368,23 +421,43 @@ def _welsh_rebellion(state: GameState, side: str, d: dict[str, Any]) -> dict[str
 
 
 # L29
-def _to_wilful_disobedience(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+def wilful_disobedience_targets(state: GameState) -> list[str]:
     from plantagenet.actions import _adjacency
-    targets = d.get("strongholds", [])
-    _require(len(targets) <= 2, "bad_count", "removes Yorkist Favour from up to 2 (L29)")
-    lanc = {ls.location for _lid, ls in _on_map(state, "lancastrian")}
-    york = {ls.location for _lid, ls in _on_map(state, "yorkist")}
 
-    def near(locset: set[str | None], loc: str) -> bool:
-        return loc in locset or any(n in locset for n, _t in _adjacency().get(loc, []))
-    removed: list[str] = []
-    for loc in targets[:2]:
-        _require(state.locales[loc].favour == "yorkist", "not_yorkist", f"{loc} not Yorkist")
-        _require(near(lanc, loc) and not near(york, loc), "bad_target",
-                 f"{loc} must be at/adjacent a Lancastrian Lord and not a Yorkist one (L29)")
-        state.locales[loc].favour = cast(Favour, Favour.NEUTRAL.value)
-        removed.append(loc)
-    return {"removed": removed}
+    adjacency = _adjacency()
+    exile_boxes = static_data.load_exile_boxes()
+    near: dict[str, set[str]] = {side: set() for side in _OTHER}
+    for lord in state.lords.values():
+        if not _at_stronghold_or_exile(lord):
+            continue
+        if lord.location is not None:
+            near[lord.side].add(lord.location)
+            near[lord.side].update(loc for loc, _kind in adjacency.get(lord.location, []))
+        elif lord.exile_box is not None:
+            near[lord.side].update(exile_boxes.get(lord.exile_box, {}).get("land_exits", []))
+    return [loc for loc, locale in state.locales.items() if locale.favour == "yorkist"
+            and loc in near["lancastrian"] and loc not in near["yorkist"]]
+
+
+def _to_wilful_disobedience(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    _require(d.keys() <= {"strongholds"}, "bad_event_decisions",
+             "choose only strongholds for the Favour removals (L29)")
+    eligible = wilful_disobedience_targets(state)
+    need = min(2, len(eligible))
+    targets = d.get("strongholds", eligible if len(eligible) == need else None)
+    if (not isinstance(targets, list) or not all(isinstance(loc, str) for loc in targets)
+            or len(targets) != need or len(set(targets)) != need):
+        raise IllegalAction("bad_count",
+                            f"select {need} distinct eligible Yorkist Strongholds (L29)")
+    _require(all(loc in eligible for loc in targets), "bad_target",
+             "each Stronghold must have Yorkist Favour and be near Lancaster but not York (L29)")
+    for loc in targets:
+        state.locales[loc].favour = Favour.NEUTRAL
+        state.locales[loc].favour_extra = 0
+    if targets and "track" in state.influence:
+        from plantagenet.scenarios import _recompute_stronghold_markers
+        _recompute_stronghold_markers(state)
+    return {"removed": targets}
 
 
 # L31
@@ -668,30 +741,38 @@ def loyalty_and_trust_targets(state: GameState, side: str) -> list[str]:
 _PERSIST = {"Y34"}   # immediate Events that stay in effect (active_events)
 
 
+def pending_event_side(event: dict[str, Any]) -> str:
+    """The owner of the head Event's current decision."""
+    return "yorkist" if event["card"] == "L27" and "aragne" in event else cast(str, event["side"])
+
+
 def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    """Resolve the next pending drawn Event, including a Y22 target (1.9.1 / 3.1.3)."""
+    """Resolve the next decision of the head drawn Event (1.9.1 / 3.1.3)."""
     cid = cast(str, action.get("card"))
     side = cast(str, action.get("side"))
     cards = static_data.load_cards()
     _require(cid in _IMMEDIATE or cid in _PERSIST or cid == "Y22", "not_immediate_event",
              f"{cid} is not a coded pending Event")
-    _require(cards[cid]["side"] == side, "wrong_side", f"{cid} is not a {side} card")
+    card_side = cards[cid]["side"]
+    head = state.pending_events[0] if state.pending_events else {}
+    actor = pending_event_side(head) if head.get("card") == cid else card_side
+    _require(side == actor, "wrong_side", f"{cid} awaits a {actor} decision")
     _require(state.phase == "levy" and state.levy_step == "arts_of_war",
              "wrong_step", "drawn Events resolve during the Arts of War step (3.1.3)")
     _require(state.turn_box != (state.calendar.first_box or state.turn_box),
              "first_levy", "the first Levy draws Capabilities, not Events (3.1.2)")
-    _require(side == state.active_side, "not_active_side",
+    _require(card_side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's draw (3.1.3)")
-    _require(any(pe.get("card") == cid and pe.get("side") == side
+    _require(any(pe.get("card") == cid and pe.get("side") == card_side
                  for pe in state.pending_events), "event_not_pending",
              f"{cid} has not been drawn for resolution (3.1.3)")
-    _require(state.pending_events[0] == {"card": cid, "side": side}, "event_order",
+    _require(head.get("card") == cid and head.get("side") == card_side, "event_order",
              "resolve Events in the order drawn (3.1.3)")
+    decisions = action.get("decisions", {})
+    _require(isinstance(decisions, dict), "bad_event_decisions", "decisions must be an object")
     res: dict[str, Any]
     if cid == "Y22":
         targets = loyalty_and_trust_targets(state, side)
-        decisions = action.get("decisions", {})
-        _require(isinstance(decisions, dict), "bad_event_decisions", "decisions must be an object")
         target = decisions.get("target")
         _require((not targets and target is None) or target in targets, "bad_event_target",
                  "Loyalty and Trust requires selection of a Yorkist Lord still in the scenario")
@@ -704,10 +785,12 @@ def play_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.active_events.append({"card": cid, "side": side, "scope": "this_campaign"})
         res = {"active": True}
     else:
-        res = _IMMEDIATE[cid](state, side, action.get("decisions", {}))
-        state.decks.setdefault(side, {}).setdefault("draw", []).append(cid)
+        res = _IMMEDIATE[cid](state, side, decisions)
+        if res.get("awaiting_side"):
+            return {"type": "play_event", "card": cid, "side": side, **res}
+        state.decks.setdefault(card_side, {}).setdefault("draw", []).append(cid)
     state.pending_events.pop(0)
     if not state.pending_events:
         from plantagenet.arts_of_war import advance_after_draw
-        res["next"] = advance_after_draw(state, side, first_levy=False)
+        res["next"] = advance_after_draw(state, card_side, first_levy=False)
     return {"type": "play_event", "card": cid, "side": side, **res}

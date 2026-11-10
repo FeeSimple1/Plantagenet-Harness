@@ -44,22 +44,43 @@ def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
 
 
 def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
-    """While immediate Events drawn during Arts of War (3.1.3) await resolution,
-    the only legal move is to play each (the consumer supplies any ``decisions``;
-    some Events are deterministic). ``apply_action`` rejects all else."""
-    side = state.active_side
+    """Offer only the current decision of the head drawn Event (3.1.3)."""
+    from plantagenet import events
+
     pe = state.pending_events[0]
-    if pe.get("side") != side:
+    if pe.get("side") != state.active_side:
         return []
-    move: dict[str, Any] = {"type": "play_event", "side": side, "card": pe["card"]}
-    if pe["card"] == "Y22":
-        from plantagenet.events import loyalty_and_trust_targets
-        targets = loyalty_and_trust_targets(state, side)
+    side = events.pending_event_side(pe)
+    card = pe["card"]
+    move: dict[str, Any] = {"type": "play_event", "side": side, "card": card}
+    if card == "Y22":
+        targets = events.loyalty_and_trust_targets(state, side)
         if targets:
             return [{**move, "decisions": {"target": lid}} for lid in targets]
-    elif pe["card"] == "L25":
-        from plantagenet.events import welsh_rebellion_options
-        move["event_choices"] = welsh_rebellion_options(state)
+    elif card == "Y26":
+        decline = {**move, "decisions": {}}
+        if not events.dubious_clarence_available(state):
+            return [decline]
+        return [decline] + [{**move, "decisions": {"extra_spend": extra}}
+                            for extra in events.EVENT_INFLUENCE_SPENDS]
+    elif card == "L25":
+        move["event_choices"] = events.welsh_rebellion_options(state)
+    elif card == "L27":
+        if side == "yorkist":
+            target = events.aragne_next_check(pe)
+            move["event_choices"] = dict(target)
+            return [{**move, "decisions": {"vassal": target["vassal"], "extra_spend": extra}}
+                    for extra in events.EVENT_INFLUENCE_SPENDS]
+        owners = events.aragne_vassal_owners(state)
+        move["event_choices"] = {"vassals": {"available": owners, "select": min(2, len(owners))}}
+        if len(owners) <= 1:
+            move["decisions"] = {"vassals": list(owners)}
+    elif card == "L29":
+        targets = events.wilful_disobedience_targets(state)
+        move["event_choices"] = {"strongholds": {"available": targets,
+                                                "remove": min(2, len(targets))}}
+        if len(targets) <= 2:
+            move["decisions"] = {"strongholds": targets}
     return [move]
 
 

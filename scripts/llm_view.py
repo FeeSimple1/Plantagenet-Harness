@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from plantagenet import ratings, static_data
+from plantagenet import events, ratings, static_data
 
 SIDES = ("lancastrian", "yorkist")
 
@@ -19,6 +19,8 @@ def decision_side(state):
         index = inter.get("idx", 0)
         if index < len(offers):
             return offers[index]["side"]
+    if state.pending_events:
+        return events.pending_event_side(state.pending_events[0])
     if state.campaign and state.campaign.step == "plan":
         # The engine's Plan builder need not change active_side between submissions.
         for side in sorted(SIDES, key=lambda s: state.roles.get(s) != "rebel"):
@@ -51,10 +53,13 @@ def pending_view(state, viewer):
         return data
     if state.pending_events:
         first = state.pending_events[0]
-        data = {"kind": "drawn_event", "awaiting_side": first.get("side"),
+        actor = events.pending_event_side(first)
+        data = {"kind": "drawn_event", "awaiting_side": actor,
                 "count": len(state.pending_events)}
         if viewer in ("referee", first.get("side")):
             data["events"] = deepcopy(state.pending_events)
+        elif viewer == actor:
+            data["events"] = [deepcopy(first)]
         return data
     if state.battle_setup and not state.battle_setup.complete:
         return {"kind": "bosworth_setup", "awaiting_side": state.active_side}

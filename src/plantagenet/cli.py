@@ -106,16 +106,20 @@ def state(file: str, mode: str = "summary", focus: str | None = None) -> None:
 def legal_moves(file: str, validated: bool = False) -> None:
     """Enumerate legal actions for the active player. With ``--validated``, probe
     each move and drop any the handler rejects (logging the over-enumeration)."""
+    from plantagenet import events
     from plantagenet import legal_moves as lm
     from plantagenet.state import GameState
 
     gs = GameState.load(file)
     if validated:
-        typer.echo(json.dumps(lm.validated_legal_moves(gs), indent=2))
-        return
-    moves = lm.legal_moves(gs)
-    typer.echo(json.dumps({"active_side": gs.active_side, "levy_step": gs.levy_step,
-                           "count": len(moves), "moves": moves}, indent=2))
+        out = lm.validated_legal_moves(gs)
+    else:
+        moves = lm.legal_moves(gs)
+        out = {"active_side": gs.active_side, "levy_step": gs.levy_step,
+               "count": len(moves), "moves": moves}
+    if gs.pending_events:
+        out["acting_side"] = events.pending_event_side(gs.pending_events[0])
+    typer.echo(json.dumps(out, indent=2))
 
 
 @app.command()
@@ -142,7 +146,8 @@ def do(file: str, action: str) -> None:
 
 @app.command()
 def pending(file: str) -> None:
-    """Show any pending reaction(s) and who owes the next response (Q-004)."""
+    """Show pending reactions or drawn Events and who owes the next response."""
+    from plantagenet.events import pending_event_side
     from plantagenet.state import GameState
 
     gs = GameState.load(file)
@@ -154,6 +159,10 @@ def pending(file: str) -> None:
         out["trigger"] = inter.get("trigger")
         if idx < len(offers):
             out["awaiting"] = offers[idx]          # the next reactor who owes a `react`
+    elif gs.pending_events:
+        event = gs.pending_events[0]
+        out["pending_events"] = gs.pending_events
+        out["awaiting"] = {"card": event["card"], "side": pending_event_side(event)}
     typer.echo(json.dumps(out, indent=2))
 
 

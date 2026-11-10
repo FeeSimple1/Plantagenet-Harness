@@ -143,11 +143,17 @@ def contract(state, typ, move=None):
         if typ in ("play_event", "play_held_event"):
             from plantagenet import events
             resolver = (events._IMMEDIATE if typ == "play_event" else events._HELD_PLAYS).get(cid)
+            if cid == "L27" and (move or {}).get("side") == "yorkist":
+                resolver = events._aragne_influence_check
             if resolver is not None:
                 info["resolver_contract"] = resolver_parameters(resolver)
-            if cid == "L25" and move and "event_choices" in move:
-                choices = move["event_choices"]
+            choices = (move or {}).get("event_choices")
+            if choices is not None:
                 info["event_choices"] = deepcopy(choices)
+            if cid == "Y26":
+                info["parameters"]["decisions"] = "extra_spend is 0, 1, or 3 to check. {} declines."
+                info["constraints"] = "York elects whether Edward IV checks to Disband Clarence."
+            elif cid == "L25" and choices is not None:
                 info["parameters"]["decisions"] = (
                     "troops maps every listed Lord ID to a list of unit IDs"
                     if "troops" in choices else "strongholds lists Locale IDs of Favour markers"
@@ -156,5 +162,22 @@ def contract(state, typ, move=None):
                     "Lancaster chooses exactly the listed removal count for each selection. "
                     "Repeat an ID only when multiple pieces are available. "
                     "Omit decisions to use the deterministic default."
+                )
+            elif cid == "L27":
+                if (move or {}).get("side") == "yorkist":
+                    info["parameters"]["decisions"] = (
+                        "vassal is the pending Vassal ID. extra_spend is 0, 1, or 3 for this check."
+                    )
+                    info["constraints"] = "York answers separately for each selected Vassal."
+                else:
+                    info["parameters"]["decisions"] = "vassals lists distinct Vassal IDs in check order."
+                    info["constraints"] = (
+                        "Lancaster selects the listed count. York then chooses spending before each roll."
+                    )
+            elif cid == "L29":
+                info["parameters"]["decisions"] = "strongholds lists distinct eligible Stronghold IDs."
+                info["constraints"] = (
+                    "Lancaster must remove Yorkist Favour from exactly the listed count. "
+                    "If two or fewer qualify, the selection is forced."
                 )
     return info

@@ -10,6 +10,7 @@ from plantagenet import actions, battle, campaign, events, influence, succession
 from plantagenet import pay as pay_mod
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordState, LordStatus, VassalStatus
+from tests._helpers import apply_drawn_event
 
 
 # --------------------------------------------------------------------------- #
@@ -195,7 +196,10 @@ def test_l27_targets_special_vassal_hastings():
     ed.special_vassals = ["hastings"]
     ed.capabilities = ["Y24"]
     # Hastings is a legal target (no bad_vassal); a check is performed for it.
-    out = events._luniverselle_aragne(s, "lancastrian", {"vassals": ["hastings"]})
+    apply_drawn_event(s, {"type": "play_event", "card": "L27", "side": "lancastrian",
+                          "decisions": {"vassals": ["hastings"]}})
+    out = actions.apply_action(s, {"type": "play_event", "card": "L27", "side": "yorkist",
+                                   "decisions": {"vassal": "hastings", "extra_spend": 0}})
     assert out["checks"][0]["vassal"] == "hastings"
 
 
