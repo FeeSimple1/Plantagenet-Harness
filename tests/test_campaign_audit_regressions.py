@@ -69,6 +69,34 @@ def test_charity_spends_explicitly_shared_provender_at_campaign_end():
     assert state.lords["march"].assets["provender"] == 0
 
 
+def test_charity_cannot_share_provender_at_sea_but_can_use_own():
+    state = _charity_position()
+    for lid in ("york", "march"):
+        lord = state.lords[lid]
+        lord.location = None
+        lord.at_sea = "north_sea"
+        lord.assets["ship"] = 2
+    state.lords["york"].assets["provender"] = 1
+    before = state.model_dump_json()
+    base = campaign.tides_of_war(state)["points"]["yorkist"]
+
+    with pytest.raises(IllegalAction) as exc:
+        actions.apply_action(state, {
+            "type": "end_campaign",
+            "decisions": {"charity": {"york": {"pay": 2, "share": ["march"]}}},
+        })
+    assert exc.value.code == "share_not_co_located"
+    assert state.model_dump_json() == before
+
+    result = actions.apply_action(state, {
+        "type": "end_campaign",
+        "decisions": {"charity": {"york": 1}},
+    })
+    tides = result["tides_of_war"]
+    assert tides["points"]["yorkist"] == base + 1
+    assert tides["charity"] == {"york": {"paid": 1, "from": {"york": 1}}}
+
+
 def test_charity_consumes_holder_then_named_providers_and_reports_sources():
     """Y4 / 1.5.3: spend only the authorized amount, leaving surplus on its mat."""
     state = _charity_position()

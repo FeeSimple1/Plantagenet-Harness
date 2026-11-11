@@ -133,12 +133,14 @@ def _other_lord_ids(value: Any, leader: str, *, field: str, code: str) -> list[s
 
 
 def _shared_lords(state: GameState, lord: LordState,
-                  share_ids: list[str] | None) -> list[LordState]:
+                  share_ids: list[str] | None, *,
+                  allow_at_sea: bool = False) -> list[LordState]:
     """Co-located, same-side, Mustered Lords whose Assets may be Shared (1.5.3).
-    Lords Share Assets (Carts, Ships, Provender, Coin) -- never Retinues,
-    Vassals, Troops, or Valour -- and only while at the same Locale."""
+    Ordinary Sharing requires the same Locale. Sail may use Ships at Sea (4.6.1).
+    """
     ids = _other_lord_ids([] if share_ids is None else share_ids, lord.lord_id,
                           field="share", code="bad_share")
+    here = lord_location(lord)
     out: list[LordState] = []
     for sid in ids:
         ally = state.lords.get(sid)
@@ -146,9 +148,8 @@ def _shared_lords(state: GameState, lord: LordState,
                  and ally.status == LordStatus.MUSTERED, "bad_share",
                  f"{sid!r} is not a Friendly Mustered Lord to Share with (1.5.3)")
         assert ally is not None
-        same = ((ally.location is not None and ally.location == lord.location)
-                or (ally.exile_box is not None and ally.exile_box == lord.exile_box)
-                or (ally.at_sea is not None and ally.at_sea == lord.at_sea))
+        same = ((here is not None and lord_location(ally) == here)
+                or (allow_at_sea and lord.at_sea is not None and ally.at_sea == lord.at_sea))
         _require(same, "share_not_co_located",
                  f"{sid} is not at the same Locale as {lord.lord_id} (Sharing, 1.5.3)")
         out.append(ally)
@@ -712,7 +713,7 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     else:
         share = _other_lord_ids(action.get("share", []), lord.lord_id,
                                 field="share", code="bad_share")
-        owners = [lord, *_shared_lords(state, lord, share)]
+        owners = [lord, *_shared_lords(state, lord, share, allow_at_sea=True)]
         ships = _transport_capacity(state, owners, "ship")
         tot_forces = _forces_units(lord)
         tot_prov = lord.assets.get("provender", 0)
