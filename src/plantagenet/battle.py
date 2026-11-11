@@ -601,8 +601,8 @@ def _resolve_for_trust(state: GameState, attackers: list[str], defenders: list[s
         if vid not in state.lords[by].vassals:
             state.lords[by].vassals.append(vid)
         box = state.turn_box + regular[vid]["service"]   # Calendar shift "as if newly Levied"
-        if ratings.has_capability(state, by, ALICE_MONTAGU):
-            box = min(15, box + 1)                       # Y17: +1 Service (capped at box 15)
+        if box <= 15 and ratings.has_capability(state, by, ALICE_MONTAGU):
+            box += 1  # Y17 / 2.2.3: leave already off-calendar Service there.
         state.vassals[vid] = VassalState(vassal_id=vid, status=VassalStatus.MUSTERED,
                                          on_lord=by, service_box=box)
         forces[old].count["vassal"] = max(0, forces[old].count.get("vassal", 0) - 1)

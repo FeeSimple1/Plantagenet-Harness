@@ -33,7 +33,12 @@ def _loc(state: GameState, lord_id: str) -> str | None:
 
 
 def _loc_friendly(state: GameState, lord_id: str) -> bool:
-    """Lord is at a Locale whose Favour matches the Lord's own side (1.5)."""
+    """Mustered Lord is at a Friendly Stronghold or Exile box (1.3.1, 1.5)."""
+    lord = state.lords.get(lord_id)
+    if lord is None or lord.status != _MUSTERED:
+        return False
+    if lord.exile_box is not None:
+        return True
     where = _loc(state, lord_id)
     if where is None:
         return False

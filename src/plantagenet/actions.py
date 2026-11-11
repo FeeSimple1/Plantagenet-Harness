@@ -554,8 +554,8 @@ def _h_levy_vassal(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if chk["success"]:
         service = regular[vid]["service"]
         box = state.turn_box + service
-        if ratings.has_capability(state, lord.lord_id, "ALICE MONTAGU"):
-            box = min(15, box + 1)              # Y17: +1 Service (capped at box 15)
+        if box <= 15 and ratings.has_capability(state, lord.lord_id, "ALICE MONTAGU"):
+            box += 1  # Y17 / 2.2.3: shift right, unless already off the Calendar.
         state.vassals[vid] = VassalState(
             vassal_id=vid, status=VassalStatus.MUSTERED, on_lord=lord.lord_id,
             service_box=box)

@@ -200,7 +200,7 @@ def test_levy_vassal_costs_loyalty_and_buckingham():
     r3 = actions.apply_action(s, {"type": "levy_vassal", "side": "yorkist",
                                   "by_lord": "york", "target": "essex"})
     assert r3["spent"] == 3
-    # Alice Montagu (Y17): +1 Service, capped at Calendar box 15
+    # Alice Montagu (Y17): +1 Service can move the marker off the Calendar.
     s4 = _muster(seed=2)
     s4.turn_box = 12
     s4.lords["york"].capabilities = ["Y17"]
@@ -208,7 +208,7 @@ def test_levy_vassal_costs_loyalty_and_buckingham():
     r4 = actions.apply_action(s4, {"type": "levy_vassal", "side": "yorkist",
                                    "by_lord": "york", "target": "suffolk"})
     assert r4["success"] is True
-    assert s4.vassals["suffolk"].service_box == 15
+    assert s4.vassals["suffolk"].service_box == 16
 
 
 # sites 930 (L493), 2162/3895 (L494)
