@@ -559,6 +559,8 @@ def _active_special_rules(state: GameState) -> set[str]:
 
 
 def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> dict[str, Any]:
+    from plantagenet.actions import lord_location
+
     locales = static_data.load_locales()
     lords_static = static_data.load_lords()
     pts = {s: 0 for s in SIDES}
@@ -599,13 +601,16 @@ def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> d
             pts[leader] += amt
             detail.append(f"{leader} +{amt} most Favour {typ}s ({counts})")
 
+    # Locales include Exile boxes. Lords at Sea resolve Disembark after Tides.
+    on_map = {lid: lord for lid, lord in state.lords.items()
+              if lord.status in (LordStatus.MUSTERED, LordStatus.EXILE)
+              and lord_location(lord) is not None}
+
     # Gain Lords Influence (Jan-Feb-Mar and Aug-Sep Turns).
     if season_info(state.turn_box)["gain_lords_influence"]:
         for side in SIDES:
             tot = sum(lords_static[lid]["ratings"]["influence"]
-                      for lid, v in state.lords.items()
-                      if v.side == side
-                      and v.status in (LordStatus.MUSTERED, LordStatus.EXILE))
+                      for lid, v in on_map.items() if v.side == side)
             pts[side] += tot
             detail.append(f"{side} +{tot} Lords' Influence")
 
@@ -621,13 +626,13 @@ def tides_of_war(state: GameState, decisions: dict[str, Any] | None = None) -> d
     for lid in (() if glos_set_aside else _cap_holders(state, "FIRST SON")):   # Y28 (Edward IV)
         # Gloucester special rule: once Y28 GLOUCESTER AS HEIR is played/set aside,
         # the FIRST SON Capability becomes unavailable (IIY/IIL).
-        if state.lords[lid].status == LordStatus.MUSTERED:
-            sd = state.lords[lid].side
+        if lid in on_map:
+            sd = on_map[lid].side
             pts[sd] += 1
             detail.append(f"{sd} +1 First Son")
     for lid in _cap_holders(state, "COUNCIL MEMBER"):      # L18 (anywhere on map incl. Exile)
-        if state.lords[lid].status in (LordStatus.MUSTERED, LordStatus.EXILE):
-            sd = state.lords[lid].side
+        if lid in on_map:
+            sd = on_map[lid].side
             pts[sd] += 1
             detail.append(f"{sd} +1 Council Member")
     for lid in _cap_holders(state, "MARGARET TAKES THE REINS"):  # L17 (Henry VI)

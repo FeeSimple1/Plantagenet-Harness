@@ -706,7 +706,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         if title in ("marshal", "lieutenant"):
             for gid, gl in state.lords.items():
                 if (gid != lord_id and gl.side == side
-                        and gl.status == LordStatus.MUSTERED and gl.location == here):
+                        and gl.status == LordStatus.MUSTERED and actions.lord_location(gl) == loc):
                     if (title == "lieutenant" and static_data.load_lords()[gid]
                             .get("title") == "marshal"):
                         continue

@@ -113,13 +113,12 @@ def _effective_title(state: GameState, lord_id: str) -> str | None:
     if title in ("marshal", "lieutenant"):
         return title
     lord = state.lords[lord_id]
-    if any(static_data.load_cards()[c]["capability"]["title"] == "CAPTAIN"
-           for c in lord.capabilities):
-        here = lord.location
-        rivals = [lid for lid, ls in state.lords.items()
-                  if lid != lord_id and ls.status == LordStatus.MUSTERED
-                  and ls.location == here and ls.side == lord.side
-                  and statics[lid].get("title") in ("marshal", "lieutenant")]
+    here = lord_location(lord)
+    if here is not None and ratings.has_capability(state, lord_id, "CAPTAIN"):
+        rivals = any(lid != lord_id and ls.status == LordStatus.MUSTERED
+                     and ls.side == lord.side and lord_location(ls) == here
+                     and statics[lid].get("title") in ("marshal", "lieutenant")
+                     for lid, ls in state.lords.items())
         if not rivals:
             return "marshal"
     return title
@@ -264,7 +263,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         for gid in group:
             g = state.lords.get(gid)
             _require(g is not None and g.status == LordStatus.MUSTERED
-                     and g.location == here and g.side == lord.side,
+                     and lord_location(g) == loc and g.side == lord.side,
                      "bad_group_member", f"{gid} is not a Friendly Lord co-located at {here}")
             assert g is not None
             if title == "lieutenant":
