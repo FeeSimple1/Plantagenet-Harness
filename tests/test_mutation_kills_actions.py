@@ -322,6 +322,7 @@ def test_irishmen_levy():
     s = _muster()                                        # Irish-Sea Port: 5 Militia, no Deplete
     s.lords["york"].capabilities = ["Y18"]
     s.lords["york"].location = "harlech"
+    s.locales["harlech"].favour = "yorkist"
     r = actions.apply_action(s, {"type": "levy_troops", "side": "yorkist", "by_lord": "york"})
     assert r["added"] == {"militia": 5}
     assert s.locales["harlech"].depletion is None

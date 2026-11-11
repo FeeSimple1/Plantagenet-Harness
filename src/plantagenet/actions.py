@@ -658,12 +658,16 @@ def _h_levy_troops(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         here = target
         irish_here = False
     ls = state.locales.get(here)
-    if not irish_here:
+    if loc[0] == "stronghold":
         _require(is_friendly_stronghold(state, here, lord.side), "not_friendly_locale",
                  "Levy Troops requires a Friendly Stronghold (3.4.4)")
         assert ls is not None  # is_friendly_stronghold above guarantees the Locale
-        _require(ls.depletion != "exhausted", "exhausted",
-                 f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
+        depletion = ls.depletion
+    else:
+        depletion = state.exile_depletion.get(here)
+    # Irishmen waives placing Depletion markers, so existing Exhaustion still bars Levy.
+    _require(depletion != "exhausted", "exhausted",
+             f"{here} is Exhausted and may not be Levied for Troops (3.4.4)")
     rising_wages = ratings.event_against(state, "RISING WAGES", lord.side)
     if rising_wages:                          # L9: pay 1 Coin per Levy Troops action
         _require(lord.assets.get("coin", 0) >= 1, "rising_wages_no_coin",

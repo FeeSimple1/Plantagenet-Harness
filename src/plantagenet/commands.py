@@ -185,6 +185,21 @@ def _haul(state: GameState, movers: list[LordState]) -> None:
             break
 
 
+def _neville_command_bonus(state: GameState, lord_id: str) -> int:
+    if lord_id != "clarence" or not ratings.has_capability(state, lord_id, "MARRIED TO A NEVILLE"):
+        return 0
+    return ratings._cap_married_to_a_neville(state, lord_id, None).get("command", 0)
+
+
+def _adjust_neville_command(state: GameState, lord_id: str, previous_bonus: int) -> None:
+    """Apply L24's live change after a single action's cost has been paid."""
+    change = _neville_command_bonus(state, lord_id) - previous_bonus
+    if change:
+        assert state.campaign is not None
+        # L24 lets the final action complete even if it separates the Lords.
+        state.campaign.actions_remaining = max(0, state.campaign.actions_remaining + change)
+
+
 def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
     assert state.campaign is not None
@@ -213,7 +228,8 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     assert cost is not None
     way_kind, whole_card = cost
-    if state.flags.get("surprise_march_lord") == lord.lord_id:   # L33 Surprise Landing
+    surprise_march = state.flags.get("surprise_march_lord") == lord.lord_id
+    if surprise_march:   # L33 Surprise Landing
         _require(way_kind != "path", "surprise_landing_no_path",
                  "the Surprise Landing free March may not use a Path (L33)")
         state.flags.pop("surprise_march_lord", None)
@@ -245,6 +261,7 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
     # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
     # its owner's mat for Feed; only the group's overall excess is discarded.
+    neville_bonus = _neville_command_bonus(state, lord.lord_id)
     moved_before = {m.lord_id: m.moved_fought for m in movers}
     _haul(state, movers)
     for m in movers:
@@ -296,6 +313,9 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.campaign.actions_remaining = 0
     else:
         state.campaign.actions_remaining -= 1
+        # A free Surprise Landing March can follow a Sail that used the whole card.
+        if not surprise_march or _active_event(state, "SEAMANSHIP", lord.side):
+            _adjust_neville_command(state, lord.lord_id, neville_bonus)
     for mover in movers:
         _apply_burgundians(state, mover)
     _maybe_open_hold_window(state, "march", mover_ids, dest)
@@ -728,6 +748,7 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
     if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
         return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
                 "cancelled": True, "discarded": {}}
+    neville_bonus = _neville_command_bonus(state, lord.lord_id)
     movers = [state.lords[mid] for mid in data.get("movers", [data["lord"]])]
     # A blocked Sail does not occur. Hold the elected cargo reduction until
     # the reaction resolves, then apply it once before moving the group.
@@ -744,6 +765,8 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
         else:
             m.location = data["dest"]
             m.at_sea = None
+    if _active_event(state, "SEAMANSHIP", lord.side):
+        _adjust_neville_command(state, lord.lord_id, neville_bonus)
     group = [mid for mid in data.get("movers", []) if mid != data["lord"]]
     if data.get("into_sea"):
         return {"type": "sail", "by_lord": lord.lord_id, "to_sea": data["dest"],
@@ -1029,10 +1052,13 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
               and _active_event(state, "AN HONEST TALE SPEEDS BEST BEING PLAINLY TOLD"))
     if target == here:
         # Own location: automatic (4.6.4); free EXCEPT An Honest Tale still charges +1 (Y34).
+        neville_bonus = _neville_command_bonus(state, lord.lord_id)
         state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
         if honest:
             influence.spend_influence(state, lord.side, 1)
         _shift_favour(state, target, lord.side)
+        if not new_act:
+            _adjust_neville_command(state, lord.lord_id, neville_bonus)
         return {"type": "parley", "by_lord": lord.lord_id, "target": target,
                 "auto": True, "honest_tale_cost": 1 if honest else 0,
                 "favour_change": _fav_desc(target, fav, lord.side)}

@@ -290,11 +290,15 @@ class _Force:
         """Protection range for unit ``t`` in the given Strike ``phase``,
         honouring phase-specific overrides (Barded Horse, Chevaliers) and the
         dynamic Piquiers (L34) Armour 1-4 until 3 Men-at-Arms/Militia Rout."""
+        profile = self.prof[t]
+        base_protection = profile["prot"]
+        phase_protection = cast(list[int], profile.get(f"prot_{phase}", base_protection))
         if self.piquiers and t in ("men_at_arms", "militia"):
             routed_pm = self.routed.get("men_at_arms", 0) + self.routed.get("militia", 0)
             if routed_pm < 3:
-                return [1, 4]
-        return cast(list[int], self.prof[t].get(f"prot_{phase}", self.prof[t]["prot"]))
+                # Chevaliers' Missile penalty also applies to Piquiers Armour.
+                return [1, 4 + phase_protection[1] - base_protection[1]]
+        return phase_protection
 
     def hits(self, kind: str) -> int:
         return ceil(self.raw_hits(kind))

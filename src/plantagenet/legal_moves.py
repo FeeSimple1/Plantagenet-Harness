@@ -279,14 +279,16 @@ def _troop_levy_moves(state: GameState, lord: LordState, side: str) -> list[dict
     if loc is None:
         return []
     kind, here = loc
-    irish = ratings.has_capability(state, lord.lord_id, "IRISHMEN") and (
-        (kind == "exile" and here == "ireland")
-        or (kind == "stronghold" and actions._port_sea().get(here) == "irish_sea"))
     base = {"type": "levy_troops", "side": side, "by_lord": lord.lord_id}
+    if kind == "exile":
+        if (here == "ireland" and state.exile_depletion.get(here) != "exhausted"
+                and ratings.has_capability(state, lord.lord_id, "IRISHMEN")):
+            return [base]
+        return []
     moves = []
-    if irish or (kind == "stronghold" and state.locales[here].depletion != "exhausted"):
+    if state.locales[here].depletion != "exhausted":
         moves.append(base)
-    if kind == "stronghold" and ratings.has_capability(state, lord.lord_id, "COMMISSION OF ARRAY"):
+    if ratings.has_capability(state, lord.lord_id, "COMMISSION OF ARRAY"):
         for target in sorted({n for n, _ in actions._adjacency().get(here, [])}):
             if (actions.is_friendly_stronghold(state, target, side)
                     and not actions.enemy_lord_at(state, target, side)
