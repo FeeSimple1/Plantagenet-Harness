@@ -18,6 +18,7 @@ from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.actions import (
     _adjacency,
     _london_blocks_parley,
+    _port_sea,
     _shift_favour,
     enemy_lord_at,
     is_friendly_stronghold,
@@ -173,6 +174,20 @@ def _transport_capacity(state: GameState, owners: list[LordState], asset: str) -
     return sum(owner.assets.get(asset, 0)
                * (2 if ratings.has_capability(state, owner.lord_id, capability) else 1)
                for owner in owners)
+
+
+def _great_ships_available(state: GameState, owners: list[LordState]) -> bool:
+    return any(owner.assets.get("ship", 0) > 0
+               and ratings.has_capability(state, owner.lord_id, "GREAT SHIPS")
+               for owner in owners)
+
+
+def _reachable_ports(here: str, *, all_seas: bool) -> set[str]:
+    """Parley and Supply sea links from a Port or Exile box (Y6/L6)."""
+    sea = _port_sea().get(here)
+    if sea is None:
+        return set()
+    return {port for port, zone in _port_sea_map().items() if all_seas or zone == sea}
 
 
 def _haul(state: GameState, movers: list[LordState]) -> None:
@@ -1037,7 +1052,7 @@ def _resolve_tax_attempt(state: GameState, lord_id: str, target: str, *, auto: b
 # ------------------------------------------------------------- 4.6.4 Parley
 def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Campaign Parley (4.6.4): like Levy Parley (3.4.1) but the Route may
-    reach only an adjacent Stronghold (or a same-Sea Port via Ship); Parley
+    reach only an adjacent Stronghold or a connected Port via Ship. Parley
     at the Lord's own location succeeds automatically, free of cost."""
     lord = campaign._active_command_lord(state, action)
     assert state.campaign is not None
@@ -1071,12 +1086,14 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "Campaign Parley beyond the Lord's location requires a Friendly Locale (4.6.4)")
     _require(not enemy_lord_at(state, target, lord.side), "target_has_enemy",
              f"{target} must be free of Enemy Lords (4.6.4)")
-    # Reach: an adjacent Stronghold, or a same-Sea Port via Ship.
-    has_ship = lord.assets.get("ship", 0) > 0
+    # Shared Ships carry their owner's Great Ships connections (1.5.3, Y6/L6).
+    owners = [lord, *_shared_lords(state, lord, action.get("share"))]
+    has_ship = any(owner.assets.get("ship", 0) > 0 for owner in owners)
     adjacent = target in {n for n, _t in _adjacency().get(here, [])}
-    sea_reach = has_ship and _same_sea_port(here, target)
+    sea_reach = has_ship and target in _reachable_ports(
+        here, all_seas=_great_ships_available(state, owners))
     _require(adjacent or sea_reach, "out_of_reach",
-             "Campaign Parley reaches only an adjacent Stronghold or a same-Sea Port (4.6.4)")
+             "Campaign Parley requires an adjacent Stronghold or a Ship connection (4.6.4)")
 
     extra = int(action.get("extra_spend", 0))
     _require(extra in (0, 1, 3), "bad_extra_spend",
@@ -1085,13 +1102,12 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     dorset = (lord.lord_id == "devon" and here == "exeter"
               and _active_event(state, "DORSET", "yorkist"))
     way = 0 if dorset else 1
-    # The Parley "uses a Port on a Sea" only when it reaches a non-adjacent
-    # same-Sea Port by Ship (Y15). Adjacent reach is overland -> no Blockade.
+    # Adjacent reach is overland. A Ship link uses the Ports at its ends.
     used_seas: list[str] = []
     if sea_reach and not adjacent and lord.side == "lancastrian":
-        sea = _port_sea_map().get(here)
-        if sea and sea in _live_blockade_seas(state):
-            used_seas = [sea]
+        port_seas = _port_sea_map()
+        used_seas = sorted(_live_blockade_seas(state)
+                           & {port_seas[loc] for loc in (here, target) if loc in port_seas})
     # Command-action cost is spent regardless of any Naval Blockade (Y15 tips).
     state.campaign.actions_remaining = 0 if new_act else state.campaign.actions_remaining - 1
     from plantagenet import reactions
@@ -1125,12 +1141,6 @@ def parley_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) ->
         _shift_favour(state, target, lord.side)
     return {"type": "parley", "by_lord": lord.lord_id, "target": target,
             **chk, "favour_change": changed}
-
-
-def _same_sea_port(a: str, b: str) -> bool:
-    seas = static_data.load_seas()
-    port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
-    return a in port_sea and b in port_sea and port_sea[a] == port_sea[b]
 
 
 def _fav_desc(target: str, before: str, side: str) -> str:
@@ -1190,14 +1200,15 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     owners = [lord, *_shared_lords(state, lord, action.get("share"))]
     carts = _transport_capacity(state, owners, "cart")
     is_port = bool(static_data.load_locales()[source].get("port"))
+    great_ships = _great_ships_available(state, owners)
+    sea_direct = source in _reachable_ports(here, all_seas=great_ships)
 
-    # Exile-box Lords must Supply by Ship from a same-Sea Port (Scotland: Path).
+    # Exile-box Lords must Supply by Ship from a connected Port (Scotland: Path).
     if kind == "exile" and here != "scotland":
-        _require(use_ships and is_port and _same_sea_port_or_box(here, source),
+        _require(use_ships and sea_direct,
                  "exile_needs_ship_port",
-                 "an Exile-box Lord must Supply via Ship from a Port on the same Sea (4.5.1)")
+                 "an Exile-box Lord must Supply via a Ship connection to a Port (4.5.1)")
 
-    gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
     blk = _live_blockade_seas(state) if lord.side == "lancastrian" else set()
     used_seas: list[str] = []
 
@@ -1205,19 +1216,16 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         _require(is_port, "ships_need_port", "Ship Supply requires a Port Source (4.5.1)")
         ships = _transport_capacity(state, owners, "ship")  # Shared (4.5.2/1.5.3)
         _require(ships > 0, "no_ships", "Ship Supply requires at least one Ship (4.5.1)")
-        sea_direct = (kind == "exile" or static_data.load_locales()[here].get("port")) \
-            and _same_sea_port_or_box(here, source)
         ways_out: int | None = None
         if sea_direct:
             _require(is_friendly_stronghold(state, source, lord.side)
                      and not enemy_lord_at(state, source, lord.side), "no_route",
                      "a Port Supply Source must be Friendly and free of Enemy Lords (4.5.1)")
             added = ships                          # by Sea: no Carts (4.5.2)
-            sea = _port_sea_map().get(source)       # Ship Supply uses the Source Port's Sea
-            if sea and sea in blk:
-                used_seas = [sea]
+            port_seas = _port_sea_map()
+            used_seas = sorted(blk & {port_seas[loc] for loc in (here, source) if loc in port_seas})
         else:
-            ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
+            ways = _supply_route_cost(state, here, source, lord.side, all_seas=great_ships)
             _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
             assert ways is not None
             added = ships if ways == 0 else min(ships, carts // ways)
@@ -1227,7 +1235,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             if blk:
                 used_seas = _route_used_seas(
                     ways, lambda sea: _supply_route_cost(state, here, source, lord.side,
-                                                         all_seas=gs, block_sea=sea), blk)
+                                                         all_seas=great_ships, block_sea=sea), blk)
         added = _supply_bonuses(state, lord, source, added)
         state.campaign.actions_remaining -= 1       # Command cost spent regardless (Y15)
         from plantagenet import reactions
@@ -1239,6 +1247,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Stronghold Source: table Provender, Cart-limited, then Deplete (4.5.2).
     _require(state.locales[source].depletion != "exhausted", "exhausted",
              f"{source} is Exhausted and may not be a Supply Source (4.5.1)")
+    gs = great_ships or ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
     ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
     _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
     assert ways is not None
@@ -1277,14 +1286,3 @@ def supply_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) ->
     if data["ways"] is not None:
         out["ways"] = data["ways"]
     return out
-
-
-def _same_sea_port_or_box(a: str, b: str) -> bool:
-    seas = static_data.load_seas()
-    where = {}
-    for z, zone in seas["zones"].items():
-        for p in zone.get("ports", []):
-            where[p] = z
-        for bx in zone.get("exile_boxes", []):
-            where[bx] = z
-    return a in where and b in where and where[a] == where[b]

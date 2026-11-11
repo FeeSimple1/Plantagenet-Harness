@@ -182,8 +182,11 @@ Phase 3a-ii adds the movement/economy Commands:
 | `march` | `side`, `by_lord`, `to`, optional `group`, `decisions` | 4.3 | done (speeds + Haul + Group; into an Enemy Locale -> Approach 4.3.5) |
 | `sail` | `side`, `by_lord`, `to` (Port or Sea), optional `group`, `share`, `discard` | 4.6.1 | 1 Ship per 6 Forces (including Special Vassals), 2 Provender, 2 Carts; whole card unless Seamanship |
 | `tax` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.3 | done (own Seat auto; Vassal Seat / Special via Route + Influence; strongholds Coin; Depletes) |
-| `parley` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.4 | done (own location auto; else adjacent / same-Sea Port + Influence) |
-| `supply` | `side`, `by_lord`, `source`, optional `use_ships` | 4.5 | done (Stronghold table Provender + Deplete, or Port via Ships; land Route with 1 Cart/Provender/Way; Exile box uses Ship+same-Sea Port) |
+| `parley` | `side`, `by_lord`, `target`, `extra_spend`, optional `share` | 4.6.4 | Own location succeeds automatically. An adjacent Stronghold or connected Port requires Influence. |
+| `supply` | `side`, `by_lord`, `source`, optional `use_ships`, `share` | 4.5 | Stronghold Supply Depletes. Port Supply uses Ships. An Exile box can use Ship Supply from a connected Port. |
+
+Great Ships connects Ports across Seas for Parley and Supply. Use `share` to
+name co-located friendly Ship owners whose Ships the action uses.
 
 Feed (4.7) is now live: a Moved-Fought Lord removes 1 Provender per 6 Troops;
 if short it Pillages an Unexhausted Stronghold (3.2.1) and Feeds from the

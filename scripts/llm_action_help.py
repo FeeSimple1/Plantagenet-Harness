@@ -22,7 +22,9 @@ CONTRACTS = {
         "constraints": "The menu contains all jointly legal maximum-deployment allocations. Two Capabilities per mat, no duplicate names; later Levies draw Events with no allocation.",
     },
     "parley": {
-        "parameters": {"target": "Stronghold ID", "extra_spend": "0, 1 or 3 Influence", "use_parliament_votes": "bool; False saves the optional L18 benefit for later"},
+        "parameters": {"target": "Stronghold ID", "extra_spend": "0, 1 or 3 Influence",
+                       "use_parliament_votes": "bool; False saves the optional L18 benefit for later",
+                       "share": "Campaign only. Co-located friendly Ship donors"},
         "constraints": "Phase-specific route, location, Influence and Lordship/Command requirements apply. Menu entries with no extra_spend mean 0, not the only allowed bid.",
     },
     "levy_lord": {

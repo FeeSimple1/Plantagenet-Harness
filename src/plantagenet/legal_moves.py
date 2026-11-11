@@ -773,6 +773,15 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     except (KeyError, AttributeError, IndexError):
         pass
 
+    ship_donors = [ally for ally in state.lords.values()
+                   if ally.lord_id != lord_id and ally.side == side
+                   and ally.status == LordStatus.MUSTERED and ally.assets.get("ship", 0) > 0
+                   and actions.lord_location(ally) == loc]
+    fleets: list[tuple[list[LordState], dict[str, Any]]] = [([lord], {})]
+    if ship_donors:
+        donor_ids = [ally.lord_id for ally in ship_donors]
+        fleets.append(([lord, *ship_donors], {"share": donor_ids, "share_options": donor_ids}))
+
     # Supply (4.5): Friendly non-Exhausted Stronghold Sources reachable with
     # enough Carts; Port Sources via Ship.
     try:
@@ -794,41 +803,40 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
             if base and (carts // ways) >= 1:
                 out.append({"type": "supply", "side": side, "by_lord": lord_id,
                             "source": src})
-        if lord.assets.get("ship", 0) > 0:
-            seas = static_data.load_seas()
-            ports = {p for zone in seas["zones"].values() for p in zone.get("ports", [])}
+        for owners, params in fleets:
+            if not any(owner.assets.get("ship", 0) > 0 for owner in owners):
+                continue
+            ports = commands._reachable_ports(
+                here, all_seas=commands._great_ships_available(state, owners))
             for src in sorted(ports):  # sorted: set order must not leak into move order
-                if (src != here and commands._same_sea_port_or_box(here, src)
-                        and actions.is_friendly_stronghold(state, src, side)
+                if (actions.is_friendly_stronghold(state, src, side)
                         and not actions.enemy_lord_at(state, src, side)):
                     out.append({"type": "supply", "side": side, "by_lord": lord_id,
-                                "source": src, "use_ships": True})
+                                "source": src, "use_ships": True, **params})
     except (KeyError, AttributeError, IndexError):
         pass
 
-    # Parley (4.6.4): own location (if not Friendly) or adjacent / same-Sea Port.
+    # Parley (4.6.4): adjacent Stronghold or a connected Port using Ships.
     try:
-        has_ship = lord.assets.get("ship", 0) > 0
         reach = {n for n, _t in actions._adjacency().get(here, [])}
-        if has_ship:
-            reach |= {p for p in _same_sea_ports(here)}
-        for t in sorted(reach):       # sorted: set order must not leak into move order
-            if (t in state.locales and state.locales[t].favour != side
-                    and not actions._london_blocks_parley(state, t, side)
-                    and not actions.enemy_lord_at(state, t, side)):
-                out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": t})
+        for owners, params in fleets:
+            ports = set()
+            if any(owner.assets.get("ship", 0) > 0 for owner in owners):
+                ports = commands._reachable_ports(
+                    here, all_seas=commands._great_ships_available(state, owners))
+            targets = ports - reach if params else reach | ports
+            reach.update(ports)
+            for t in sorted(targets):
+                if (t in state.locales and state.locales[t].favour != side
+                        and not actions._london_blocks_parley(state, t, side)
+                        and not actions.enemy_lord_at(state, t, side)):
+                    out.append({"type": "parley", "side": side, "by_lord": lord_id,
+                                "target": t, **params})
     except (KeyError, AttributeError, IndexError):
         pass
     return out
 
 
-def _same_sea_ports(here: str) -> set[str]:
-    seas = static_data.load_seas()
-    port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
-    if here not in port_sea:
-        return set()
-    z = port_sea[here]
-    return {p for p, zz in port_sea.items() if zz == z and p != here}
 
 
 def validated_legal_moves(state: GameState) -> dict[str, Any]:
