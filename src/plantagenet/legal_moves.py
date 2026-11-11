@@ -300,9 +300,9 @@ def _troop_levy_moves(state: GameState, lord: LordState, side: str) -> list[dict
 def _parley_moves(state: GameState, lord_id: str, lord: LordState, side: str,
                   friendly_here: bool,
                   free_only: bool = False) -> list[dict[str, Any]]:
-    if free_only:                       # only free-Lordship Parleys survive (peek, no consume)
-        if not actions._parley_event_mods(state, lord_id, side, commit=False)["free_lordship"]:
-            return []
+    mods = actions._parley_event_mods(state, lord_id, side, commit=False)
+    if free_only and not mods["free_lordship"]:
+        return []
     loc = cast(tuple[str, str], actions.lord_location(lord))
     kind, here = loc
     moves: list[dict[str, Any]] = []
@@ -323,11 +323,17 @@ def _parley_moves(state: GameState, lord_id: str, lord: LordState, side: str,
     votes_available = (side == "lancastrian" and any(
         e.get("card") == "L18" and e.get("side") == side
         and e.get("used", {}).get(lord_id, 0) < 1 for e in state.active_events))
+    offered = [mv for mv in moves
+               if not actions._london_blocks_parley(state, mv["target"], side, mods)]
     if votes_available:
         # L18: announce which one Parley benefits before rolling. A normal
         # Parley may reserve Parliament Votes for a later target this Levy.
-        moves += [{**mv, "use_parliament_votes": False} for mv in moves]
-    return moves
+        without_votes = actions._parley_event_mods(
+            state, lord_id, side, commit=False, use_parliament_votes=False)
+        offered.extend({**mv, "use_parliament_votes": False} for mv in moves
+                       if not actions._london_blocks_parley(
+                           state, mv["target"], side, without_votes))
+    return offered
 
 
 def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
@@ -724,7 +730,8 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
 
     # Parley at own location (4.6.4): automatic and free, allowed even when the
     # Lord stands on a non-Friendly Stronghold (the usual reason to Parley here).
-    if kind == "stronghold" and state.locales[here].favour != side:
+    if (kind == "stronghold" and state.locales[here].favour != side
+            and not actions._london_blocks_parley(state, here, side)):
         out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": here})
 
     # Sail (4.6.1): Port-to-Port within a Sea (cross-Sea moves transit at Sea).
@@ -807,6 +814,7 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
             reach |= {p for p in _same_sea_ports(here)}
         for t in sorted(reach):       # sorted: set order must not leak into move order
             if (t in state.locales and state.locales[t].favour != side
+                    and not actions._london_blocks_parley(state, t, side)
                     and not actions.enemy_lord_at(state, t, side)):
                 out.append({"type": "parley", "side": side, "by_lord": lord_id, "target": t})
     except (KeyError, AttributeError, IndexError):

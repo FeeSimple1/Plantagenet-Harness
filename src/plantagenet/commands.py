@@ -17,6 +17,8 @@ from typing import Any, cast
 from plantagenet import campaign, influence, ratings, static_data
 from plantagenet.actions import (
     _adjacency,
+    _london_blocks_parley,
+    _shift_favour,
     enemy_lord_at,
     is_friendly_stronghold,
     lord_at_friendly_locale,
@@ -1043,6 +1045,8 @@ def parley_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     kind, here = cast(tuple[str, str], loc)
     target = action.get("target", here)
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
+    _require(not _london_blocks_parley(state, target, lord.side),
+             "london_for_york", "London for York requires Event aid for Lancastrian Parley (Y15)")
     fav = state.locales[target].favour
     _require(cast(str, fav) != cast(str, lord.side), "already_friendly",
              f"{target} already Favours {lord.side}")
@@ -1127,14 +1131,6 @@ def _same_sea_port(a: str, b: str) -> bool:
     seas = static_data.load_seas()
     port_sea = {p: z for z, zone in seas["zones"].items() for p in zone.get("ports", [])}
     return a in port_sea and b in port_sea and port_sea[a] == port_sea[b]
-
-
-def _shift_favour(state: GameState, target: str, side: str) -> None:
-    fav = state.locales[target].favour
-    if fav == "neutral":
-        state.locales[target].favour = cast(Favour, side)
-    elif fav == other_side(side):
-        state.locales[target].favour = cast(Favour, "neutral")
 
 
 def _fav_desc(target: str, before: str, side: str) -> str:

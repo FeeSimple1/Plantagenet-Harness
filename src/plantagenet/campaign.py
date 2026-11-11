@@ -267,7 +267,7 @@ def _pillage(state: GameState, lord: LordState, locale_id: str) -> dict[str, Any
     per the Strongholds table; the side loses 2x the Assets gained; Exhaust
     and set Enemy Favour; shift each Way-adjacent Stronghold one level toward
     Enemy Favour."""
-    from plantagenet.actions import _adjacency
+    from plantagenet.actions import _adjacency, _shift_favour
     yields = static_data.stronghold_yields(locale_id).get("pillage", {})
     gained = 0
     for asset, amt in yields.items():
@@ -275,14 +275,13 @@ def _pillage(state: GameState, lord: LordState, locale_id: str) -> dict[str, Any
         gained += amt
     foe = _other(lord.side)
     influence.spend_influence(state, lord.side, 2 * gained)   # lose 2x Assets (toward foe)
-    state.locales[locale_id].depletion = "exhausted"
-    state.locales[locale_id].favour = cast(Favour, foe)
+    locale = state.locales[locale_id]
+    locale.depletion = "exhausted"
+    if locale.favour != foe:
+        locale.favour = cast(Favour, foe)
+        locale.favour_extra = 0
     for nbr, _t in _adjacency().get(locale_id, []):
-        nb = state.locales[nbr]
-        if nb.favour == cast(str, lord.side):
-            nb.favour = cast(Favour, "neutral")
-        elif nb.favour == "neutral":
-            nb.favour = cast(Favour, foe)
+        _shift_favour(state, nbr, foe)
     return {"locale": locale_id, "assets_gained": gained, "influence_lost": 2 * gained}
 
 

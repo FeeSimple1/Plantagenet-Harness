@@ -76,6 +76,26 @@ def is_friendly_stronghold(state: GameState, locale_id: str, side: str) -> bool:
     return ls is not None and ls.favour == side
 
 
+def _london_blocks_parley(state: GameState, target: str, side: str,
+                          mods: dict[str, Any] | None = None) -> bool:
+    """Y15 protects double Yorkist Favour from unaided Lancastrian Parley."""
+    if target != "london" or side != "lancastrian":
+        return False
+    london = state.locales[target]
+    if mods is not None and (mods["auto"] or mods["free_lordship"]):
+        return False
+    return london.favour == Favour.YORKIST and london.favour_extra > 0
+
+
+def _shift_favour(state: GameState, target: str, side: str) -> None:
+    """Shift Favour one level toward a side, removing any extra markers on change."""
+    locale = state.locales[target]
+    if locale.favour != side:
+        new_favour = side if locale.favour == Favour.NEUTRAL else Favour.NEUTRAL.value
+        locale.favour = cast(Favour, new_favour)
+        locale.favour_extra = 0
+
+
 def lord_location(lord: LordState) -> tuple[str, str] | None:
     """Return ('stronghold', id) or ('exile', box) or None (not on a Locale)."""
     if lord.location is not None:
@@ -347,7 +367,7 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str,
                 mod["used"].append(ev["card"])
     # My Crown Is in My Heart (L17, Henry VI x2) / Gloucester as Heir (Y28, x3):
     # 0-Lordship Parleys (still Influence-checked).
-    if lord_id == "henry_vi":
+    if lord_id == "henry_vi" and lord.location is not None:
         for ev in matches("MY CROWN IS IN MY HEART"):
             if use(ev, lord_id, 2):
                 mod["free_lordship"] = True
@@ -392,6 +412,8 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     kind, here = loc
     target = cast(str, action.get("target", here))
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
+    _require(not _london_blocks_parley(state, target, lord.side, mods),
+             "london_for_york", "London for York requires Event aid for Lancastrian Parley (Y15)")
     extra = int(action.get("extra_spend", 0))
     has_ship = lord.assets.get("ship", 0) > 0
 
@@ -420,12 +442,8 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     changed = None
     undo = _snap(state, locales=[target])
     if chk["success"]:
-        if fav == Favour.NEUTRAL.value:
-            state.locales[target].favour = cast(Favour, lord.side)
-            changed = f"{target}: neutral -> {Side(lord.side).value}"
-        else:  # Enemy favour -> Neutral
-            state.locales[target].favour = cast(Favour, Favour.NEUTRAL.value)
-            changed = f"{target}: {Favour(fav).value} -> neutral"
+        _shift_favour(state, target, lord.side)
+        changed = f"{target}: {Favour(fav).value} -> {Favour(state.locales[target].favour).value}"
     result = {"type": "parley", "by_lord": lord.lord_id, "target": target,
               "way_cost": way_cost, **chk, "favour_change": changed}
     if chk["success"]:
