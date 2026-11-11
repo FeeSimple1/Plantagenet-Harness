@@ -771,10 +771,24 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
     rolls: list[dict[str, Any]] = []
     landed_sides: set[str] = set()
     for side in (rebel, king):
-        for lid in [x for x, ls in state.lords.items()
-                    if ls.side == side and ls.at_sea is not None]:
+        seafarers = [lid for lid, lord in state.lords.items()
+                     if lord.side == side and lord.at_sea is not None]
+        for original_lid in seafarers:
+            # An earlier Shipwreck may retire a card while its mat still
+            # awaits Disembark. Follow the replacement of that mat in order.
+            lid = original_lid
+            replacements = (state.grand_scenario or {}).get("replaced_cards", {})
+            retired: set[str] = set()
+            while state.lords[lid].status == LordStatus.REMOVED and lid not in retired:
+                successor = replacements.get(lid)
+                if successor not in state.lords:
+                    break
+                retired.add(lid)
+                lid = successor
             ls = state.lords[lid]
             sea = ls.at_sea
+            if sea is None:
+                continue
             roll = roller.d6()
             if roll <= 4:                              # Shipwreck (permanent, like Death)
                 penalty = _disband_influence_cost(ls)
@@ -786,7 +800,7 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
             else:                                      # Land (5-6)
                 free_ports = [p for p in zones[sea].get("ports", [])
                               if not enemy_lord_at(state, p, side)]
-                choice = land.get(lid)
+                choice = land.get(lid, land.get(original_lid))
                 if choice not in free_ports and free_ports:
                     choice = free_ports[0]   # default landing Port (overridable via disembark_land)
                 if choice in free_ports:

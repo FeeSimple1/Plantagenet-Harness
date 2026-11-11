@@ -266,7 +266,7 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
                        captured_by=o.captured_by, ring=o.ring,
                        forces=dict(o.forces), assets=dict(o.assets),
                        vassals=list(o.vassals), special_vassals=list(o.special_vassals),
-                       capabilities=list(o.capabilities))
+                       capabilities=list(o.capabilities), moved_fought=o.moved_fought)
     state.lords[new] = nstate
     # Regular Vassals carried to the new mat must point at the new Lord, or the
     # Vassal book (state.vassals[...].on_lord) and the Lord's .vassals list
@@ -286,6 +286,7 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     o.calendar_box = None
     o.calendar_exile = False
     o.captured_by = None
+    o.moved_fought = False
     o.capabilities = []
     o.vassals = []
     o.special_vassals = []
