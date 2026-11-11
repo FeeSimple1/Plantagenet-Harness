@@ -15,6 +15,8 @@ SIDES = ("lancastrian", "yorkist")
 def decision_side(state):
     if state.pending:
         inter = state.pending[0]
+        if inter.get("kind") == "approach":
+            return inter["side"]
         offers = inter.get("offers", [])
         index = inter.get("idx", 0)
         if index < len(offers):
@@ -32,6 +34,9 @@ def decision_side(state):
 def pending_view(state, viewer):
     if state.pending:
         inter = state.pending[0]
+        if inter.get("kind") == "approach":
+            return {"kind": "approach", "awaiting_side": inter["side"],
+                    "locale": inter["locale"], "lord": inter["lords"][0]}
         offers = inter.get("offers", [])
         idx = inter.get("idx", 0)
         offer = offers[idx] if idx < len(offers) else {}

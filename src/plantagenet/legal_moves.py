@@ -110,7 +110,12 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
     if state.phase == "battle":           # Bosworth: choose cards, Array, then Battle
         from plantagenet.battle_setup import legal_moves as setup_moves
         return setup_moves(state)
-    if state.pending:                 # a reaction window is open: only react/pass
+    if state.pending:
+        pending = state.pending[0]
+        if pending.get("kind") == "approach":
+            return [{"type": "respond_approach", "side": pending["side"],
+                     "lord": pending["lords"][0], "response": response}
+                    for response in ("exile", "battle")]
         return _reaction_moves(state)
     if state.pending_events:          # drawn immediate Events await resolution (3.1.3)
         return _pending_event_moves(state)

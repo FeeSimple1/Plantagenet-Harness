@@ -179,7 +179,14 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             "choose_battle_capability", "array_battle", "resolve_battle"):
         raise IllegalAction("battle_setup_only",
                             "Bosworth uses Capability selection, Array, and Battle only")
-    # While a reaction is pending, only "react" is legal (the acting side waits).
+    if state.pending and state.pending[0].get("kind") == "approach":
+        _require(atype == "respond_approach", "approach_pending",
+                 "the approached side must choose Exile or Battle")
+        from plantagenet.commands import respond_approach
+        result = respond_approach(state, action)
+        state.history.append(deepcopy({"action": action, "result": result}))
+        return result
+    # While a card reaction is pending, only "react" is legal.
     if state.pending and atype != "react":
         raise IllegalAction("reaction_pending",
                             "a reaction is pending; resolve it with a 'react' action")
@@ -202,7 +209,8 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
     result = handler(state, action)
-    state.history.append(deepcopy({"action": action, "result": result}))
+    recorded = {key: value for key, value in action.items() if key != "_defer_approach"}
+    state.history.append(deepcopy({"action": recorded, "result": result}))
     return result
 
 

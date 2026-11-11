@@ -75,6 +75,11 @@ CONTRACTS = {
         "parameters": {"play": "current offered card ID", "pass": "True to decline", "decisions": "any effect-specific choices supported by the resolver"},
         "constraints": "Exactly the awaiting player may respond. Play and pass are both reachable. Private unplayed enemy reactions are not displayed.",
     },
+    "respond_approach": {
+        "parameters": {"lord": "the pending approached Lord", "response": "exile or battle"},
+        "constraints": "The approached side chooses for each Lord after card reactions. "
+                       "The final election resolves Exile, Spoils and any Battle (4.3.5).",
+    },
     "resolve_battle": {"parameters": {"decisions": "tactical and card choices; see combat"},
                        "constraints": "In Bosworth, committed Arrays cannot be overridden. Other tactical choices remain available."},
     "choose_battle_capability": {"parameters": {"by_lord": "eligible Lord", "card": "Capability ID"},

@@ -157,6 +157,11 @@ menu annotations, return values, detailed inspection, previous receipts or
 validation probes. Enemy public mats/Capabilities remain visible. Inspecting a
 static card by ID never asserts that an opponent possesses it.
 
+In a fixed player view, an Approach pauses after any reactions resolve. The
+approached player selects `respond_approach` to choose Exile or Battle for
+each Lord. The trusted host switches to that player's perspective to collect
+the choices. A blocked ford forces Battle and skips these elections.
+
 The trusted host may call `set_perspective(side)` to switch contexts. This is
 **output separation, not authentication**: arbitrary Python code that can read
 `_S`, import the engine or open a save file is already a referee. Do not give

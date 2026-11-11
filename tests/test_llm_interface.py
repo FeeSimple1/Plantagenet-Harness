@@ -47,6 +47,63 @@ def get_id(typ, **filters):
                 and all(e["action"].get(k) == v for k, v in filters.items()))
 
 
+@pytest.mark.parametrize("response", ["exile", "battle"])
+def test_fixed_players_resolve_approach_with_the_defenders_choice_after_reload(tmp_path, response):
+    state, attacker, defender = _approach_setup(seed=1, henry_holds_kings_parley=False)
+    for deck in state.decks.values():
+        deck["draw"].extend(deck["held"])
+        deck["held"] = []
+    state.lords[defender].assets = {"cart": 2, "provender": 2}
+    state.locales["lincoln"].favour = "yorkist"
+    march = {"type": "march", "side": "yorkist", "by_lord": attacker, "to": "lincoln"}
+    expected = state.model_copy(deep=True)
+    result = actions.apply_action(expected, {**march, "decisions": {
+        "responses": {defender: response},
+    }})
+    attach(state, "yorkist")
+    move = get_id("march", by_lord=attacker, to="lincoln")
+    before = state.model_dump_json()
+    with pytest.raises(PermissionError, match="respond_approach"):
+        quiet(nv.apply, move, parameters={"decisions": {"responses": {defender: response}}})
+    assert state.model_dump_json() == before
+    rng = state.rng_state
+    reply, _ = quiet(nv.apply, move)
+    assert reply["result"]["type"] == "pending_approach"
+    assert reply["result"]["awaiting_side"] == "lancastrian"
+    assert state.rng_state == rng and not nv.all_actions()
+    pending = state.model_dump_json()
+    wrong = {"type": "respond_approach", "side": "yorkist", "lord": defender,
+             "response": "exile"}
+    rejected, _ = quiet(nv.apply, wrong, expected_version=nv.version())
+    assert rejected["error"]["code"] == "wrong_approach_side"
+    assert state.model_dump_json() == pending
+    path = tmp_path / "pending_approach.json"
+    quiet(nv.save, path)
+    quiet(nv.load, path, perspective="lancastrian")
+    assert {e["action"]["response"] for e in nv.all_actions()} == {"exile", "battle"}
+    with pytest.raises(nv.StaleSelectionError):
+        quiet(nv.apply, move)
+    final, _ = quiet(nv.apply, get_id("respond_approach", lord=defender, response=response))
+    assert final["result"]["approach"] == result["approach"]
+    assert nv._state().model_dump(exclude={"history"}) == expected.model_dump(exclude={"history"})
+
+
+def test_fixed_approach_waits_for_the_reacting_side_before_exile():
+    state, attacker, defender = _approach_setup(seed=1, henry_holds_kings_parley=True)
+    attach(state, "yorkist")
+    reply, _ = quiet(nv.apply, get_id("march", by_lord=attacker, to="lincoln"))
+    assert reply["result"]["type"] == "pending_reactions"
+    pending = state.model_dump_json()
+    rejected, _ = quiet(nv.apply, {"type": "react", "pass": True},
+                        expected_version=nv.version())
+    assert rejected["error"]["code"] == "wrong_reaction_side"
+    assert state.model_dump_json() == pending
+    quiet(nv.set_perspective, "lancastrian")
+    reply, _ = quiet(nv.apply, get_id("react", **{"pass": True}))
+    assert reply["result"]["type"] == "pending_approach"
+    assert get_id("respond_approach", lord=defender, response="exile")
+
+
 def plan_state():
     s = scenarios.build_initial_state("henry_vi", seed=17)
     to_muster(s)

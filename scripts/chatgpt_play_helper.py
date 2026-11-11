@@ -580,6 +580,16 @@ def apply(choice, *, expected_version=None, parameters=None):
     side = action.get("side", viewer if viewer != "referee" else _view.decision_side(_state()))
     if viewer != "referee" and side != viewer:
         raise PermissionError("This action belongs to the other player.")
+    defer_approach = _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail")
+    if defer_approach:
+        decisions = action.get("decisions") or {}
+        if isinstance(decisions, dict):
+            if "responses" in decisions:
+                raise PermissionError("Use respond_approach to choose Exile or Battle for your Lord.")
+            if set(decisions.get("blocked_ford", [])) - {viewer}:
+                raise PermissionError("Only the owner may play Blocked Ford.")
+    if viewer != "referee" and action["type"] in ("react", "respond_approach"):
+        action.setdefault("side", viewer)
     if action.get("type") == "end_activation" and viewer != "referee":
         orders = action.get("feed_order", {})
         if isinstance(orders, dict) and set(orders) - {viewer}:
@@ -598,7 +608,8 @@ def apply(choice, *, expected_version=None, parameters=None):
     before_key = _baseline_key()
     result_owner = side
     try:
-        raw_result = apply_action_local(s, action)
+        engine_action = {**action, "_defer_approach": True} if defer_approach else action
+        raw_result = apply_action_local(s, engine_action)
     except Exception as error:
         kind = ("illegal_action" if cls == "vouched" else "player_illegal") if isinstance(error, IllegalAction) else "exception"
         _S["findings"].append({"kind": kind, "turn": _S["turn"], "side": side,
