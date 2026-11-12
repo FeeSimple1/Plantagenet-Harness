@@ -14,7 +14,7 @@ next Calendar box), ``add_cards_to_deck`` (permanent), ``cards``
 
 Deck membership of Succession-managed cards is **reference-counted by source**
 (``grand_scenario['deck_sources'][side][card] = [source, ...]``): a card stays
-in the deck while it has >=1 source.  Cards repeated from one Lord to the next
+in play while it has at least one source. Cards repeated from one Lord to the next
 therefore stay put (errata: e.g. Y20 in War IIL).  Cards added permanently use
 the source ``"__permanent__"``.
 """
@@ -23,11 +23,11 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from plantagenet import static_data
+from plantagenet import ratings, static_data
 from plantagenet.state import GameState, LordState, LordStatus, Side
 
 _PERMANENT = "__permanent__"
-_DECK_PILES = ("draw", "discard", "held")
+_DECK_PILES = ("draw", "discard", "held", "set_aside")
 
 
 # --------------------------------------------------------------- data access
@@ -79,16 +79,11 @@ def _sources(state: GameState) -> dict[str, dict[str, list[str]]]:
 
 
 def _deck_has(state: GameState, side: str, card: str) -> bool:
+    from plantagenet.actions import _capabilities_in_play
+
     d = state.decks.get(side, {})
-    if any(card in d.get(p, []) for p in _DECK_PILES):
-        return True
-    # One-zone invariant: a card already deployed as a Capability on a Friendly
-    # Lord's mat is in play and must not be duplicated back into the deck (the
-    # card_in_deck_and_on_mat invariant). A succession's while_king/count ADDs
-    # re-register cards that may currently sit on a mat (e.g. Y20 Yorkist Parade);
-    # without this guard _add_to_deck would clone them into the draw pile.
-    return any(card in ls.capabilities
-               for ls in state.lords.values() if ls.side == side)
+    return (any(card in d.get(p, []) for p in _DECK_PILES)
+            or card in _capabilities_in_play(state, side))
 
 
 def _add_to_deck(state: GameState, side: str, card: str) -> None:
@@ -98,9 +93,28 @@ def _add_to_deck(state: GameState, side: str, card: str) -> None:
 
 def _remove_from_deck(state: GameState, side: str, card: str) -> None:
     d = state.decks.get(side, {})
-    for p in _DECK_PILES:
-        if card in d.get(p, []):
-            d[p].remove(card)
+    for pile in _DECK_PILES:
+        if cards := d.get(pile):
+            cards[:] = [cid for cid in cards if cid != card]
+
+
+def _withdraw_card(state: GameState, side: str, card: str) -> None:
+    """Remove an expired Succession contribution from wherever it is (6.2.2)."""
+    _remove_from_deck(state, side, card)
+    for events in (state.pending_events, state.active_events):
+        events[:] = [e for e in events if (e.get("side"), e.get("card")) != (side, card)]
+    for lord in state.lords.values():
+        if lord.side != side or card not in lord.capabilities:
+            continue
+        lord.capabilities[:] = [cid for cid in lord.capabilities if cid != card]
+        # A Special Vassal's marker accompanies its Capability (1.5.4).
+        specials = static_data.load_vassals()["special"]
+        lord.special_vassals[:] = [
+            vid for vid in lord.special_vassals
+            if specials.get(vid, {}).get("capability_card") != card
+        ]
+        if static_data.load_cards()[card]["capability"]["title"] == "BURGUNDIANS":
+            state.flags.pop(f"burgundians_{lord.lord_id}", None)
 
 
 def _register_source(state: GameState, side: str, card: str, source: str) -> None:
@@ -111,17 +125,42 @@ def _register_source(state: GameState, side: str, card: str, source: str) -> Non
 
 
 def _drop_lord_sources(state: GameState, side: str, lord_id: str) -> list[str]:
-    """Remove ``lord_id`` as a source; pull any now-unsourced managed cards from
-    the deck. Returns the removed card ids."""
+    """Remove ``lord_id`` as a source and withdraw any cards whose sources are gone."""
     removed = []
     for card, src in list(_sources(state).get(side, {}).items()):
         if lord_id in src:
             src.remove(lord_id)
         if not src:
-            _remove_from_deck(state, side, card)
+            _withdraw_card(state, side, card)
             removed.append(card)
             _sources(state)[side].pop(card, None)
     return removed
+
+
+def restore_expired_cards(state: GameState) -> None:
+    """Finish withdrawals in saves made before Succession covered every zone."""
+    grand = state.grand_scenario or {}
+    sources = grand.get("deck_sources")
+    if not sources:
+        return
+    successions = (_current_war(state) or {}).get("successions", {})
+    if successions.get("setup_only"):
+        return
+    for side, live_sources in sources.items():
+        for trigger in successions.get(side, {}).get("triggers", []):
+            if trigger["on"] in ("while_remains", "while_king"):
+                lord_id, cards = trigger["lord"], trigger["cards"]
+            elif trigger["on"] == "becomes_highest_heir" and (
+                replacement := trigger.get("replace_lord_in_place")
+            ):
+                lord_id, cards = replacement["new"], trigger.get("add_cards", [])
+            else:
+                continue
+            lord = state.lords.get(lord_id)
+            if lord is not None and lord.status == LordStatus.REMOVED:
+                for card in cards:
+                    if not live_sources.get(card) and _deck_has(state, side, card):
+                        _withdraw_card(state, side, card)
 
 
 # --------------------------------------------------------------- setup
@@ -188,9 +227,6 @@ def on_muster_lord(state: GameState, lord_id: str) -> dict[str, Any] | None:
                     # card aside (6.2), pull it back out of any pile -- including
                     # set_aside -- so it is not counted in both zones.
                     _remove_from_deck(state, side, card)
-                    sa_pile = state.decks.get(side, {}).get("set_aside", [])
-                    if card in sa_pile:
-                        sa_pile.remove(card)
                 if spec.get("on_disband") == "set_aside":
                     sa = state.grand_scenario.setdefault("set_aside_on_disband", {})
                     sa.setdefault(lord_id, [])
@@ -277,6 +313,9 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     # The new card's printed ratings are looked up by its new ID.
     nstate = o.model_copy(update={"lord_id": new, "side": side}, deep=True)
     state.lords[new] = nstate
+    used_burgundians = state.flags.pop(f"burgundians_{old}", None)
+    if used_burgundians and ratings.has_capability(state, new, "BURGUNDIANS"):
+        state.flags[f"burgundians_{new}"] = used_burgundians
     # Regular Vassals carried to the new mat must point at the new Lord, or the
     # Vassal book (state.vassals[...].on_lord) and the Lord's .vassals list
     # disagree (one names the REMOVED Lord).
@@ -374,14 +413,16 @@ def _recompute(state: GameState, side: str) -> dict[str, Any]:
         # Re-derive the King after any replacement: the highest present Heir is now
         # the replacement Lord (e.g. edward_iv), not the removed heir (march).
         king = _highest_present_heir(state, side)
-        # Drop the previous King's while_king contribution, then register the
-        # current King's while_king cards (ref-counted to the King).
-        if prev_king:
-            _drop_lord_sources(state, side, f"king:{prev_king}")
+        # Register the new King's cards before dropping the previous King's
+        # source so a repeated card keeps its current place (6.2.2).
         if king:
             for trig in triggers:
                 if trig.get("on") == "while_king" and trig.get("lord") == king:
                     _add_cards(state, side, trig.get("cards", []), f"king:{king}")
+        if prev_king:
+            removed_cards = _drop_lord_sources(state, side, f"king:{prev_king}")
+            if removed_cards:
+                out["removed_cards"] = removed_cards
         cast("dict[str, Any]", state.grand_scenario).setdefault("current_king", {})[side] = king
         out["king"] = king
     return out
@@ -392,9 +433,9 @@ def on_heir_removed(state: GameState, lord_id: str,
                     removed_at: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Apply Succession when ``lord_id`` is removed by Death/Shipwreck (6.2.2).
     Runs the War's structured ``on: remove`` triggers (to_calendar, deck adds),
-    drops the Lord's continuous deck contributions, then falls back to the
-    general next-ranked-Heir rule if no explicit ``to_calendar`` fired. Also
-    reports an Automatic War Victory if the removal completes one."""
+    falls back to the general next-ranked-Heir rule if no explicit
+    ``to_calendar`` fired, and withdraws expired contributions after registering
+    the successor's cards. Reports an Automatic War Victory when applicable."""
     if not state.grand_scenario:
         return None
     side = state.lords[lord_id].side
@@ -448,10 +489,6 @@ def on_heir_removed(state: GameState, lord_id: str,
                     _register_source(state, side, card, _PERMANENT)
                     result.setdefault("added_cards", []).append(card)
 
-    removed_cards = _drop_lord_sources(state, side, lord_id)
-    if removed_cards:
-        result["removed_cards"] = removed_cards
-
     if not explicit and not setup_only:
         gen = _general_next_heir(state, side, lord_id)
         if gen:
@@ -461,6 +498,10 @@ def on_heir_removed(state: GameState, lord_id: str,
         rc = _recompute(state, side)
         if rc:
             result["recompute"] = rc
+
+    removed_cards = _drop_lord_sources(state, side, lord_id)
+    if removed_cards:
+        result["removed_cards"] = removed_cards
 
     av = _automatic_victory(state)
     if av:
