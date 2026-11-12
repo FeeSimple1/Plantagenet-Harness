@@ -16,6 +16,8 @@ Combat (Approach/Battle) lives in `battle.py`.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from copy import deepcopy
 from typing import Any, cast
 
 from plantagenet import influence, ratings, static_data
@@ -169,8 +171,67 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Activation")
     state.flags.pop("surprise_march_lord", None)   # L33 grant does not carry over
+    if action.get("interactive_feed"):
+        choices = _owned_feed_choices(state, side, action)
+        if choices:
+            # Validate an election before storing it across the other side's Feed.
+            _feed(state.model_copy(update={"history": []}).model_copy(deep=True), side, choices)
+        c.actions_remaining = 0
+        return _continue_feed(state, {}, choices)
     # 4.7 Feed at end of each card for BOTH sides, Rebel then King.
     feed = {s: _feed(state, s, action) for s in (_rebel(state), _king(state))}
+    return _advance_activation(state, feed)
+
+
+def _owned_feed_choices(state: GameState, side: str, action: dict[str, Any]) -> dict[str, Any]:
+    orders = action.get("feed_order", {})
+    pillage_by = action.get("pillage_by", {})
+    _require(isinstance(orders, dict), "bad_feed_order",
+             "feed_order must map sides to Lord orders (4.7)")
+    _require(set(orders) <= {side}, "wrong_feed_side", "Choose only your side's Feed order (4.7)")
+    _require(isinstance(pillage_by, dict) and all(
+        isinstance(loc, str) and isinstance(lid, str) for loc, lid in pillage_by.items()),
+             "bad_pillager", "pillage_by must map Locales to Unfed Lord IDs (3.2.1/4.7)")
+    _require(all(lid in state.lords and state.lords[lid].side == side
+                 for lid in pillage_by.values()),
+             "wrong_feed_side", "Choose only your side's Pillaging Lords (3.2.1/4.7)")
+    return {k: deepcopy(action[k]) for k in ("feed_order", "pillage_by") if action.get(k)}
+
+
+def _continue_feed(state: GameState, feed: dict[str, Any],
+                   activation_choices: dict[str, Any]) -> dict[str, Any]:
+    for side in (_rebel(state), _king(state)):
+        if side in feed:
+            continue
+        inputs = activation_choices if side == state.active_side else {}
+        if not inputs and (options := _feed_options(state, side)):
+            state.pending.append({"kind": "feed", "side": side, "options": options,
+                                  "completed": feed, "activation_choices": activation_choices})
+            return {"type": "pending_feed", "side": state.active_side, "awaiting_side": side,
+                    "feed": deepcopy(feed)}
+        feed[side] = _feed(state, side, inputs)
+    return _advance_activation(state, feed)
+
+
+def resolve_feed(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Resolve the current player's Feed election, then resume the card end."""
+    _require(bool(state.pending) and state.pending[0].get("kind") == "feed",
+             "no_pending_feed", "No Feed election is pending (4.7)")
+    pending = state.pending[0]
+    side = cast(str, action.get("side"))
+    _require(side == pending["side"], "wrong_feed_side",
+             f"{pending['side']} chooses how to Feed (4.7)")
+    choices = _owned_feed_choices(state, side, action)
+    result = _feed(state, side, choices)
+    state.pending.pop(0)
+    feed = {**pending["completed"], side: result}
+    return _continue_feed(state, feed, pending["activation_choices"])
+
+
+def _advance_activation(state: GameState, feed: dict[str, Any]) -> dict[str, Any]:
+    c = state.campaign
+    assert c is not None
+    side = state.active_side
     c.plan_index[side] += 1
     c.active_lord = None
     c.actions_remaining = 0
@@ -391,15 +452,19 @@ def _co_located_group(state: GameState, lord: LordState) -> list[LordState]:
     return group
 
 
-def _drain_provender(group: list[LordState], amount: int) -> None:
-    """Remove ``amount`` Provender from a co-located group (Sharing, 1.5.3),
-    drawing from the first Lord's mat before its allies'."""
+def _provender_spending(group: list[LordState], amount: int) -> Iterator[tuple[LordState, int]]:
+    """Spend from the first Lord's mat before its allies' (Sharing, 1.5.3)."""
     for m in group:
         if amount <= 0:
             break
         take = min(m.assets.get("provender", 0), amount)
-        m.assets["provender"] = m.assets.get("provender", 0) - take
+        yield m, take
         amount -= take
+
+
+def _drain_provender(group: list[LordState], amount: int) -> None:
+    for lord, take in _provender_spending(group, amount):
+        lord.assets["provender"] = lord.assets.get("provender", 0) - take
 
 
 def _disband_influence_cost(lord: LordState) -> int:
@@ -408,8 +473,22 @@ def _disband_influence_cost(lord: LordState) -> int:
             + len(lord.vassals) + len(lord.special_vassals))
 
 
-def _feed(state: GameState, side: str,
-          decisions: dict[str, Any] | None = None) -> dict[str, Any]:
+def _feed_options(state: GameState, side: str) -> dict[str, Any]:
+    feeders = [lord.lord_id for lord in state.lords.values()
+               if lord.side == side and lord.moved_fought and not lord.ignore_next_feed]
+    if len(feeders) < 2:
+        return {}
+    # Preview with the same own-first, sharing, and Pillage rules as resolution.
+    options: dict[str, Any] = {}
+    probe = state.model_copy(update={"history": []}).model_copy(deep=True)
+    _feed(probe, side, options=options)
+    if options:
+        options["feeding_lords"] = feeders
+    return options
+
+
+def _feed(state: GameState, side: str, decisions: dict[str, Any] | None = None,
+          *, options: dict[str, Any] | None = None) -> dict[str, Any]:
     """4.7 imports Pay's own-first Sharing and full requirement after Pillage.
 
     Optional feed_order maps each side to its chosen Lord order; pillage_by
@@ -455,6 +534,24 @@ def _feed(state: GameState, side: str,
             take = min(need, lord.assets.get("provender", 0))
             lord.assets["provender"] = lord.assets.get("provender", 0) - take
             remaining[lord.lord_id] = need - take
+        if options is not None:
+            shortfalls = {lid: need for lid, need in remaining.items() if need > 0}
+            shared = sum(m.assets.get("provender", 0) for m in group)
+            need = sum(shortfalls.values())
+            order_matters = len(shortfalls) > 1 and 0 < shared < need
+            if len(owing) > 1 and 0 < need < shared:
+                # Choosing the first feeding Lord can also change which mats
+                # contribute when there is enough surplus to feed everybody.
+                def spending(members: list[LordState]) -> dict[str, int]:
+                    return {lord.lord_id: take for lord, take in _provender_spending(members, need)
+                            if take}
+
+                default = spending(group)
+                order_matters = any(spending(_co_located_group(state, lord)) != default
+                                    for lord in owing[1:])
+            if order_matters:
+                options.setdefault("sharing", []).append(
+                    {"shortfalls": shortfalls, "provender": shared})
         unfed = []
         for lord in owing:
             need = remaining[lord.lord_id]
@@ -471,6 +568,9 @@ def _feed(state: GameState, side: str,
         loc = _lord_locale(owing[0])
         if (unfed and loc is not None and loc[0] == "stronghold"
                 and state.locales[loc[1]].depletion != "exhausted"):
+            if options is not None and len(unfed) > 1:
+                options.setdefault("pillage_candidates", {})[loc[1]] = [
+                    lord.lord_id for lord in unfed]
             chooser = pillage_by.get(loc[1])
             _require(chooser is None or any(member.lord_id == chooser for member in unfed),
                      "bad_pillager", "only an Unfed Lord may Pillage during Feed (4.7)")

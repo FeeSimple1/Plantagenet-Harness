@@ -206,8 +206,10 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         result = respond_approach(state, action)
         state.history.append(deepcopy({"action": action, "result": result}))
         return result
-    # While a card reaction is pending, only "react" is legal.
-    if state.pending and atype != "react":
+    if state.pending and state.pending[0].get("kind") == "feed":
+        _require(atype == "resolve_feed", "feed_pending",
+                 "Resolve the current player's Feed first (4.7)")
+    elif state.pending and atype != "react":
         raise IllegalAction("reaction_pending",
                             "a reaction is pending; resolve it with a 'react' action")
     if atype == "react":
@@ -1077,6 +1079,7 @@ _HANDLERS: dict[str, Callable[[GameState, dict[str, Any]], dict[str, Any]]] = {
     "forage": lambda st, a: _campaign_handler("forage")(st, a),
     "pass": lambda st, a: _campaign_handler("pass_command")(st, a),
     "end_activation": lambda st, a: _campaign_handler("end_activation")(st, a),
+    "resolve_feed": lambda st, a: _campaign_handler("resolve_feed")(st, a),
     "end_campaign": lambda st, a: _campaign_handler("end_campaign")(st, a),
     "march": lambda st, a: _command_handler("march")(st, a),
     "sail": lambda st, a: _command_handler("sail")(st, a),

@@ -60,7 +60,8 @@ CONTRACTS = {
     },
     "supply": {"parameters": {"source": "Stronghold or Port", "use_ships": "bool", "share": "co-located friendly transport donors"}},
     "tax": {"parameters": {"target": "eligible Seat or Special Stronghold", "extra_spend": "0, 1 or 3 Influence"}},
-    "end_activation": {"optional": {"feed_order": "{side: [feeding_lord_id, ...]}; reserve own food before sharing in this order", "pillage_by": "{locale_id: unfed_lord_id}; only a still-Unfed Lord may Pillage"}, "constraints": "Ends this Command card and Feeds both sides, Rebel then King. Ending early is a choice. Feed uses Pay rules: spend partial food, then full requirement again after Pillage."},
+    "end_activation": {"optional": {"feed_order": "{side: [feeding_lord_id, ...]}; reserve own food before sharing in this order", "pillage_by": "{locale_id: unfed_lord_id}; only a still-Unfed Lord may Pillage"}, "constraints": "Ends Commands and begins Feed, Rebel then King. The player view asks each owner for any unresolved Feed election before advancing the card."},
+    "resolve_feed": {"optional": {"feed_order": "{your_side: [feeding_lord_id, ...]}", "pillage_by": "{locale_id: unfed_lord_id}"}, "constraints": "Feed your side in the chosen order. After reserving own food and sharing, a still-Unfed Lord may Pillage each eligible Stronghold. The listed Pillage candidates use the default order. Apply without parameters to choose the default."},
     "end_campaign": {
         "parameters": {"decisions.discard_held": "side -> any subset of that side's Held Events; omitted/empty keeps all", "decisions.charity": "Capability holder -> 0/1/2 Provender, or {'pay': n, 'share': [donors]}", "decisions.disembark_land": "Lord -> legal Enemy-free Port for successful End-Campaign landing"},
         "constraints": "Each player owns its choices. stage_reset() collects private contributions; referee mode can submit the combined atomic payload. No Capability discard. Costs, Sharing and landing legality remain engine-validated.",
@@ -131,6 +132,8 @@ def contract(state, typ, move=None):
     info["action_type"] = typ
     info["raw_action"] = "apply({...}, expected_version=version()); IDs may be supplemented with parameters={...}."
     info["details"] = "inspect('grammar') and inspect('card', card='ID'); no output-size limit forbids detail."
+    if typ == "resolve_feed" and move and state.pending and state.pending[0].get("kind") == "feed":
+        info["options"] = deepcopy(state.pending[0]["options"])
     if typ == "build_plan":
         side = (move or {}).get("side", state.active_side)
         info["side"] = side
