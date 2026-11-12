@@ -129,8 +129,9 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
             from plantagenet.arts_of_war import capability_assignment_options
             side = state.active_side
             drawn = list(state.decks.get(side, {}).get("draw", [])[:2])
-            return [{"type": "draw", "side": side, "assignments": assignment}
-                    for assignment in capability_assignment_options(state, side, drawn)]
+            moves = [{"type": "draw", "side": side, "assignments": assignment}
+                     for assignment in capability_assignment_options(state, side, drawn)]
+            return moves + _crown_richard_moves(state)
         return [{"type": "draw", "side": state.active_side}]
     if state.phase == "levy" and state.levy_step == "pay":
         return [{"type": "pay", "side": state.active_side}]
@@ -161,9 +162,7 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
                     out.append(move)
     except (KeyError, AttributeError):
         pass
-    # King Richard (My Kingdom for a Horse) -- offered to the Yorkist player
-    # whenever Gloucester is Mustered at London.
-    out.extend(_special_rule_moves(state, side))
+    out.extend(_crown_richard_moves(state))
     out.extend(_held_event_moves(state, side))   # own-timing Held Events (1.9.1)
     # The active side may always end its Muster segment.
     out.append({"type": "end_muster", "side": side})
@@ -351,7 +350,6 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
         moves: list[dict[str, Any]] = []
         if c.active_lord is not None and c.actions_remaining > 0:
             moves.extend(_command_moves(state, side, c.active_lord))
-        moves.extend(_special_rule_moves(state, side))   # King Richard (6.2)
         moves.extend(_held_event_moves(state, side))     # Held Events (1.9.1)
         moves.append({"type": "end_activation", "side": side})
         return moves
@@ -544,25 +542,12 @@ def _capability_command_moves(state: GameState, side: str, lord_id: str,
     return out
 
 
-def _special_rule_moves(state: GameState, side: str) -> list[dict[str, Any]]:
-    """Scenario special-rule actions outside the normal phase palette. King
-    Richard (My Kingdom for a Horse): the Yorkist player may replace a
-    Gloucester Lord Mustered at London with Richard III, in place (6.2)."""
-    out: list[dict[str, Any]] = []
-    if side != "yorkist":
-        return out
+def _crown_richard_moves(state: GameState) -> list[dict[str, Any]]:
     try:
-        from plantagenet import campaign
-        if "King Richard" in campaign._active_special_rules(state):
-            for gid in ("gloucester_1", "gloucester_2"):
-                gl = state.lords.get(gid)
-                if (gl is not None and gl.status == LordStatus.MUSTERED
-                        and gl.location == "london"):
-                    out.append({"type": "crown_richard", "side": "yorkist"})
-                    break
-    except (KeyError, AttributeError):
-        pass
-    return out
+        actions._crown_richard_target(state, "yorkist")
+    except (IllegalAction, KeyError, AttributeError):
+        return []
+    return [{"type": "crown_richard", "side": "yorkist"}]
 
 
 def _held_event_moves(state: GameState, side: str) -> list[dict[str, Any]]:

@@ -8,6 +8,8 @@ from plantagenet.legal_moves import legal_moves
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import GameState, LordStatus
 
+CROWN = {"type": "crown_richard", "side": "yorkist"}
+
 
 def _act(state, kind, **args):
     return actions.apply_action(state, {"type": kind, **args})
@@ -19,6 +21,66 @@ def _first_muster(state):
     assert state.levy_step == "muster"
 
 
+def _reject_crown(state, action, code):
+    before = state.model_dump_json()
+    for position in (state, GameState.model_validate_json(before)):
+        assert action not in legal_moves(position)
+        with pytest.raises(IllegalAction) as rejected:
+            actions.apply_action(position, action)
+        assert rejected.value.code == code
+        assert position.model_dump_json() == before
+
+
+def test_king_richard_is_available_at_native_setup_and_after_reload():
+    state = build_initial_state("my_kingdom_for_a_horse", seed=1)
+    restored = GameState.model_validate_json(state.model_dump_json())
+    for position in (state, restored):
+        assert CROWN in legal_moves(position)
+        assert actions.apply_action(position, CROWN)["with"] == "richard_iii"
+        assert position.lords["richard_iii"].location == "london"
+        assert position.lords["gloucester_2"].status == LordStatus.REMOVED
+        assert any(move["type"] == "draw" for move in legal_moves(position))
+        assert not invariants.board_invariant_violations(position)
+    assert state.model_dump_json() == restored.model_dump_json()
+
+
+def test_king_richard_setup_window_closes_at_the_first_draw():
+    state = build_initial_state("my_kingdom_for_a_horse", seed=1)
+    _act(state, "draw", side="lancastrian")
+    assert state.levy_step == "arts_of_war"
+    _reject_crown(state, CROWN, "wrong_step")
+    _first_muster(state)
+    _reject_crown(state, CROWN, "not_active_side")
+    _act(state, "end_muster", side="lancastrian")
+    assert CROWN in legal_moves(state)
+
+
+@pytest.mark.parametrize("side", ["lancastrian", None])
+def test_only_york_can_choose_to_crown_richard(side):
+    state = build_initial_state("my_kingdom_for_a_horse", seed=1)
+    _first_muster(state)
+    _act(state, "end_muster", side="lancastrian")
+    _reject_crown(state, {**CROWN, "side": side}, "wrong_side")
+    assert CROWN in legal_moves(state)
+
+
+def test_king_richard_cannot_rewrite_a_campaign_plan():
+    state = build_initial_state("my_kingdom_for_a_horse", seed=1)
+    _first_muster(state)
+    for side in ("lancastrian", "yorkist"):
+        _act(state, "end_muster", side=side)
+    _act(state, "begin_campaign")
+    for side, lord in (("lancastrian", "henry_tudor"), ("yorkist", "gloucester_2")):
+        plan = [{"lord": lord}] + [{"pass": True}] * (state.campaign.cards_required - 1)
+        _act(state, "build_plan", side=side, plan=plan)
+    assert state.campaign.active_lord == "henry_tudor"
+    _reject_crown(state, CROWN, "wrong_step")
+    assert state.campaign.plans["yorkist"][0] == {"lord": "gloucester_2"}
+    _act(state, "end_activation", side="lancastrian")
+    assert state.campaign.active_lord == "gloucester_2"
+    _reject_crown(state, CROWN, "wrong_step")
+
+
 @pytest.mark.parametrize("already_spent", [0, 1, 3])
 def test_crowning_richard_keeps_the_remaining_muster_budget(already_spent):
     state = build_initial_state("my_kingdom_for_a_horse", seed=1)
@@ -27,11 +89,10 @@ def test_crowning_richard_keeps_the_remaining_muster_budget(already_spent):
     transport = {"type": "levy_transport", "side": "yorkist", "transport": "cart"}
     for _ in range(already_spent):
         actions.apply_action(state, {**transport, "by_lord": "gloucester_2"})
-    crown = {"type": "crown_richard", "side": "yorkist"}
-    assert crown in legal_moves(state)
+    assert CROWN in legal_moves(state)
     restored = GameState.model_validate_json(state.model_dump_json())
     for position in (state, restored):
-        actions.apply_action(position, crown)
+        actions.apply_action(position, CROWN)
         for _ in range(3 - already_spent):
             actions.apply_action(position, {**transport, "by_lord": "richard_iii"})
         richard = position.lords["richard_iii"]
