@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from plantagenet import battle, succession
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import LordStatus
@@ -206,6 +208,66 @@ def test_iil_while_king_cards_track_the_current_king():
     deck = _deck_side(s, "lancastrian")
     assert "L15" not in deck and "L17" not in deck       # Henry VI's while_king dropped
     assert {"L27", "L31"} <= deck                        # Margaret's while_king added
+
+
+@pytest.mark.parametrize(
+    "zone", ["draw", "discard", "held", "set_aside", "mat", "active_events", "pending_events"],
+)
+def test_iil_succession_withdraws_expired_cards_and_keeps_repeated_cards_in_place(zone):
+    s = _stage_war("war_iil", "yorkist", ["york", "march", "rutland"])
+    deck = s.decks["yorkist"]
+    holder = s.lords["march"]
+    if zone != "draw":
+        for card in ("Y14", "Y20"):
+            deck["draw"].remove(card)
+        if zone == "mat":
+            holder.capabilities = ["Y14", "Y20"]
+        elif zone in ("active_events", "pending_events"):
+            getattr(s, zone).extend(
+                {"side": "yorkist", "card": card} for card in ("Y14", "Y20")
+            )
+        else:
+            deck[zone].extend(["Y14", "Y20"])
+
+    _remove(s, "york")
+
+    assert s.grand_scenario["deck_sources"]["yorkist"]["Y20"] == ["king:march"]
+    assert not succession._deck_has(s, "yorkist", "Y14")
+    if zone == "mat":
+        assert holder.capabilities == ["Y20"]
+    elif zone in ("active_events", "pending_events"):
+        assert getattr(s, zone) == [{"side": "yorkist", "card": "Y20"}]
+    else:
+        assert "Y20" in deck[zone]
+    if zone != "draw":
+        assert "Y20" not in deck["draw"]
+
+
+def test_iiy_succession_withdraws_the_special_vassal_with_its_capability():
+    s = _stage_war("war_iiy", "lancastrian", ["henry_vi", "margaret", "somerset_1"])
+    holder = s.lords["somerset_1"]
+    s.decks["lancastrian"]["draw"].remove("L21")
+    holder.capabilities = ["L21"]
+    holder.special_vassals = ["clifford"]
+
+    _remove(s, "henry_vi")
+
+    assert not succession._deck_has(s, "lancastrian", "L21")
+    assert not holder.special_vassals
+
+
+def test_iiy_repeated_contribution_stays_held_when_rutland_succeeds_york():
+    s = _stage_war("war_iiy", "yorkist", ["york", "rutland", "gloucester_1"])
+    s.lords["march"].status = LordStatus.REMOVED
+    deck = s.decks["yorkist"]
+    deck["draw"].remove("Y20")
+    deck["held"].append("Y20")
+
+    _remove(s, "york")
+
+    assert s.grand_scenario["deck_sources"]["yorkist"]["Y20"] == ["king:rutland"]
+    assert deck["held"] == ["Y20"]
+    assert "Y20" not in deck["draw"]
 
 
 def test_setup_only_war_does_not_fire_in_play_removal():

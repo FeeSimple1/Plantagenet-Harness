@@ -17,7 +17,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from plantagenet.rng import DiceRoller
 
@@ -198,6 +198,14 @@ class GameState(_Model):
         self.rng_state = roller.get_state()
 
     # -- persistence ------------------------------------------------------
+    @model_validator(mode="after")
+    def _restore_succession_cards(self) -> GameState:
+        if self.grand_scenario:
+            from plantagenet import succession
+
+            succession.restore_expired_cards(self)
+        return self
+
     def to_json(self) -> str:
         return json.dumps(self.model_dump(mode="json"), indent=2)
 
