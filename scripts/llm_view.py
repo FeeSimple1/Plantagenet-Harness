@@ -15,7 +15,7 @@ SIDES = ("lancastrian", "yorkist")
 def decision_side(state):
     if state.pending:
         inter = state.pending[0]
-        if inter.get("kind") == "approach":
+        if inter.get("kind") in ("approach", "feed"):
             return inter["side"]
         offers = inter.get("offers", [])
         index = inter.get("idx", 0)
@@ -34,6 +34,11 @@ def decision_side(state):
 def pending_view(state, viewer):
     if state.pending:
         inter = state.pending[0]
+        if inter.get("kind") == "feed":
+            data = {"kind": "feed", "awaiting_side": inter["side"]}
+            if viewer in ("referee", inter["side"]):
+                data["options"] = deepcopy(inter["options"])
+            return data
         if inter.get("kind") == "approach":
             return {"kind": "approach", "awaiting_side": inter["side"],
                     "locale": inter["locale"], "lord": inter["lords"][0]}

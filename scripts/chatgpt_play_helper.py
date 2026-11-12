@@ -588,7 +588,7 @@ def apply(choice, *, expected_version=None, parameters=None):
                 raise PermissionError("Use respond_approach to choose Exile or Battle for your Lord.")
             if set(decisions.get("blocked_ford", [])) - {viewer}:
                 raise PermissionError("Only the owner may play Blocked Ford.")
-    if viewer != "referee" and action["type"] in ("react", "respond_approach"):
+    if viewer != "referee" and action["type"] in ("react", "respond_approach", "resolve_feed"):
         action.setdefault("side", viewer)
     if action.get("type") == "end_activation" and viewer != "referee":
         orders = action.get("feed_order", {})
@@ -609,6 +609,8 @@ def apply(choice, *, expected_version=None, parameters=None):
     result_owner = side
     try:
         engine_action = {**action, "_defer_approach": True} if defer_approach else action
+        if action["type"] == "end_activation" and viewer != "referee":
+            engine_action = {**engine_action, "interactive_feed": True}
         raw_result = apply_action_local(s, engine_action)
     except Exception as error:
         kind = ("illegal_action" if cls == "vouched" else "player_illegal") if isinstance(error, IllegalAction) else "exception"

@@ -112,6 +112,8 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         return setup_moves(state)
     if state.pending:
         pending = state.pending[0]
+        if pending.get("kind") == "feed":
+            return [{"type": "resolve_feed", "side": pending["side"]}]
         if pending.get("kind") == "approach":
             return [{"type": "respond_approach", "side": pending["side"],
                      "lord": pending["lords"][0], "response": response}

@@ -165,7 +165,8 @@ The Campaign turn (4.0): `begin_campaign` (after Levy) -> Plan -> Activation
 | `build_plan` | `side`, `plan`: ordered list of `{"lord": id}` / `{"pass": true}` | 4.1 | done (size = season cards; <=3 per Lord) |
 | `forage` | `side`, `by_lord` | 4.6.2 | done (Friendly auto; Neutral 1-4; Enemy/adj 1-3; Depletes) |
 | `pass` | `side`, `by_lord` | 4.6.5 | done (consumes one Command action) |
-| `end_activation` | `side`, optional `feed_order` (side → Lord ID order), `pillage_by` (Locale → Unfed Lord ID) | 4.2/4.7 | done (Feed, then reveal the other side's next card) |
+| `end_activation` | `side`, optional `feed_order` (side → Lord ID order), `pillage_by` (Locale → Unfed Lord ID), `interactive_feed` | 4.2/4.7 | Feed both sides, then advance the card. `interactive_feed` opens the current owner's choice when needed. |
+| `resolve_feed` | `side` (current Feed owner), optional `feed_order` and `pillage_by` | 4.7 | Complete this side's election and continue Feed in Rebel-then-King order. |
 | `end_campaign` | optional `decisions` (`charity`, `discard_held`) | 4.8 | done (Tides, Victory, Grow, Waste, selective Held return, advance Turn) |
 
 Activation: a revealed Lord takes up to its Command rating in actions; a
