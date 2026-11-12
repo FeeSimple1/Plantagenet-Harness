@@ -920,19 +920,35 @@ def _h_muster_exiles(state: GameState, action: dict[str, Any]) -> dict[str, Any]
 
 
 # ----------------------------------------------------- King Richard (My Kingdom)
-def _h_crown_richard(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    """King Richard (My Kingdom for a Horse): the Yorkist player may, with
-    Gloucester Mustered at London, replace the Gloucester Lord in place with
-    Richard III (6.2 in-place replacement)."""
-    from plantagenet import campaign, succession
+def _crown_richard_target(state: GameState, side: str | None) -> str:
+    """Validate the King Richard choice and return Gloucester's Lord ID."""
+    from plantagenet import campaign
+
     _require("King Richard" in campaign._active_special_rules(state), "no_king_richard",
              "King Richard applies only in My Kingdom for a Horse")
+    _require(side == "yorkist", "wrong_side", "Only the Yorkist player may crown Richard")
+    # The new scenario starts at the Rebel's first Arts of War draw.
+    at_setup = (state.levy_step == "arts_of_war"
+                and state.turn_box == state.calendar.first_box
+                and state.roles.get(state.active_side) == "rebel")
+    _require(state.phase == "levy" and (at_setup or state.levy_step == "muster"),
+             "wrong_step", "King Richard applies only at setup or during Muster (3.4)")
+    _require(at_setup or state.active_side == side, "not_active_side",
+             "King Richard requires the Yorkist Muster (3.4)")
     gid = next((g for g in ("gloucester_1", "gloucester_2")
                 if g in state.lords and state.lords[g].status == LordStatus.MUSTERED
                 and state.lords[g].location == "london"), None)
     _require(gid is not None, "no_gloucester_at_london",
              "King Richard requires Gloucester Mustered at London")
     assert gid is not None
+    return gid
+
+
+def _h_crown_richard(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Replace Gloucester's mat in place under the King Richard scenario rule."""
+    from plantagenet import succession
+
+    gid = _crown_richard_target(state, action.get("side"))
     succession._apply_replace_in_place(state, "yorkist", gid, "richard_iii")
     return {"type": "crown_richard", "replaced": gid, "with": "richard_iii"}
 
