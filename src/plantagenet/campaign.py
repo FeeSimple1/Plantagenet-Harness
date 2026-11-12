@@ -760,7 +760,7 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
     Enemy-free Port on that Sea, then it must immediately Feed (4.7); a Lord that
     cannot reach a free Port instead Disbands normally (3.2.4). No Events
     influence the roll (1.9.1)."""
-    from plantagenet import battle
+    from plantagenet import battle, succession
     from plantagenet.actions import enemy_lord_at
     decisions = decisions or {}
     land = decisions.get("disembark_land", {})         # lord_id -> chosen Port
@@ -776,15 +776,7 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
         for original_lid in seafarers:
             # An earlier Shipwreck may retire a card while its mat still
             # awaits Disembark. Follow the replacement of that mat in order.
-            lid = original_lid
-            replacements = (state.grand_scenario or {}).get("replaced_cards", {})
-            retired: set[str] = set()
-            while state.lords[lid].status == LordStatus.REMOVED and lid not in retired:
-                successor = replacements.get(lid)
-                if successor not in state.lords:
-                    break
-                retired.add(lid)
-                lid = successor
+            lid = succession.current_lord_id(state, original_lid)
             ls = state.lords[lid]
             sea = ls.at_sea
             if sea is None:

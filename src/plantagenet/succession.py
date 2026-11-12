@@ -251,6 +251,19 @@ def _rewrite_lord_refs(state: GameState, old: str, new: str) -> None:
         c.active_lord = new
 
 
+def current_lord_id(state: GameState, lord_id: str) -> str:
+    """Follow the living mat's card swaps during an in-progress resolution."""
+    replacements = (state.grand_scenario or {}).get("replaced_cards", {})
+    visited: set[str] = set()
+    while state.lords[lord_id].status == LordStatus.REMOVED and lord_id not in visited:
+        successor = replacements.get(lord_id)
+        if successor not in state.lords:
+            break
+        visited.add(lord_id)
+        lord_id = successor
+    return lord_id
+
+
 def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> None:
     """REPLACE a living Lord ``old`` with ``new`` in place (Scenario Ref REPLACE):
     the new Lord card takes over the SAME mat -- Forces, Assets, Capabilities,
@@ -260,13 +273,9 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
     o = state.lords.get(old)
     if o is None or new not in statics:
         return
-    nstate = LordState(lord_id=new, side=cast(Side, side), status=o.status, location=o.location,
-                       exile_box=o.exile_box, calendar_box=o.calendar_box,
-                       calendar_exile=o.calendar_exile, at_sea=o.at_sea,
-                       captured_by=o.captured_by, ring=o.ring,
-                       forces=dict(o.forces), assets=dict(o.assets),
-                       vassals=list(o.vassals), special_vassals=list(o.special_vassals),
-                       capabilities=list(o.capabilities), moved_fought=o.moved_fought)
+    # This is the same mat, including the Muster actions it has already spent.
+    # The new card's printed ratings are looked up by its new ID.
+    nstate = o.model_copy(update={"lord_id": new, "side": side}, deep=True)
     state.lords[new] = nstate
     # Regular Vassals carried to the new mat must point at the new Lord, or the
     # Vassal book (state.vassals[...].on_lord) and the Lord's .vassals list
@@ -277,7 +286,7 @@ def _apply_replace_in_place(state: GameState, side: str, old: str, new: str) -> 
             _vs.on_lord = new
     _rewrite_lord_refs(state, old, new)
     # ``old`` leaves play entirely: its mat now belongs to ``new``, so clear
-    # every field on the REMOVED Lord (leaving Capabilities behind would
+    # the retired Lord's position and mat contents (leaving Capabilities behind would
     # double-count the cards -> card_in_deck_and_on_mat).
     o.status = LordStatus.REMOVED
     o.location = None
