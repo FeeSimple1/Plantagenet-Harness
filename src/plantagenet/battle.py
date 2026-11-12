@@ -24,10 +24,10 @@ from collections.abc import Callable
 from math import ceil
 from typing import Any, cast
 
-from plantagenet import campaign, influence, ratings, static_data
+from plantagenet import campaign, influence, ratings, static_data, succession
 from plantagenet.errors import IllegalAction
 from plantagenet.rng import DiceRoller
-from plantagenet.state import GameState, LordStatus, VassalState, VassalStatus
+from plantagenet.state import GameState, LordState, LordStatus, VassalState, VassalStatus
 
 _ABSORB_DEFAULT = ["militia", "mercenaries", "longbow", "handgunners",
                    "men_at_arms", "vassal", "retinue"]
@@ -993,11 +993,11 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
                   death_order=death_order)
     # Added Troops leave in Aftermath (4.4.4), after the Death/Capture step.
     for f in forces.values():
-        lord = state.lords[f.lord_id]
+        lord = state.lords[succession.current_lord_id(state, f.lord_id)]
         if (f.has_temporary_troops and lord.status == LordStatus.MUSTERED
                 and not any(lord.forces.get(t, 0) for t in _TROOP_TYPES)):
             campaign._disband_lord(state, lord)
-            res.setdefault("aftermath_disbands", []).append(f.lord_id)
+            res.setdefault("aftermath_disbands", []).append(lord.lord_id)
     if susp is not None:
         res["suspicion"] = susp
     if ftrust is not None:
@@ -1016,8 +1016,8 @@ def _friendly_north_stronghold(state: GameState, exclude: str | None = None) -> 
     return next(iter(_friendly_north_strongholds(state, exclude)), None)
 
 
-def _disband_routed_vassals(state: GameState, force: _Force, result: dict[str, Any]) -> None:
-    lord = state.lords[force.lord_id]
+def _disband_routed_vassals(state: GameState, lord: LordState, force: _Force,
+                            result: dict[str, Any]) -> None:
     remaining = [vid for vid in force.vassal_ids if vid not in force.routed_vassal_ids]
     routed = (force.routed_vassal_ids + remaining)[:force.routed.get("vassal", 0)]
     for vid in routed:
@@ -1067,7 +1067,7 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
     for w in winners:                                    # LOSSES (4.4.3)
         _losses(state, w, dice, result)
     for w in winners:                                    # 4.4.3: Routed Vassals of Unrouted Lords
-        _disband_routed_vassals(state, w, result)
+        _disband_routed_vassals(state, state.lords[w.lord_id], w, result)
     captors = []
     if "henry_vi" in lose_ids and "Capture of the King" in campaign._active_special_rules(state):
         captors = [w.lord_id for w in winners
@@ -1144,69 +1144,72 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
         ordered_checks.extend(lid for lid in eligible if lid not in chosen)
     result["death_order"] = ordered_checks
 
-    # Reassign only actual roll slots, preserving the placement of other fates.
+    # Keep the chosen roll slots and elections tied to the original Battle
+    # participants. Succession can swap the card holding a mat mid-resolution.
     checks_in_order = iter(ordered_checks)
     deaths, disbands, exiles = [], [], []                # DEATH CHECK + DISBAND
-    for lid in routed:                                   # Defenders first
-        if lid in checks:
-            lid = next(checks_in_order)
-        f = forces[lid]
+    for battle_id in routed:                             # Defenders first
+        if battle_id in checks:
+            battle_id = next(checks_in_order)
+        f = forces[battle_id]
+        lid = succession.current_lord_id(state, battle_id)
+        lord = state.lords[lid]
+        if lord.status != LordStatus.MUSTERED:
+            continue
         if bloody:                                       # Y33: no Death roll/upon-Death cards
-            if state.lords[lid].side == "lancastrian":   # Routed Lancastrians Die
+            if lord.side == "lancastrian":              # Routed Lancastrians Die
                 _kill_lord(state, lid)
                 deaths.append(lid)
             else:                                        # Routed Yorkists Disband normally (3.2.4)
-                campaign._disband_lord(state, state.lords[lid])
+                campaign._disband_lord(state, lord)
                 disbands.append(lid)
             continue
-        if lid in escaped:                               # Exile instead of Death (4.3.5)
-            ld = state.lords[lid]
+        if battle_id in escaped:                         # Exile instead of Death (4.3.5)
             if _lord_has_capability(state, lid, "ENGLAND IS MY HOME"):   # Y8: plain Disband
-                campaign._disband_lord(state, ld)
-                ld.calendar_box = state.turn_box + 1
-                ld.calendar_exile = False
+                campaign._disband_lord(state, lord)
+                lord.calendar_box = state.turn_box + 1
+                lord.calendar_exile = False
                 disbands.append(lid)
             else:
-                influence.spend_influence(state, ld.side,
+                influence.spend_influence(state, lord.side,
                                           static_data.load_lords()[lid]["ratings"]["influence"]
-                                          + len(ld.vassals) + len(ld.special_vassals))
-                campaign._disband_lord(state, ld, from_exile=True)
+                                          + len(lord.vassals) + len(lord.special_vassals))
+                campaign._disband_lord(state, lord, from_exile=True)
                 exiles.append(lid)
             continue
-        ld0 = state.lords[lid]
         # Capture of the King (Scenario Ia): Yorkists beating Henry VI capture him
         # onto an Unrouted Yorkist Lord's mat (no Death roll) for +10 Influence.
-        if lid == "henry_vi" and captors:
+        if battle_id == "henry_vi" and captors:
             holder = captors[0] if capture_holder is None else capture_holder
             _require(holder in captors, "bad_capture_holder",
                      "Henry VI's captor must be an Unrouted Yorkist Lord at the Battle")
             influence.gain_influence(state, "yorkist", 10)
-            campaign._disband_lord(state, ld0)
-            ld0.status = LordStatus.CAPTURED
-            ld0.captured_by = holder
-            ld0.calendar_box = None
-            result.setdefault("captured", []).append({"lord": "henry_vi", "by": holder})
+            campaign._disband_lord(state, lord)
+            lord.status = LordStatus.CAPTURED
+            lord.captured_by = succession.current_lord_id(state, holder)
+            lord.calendar_box = None
+            result.setdefault("captured", []).append({"lord": lid, "by": lord.captured_by})
             continue
-        if lid in refuges:
-            dest = refuges[lid]
-            ld0.location = dest
+        if battle_id in refuges:
+            dest = refuges[battle_id]
+            lord.location = dest
             # L16 keeps only Unrouted Troops. The battle-local routed
             # counts must be committed to the persistent mat on escape.
             for troop in _TROOP_TYPES:
-                kept = max(0, ld0.forces.get(troop, 0) - f.routed.get(troop, 0))
+                kept = max(0, lord.forces.get(troop, 0) - f.routed.get(troop, 0))
                 if kept:
-                    ld0.forces[troop] = kept
+                    lord.forces[troop] = kept
                 else:
-                    ld0.forces.pop(troop, None)
-            _disband_routed_vassals(state, f, result)
+                    lord.forces.pop(troop, None)
+            _disband_routed_vassals(state, lord, f, result)
             result.setdefault("warden_moved", []).append(lid)
             result.setdefault("warden_to", {})[lid] = dest
-            if not any(ld0.forces.get(t, 0) for t in _TROOP_TYPES):  # no Troops left -> Disband
-                campaign._disband_lord(state, ld0)
+            if not any(lord.forces.get(t, 0) for t in _TROOP_TYPES):  # no Troops left -> Disband
+                campaign._disband_lord(state, lord)
                 disbands.append(lid)
             continue
-        if lid in talbot_selected:                       # L36: Disband instead of Death roll
-            campaign._disband_lord(state, ld0)
+        if battle_id in talbot_selected:                 # L36: Disband instead of Death roll
+            campaign._disband_lord(state, lord)
             disbands.append(lid)
             result.setdefault("talbot_disbands", []).append(lid)
             continue
@@ -1215,7 +1218,7 @@ def _ending(state: GameState, locale: str, forces: dict[str, _Force], attackers:
             _kill_lord(state, lid)
             deaths.append(lid)
         else:
-            campaign._disband_lord(state, state.lords[lid])
+            campaign._disband_lord(state, lord)
             disbands.append(lid)
     state.store_dice(dice)
     result["deaths"] = deaths
