@@ -25,7 +25,7 @@ CONTRACTS = {
         "parameters": {"target": "Stronghold ID", "extra_spend": "0, 1 or 3 Influence",
                        "use_parliament_votes": "bool; False saves the optional L18 benefit for later",
                        "share": "Co-located Friendly Ship donors in Levy or Campaign"},
-        "constraints": "Phase-specific route, location, Influence and Lordship/Command requirements apply. Menu entries with no extra_spend mean 0, not the only allowed bid.",
+        "constraints": "During Levy, a Lord at a Neutral or Enemy Stronghold can Parley there only. For other targets use a Friendly origin and legal Route. Phase-specific Influence and Lordship/Command costs apply. Menu entries with no extra_spend mean 0, not the only allowed bid.",
     },
     "levy_lord": {
         "parameters": {"target": "Ready friendly Lord ID", "extra_spend": "0, 1 or 3 Influence", "fallback_seat": "chosen eligible alternative Seat when necessary"},
@@ -51,7 +51,7 @@ CONTRACTS = {
         "constraints": "Sharing, Coin priority, Pay-before-Pillage, Influence and eligibility are validated by pay.py. Bare pay uses engine defaults, not forced choices.",
     },
     "march": {
-        "parameters": {"to": "reachable Locale ID", "group": "chosen subset of eligible co-located friendly Lords", "decisions": "Approach/Intercept, Exile, tactical Battle and card choices (see combat help)"},
+        "parameters": {"to": "reachable Locale ID", "group": "chosen subset of eligible co-located friendly Lords", "decisions": "Tactical choices (see combat help). Fixed player views use respond_intercept for the opponent's Intercept."},
         "constraints": "Full-group examples do not exclude partial groups. Marshal/Lieutenant precedence, Haul, Path, Truce and special restrictions apply.",
     },
     "sail": {
@@ -81,6 +81,16 @@ CONTRACTS = {
         "parameters": {"play": "current offered card ID", "pass": "True to decline", "decisions": "any effect-specific choices supported by the resolver"},
         "constraints": "Exactly the awaiting player may respond. Play and pass are both reachable. Private unplayed enemy reactions are not displayed.",
     },
+    "respond_intercept": {
+        "parameters": {"pass": "true to decline",
+                       "lord": "one of the offered Intercepting Lords",
+                       "group": "optional subset of the listed group_options",
+                       "flank_attack": "true to play your Held Flank Attack",
+                       "decisions.flee_rounds": "with Flank Attack, map your Intercepting Lords to Flee rounds"},
+        "constraints": "The opposing player chooses once before the March resolves (4.3.4). "
+                       "A normal attempt succeeds on a roll at or below Valour. "
+                       "Flank Attack succeeds without a roll and makes the intercepting side the Attacker.",
+    },
     "respond_approach": {
         "parameters": {"lord": "the pending approached Lord",
                        "response": "exile or battle. Blocked Ford requires battle",
@@ -104,7 +114,7 @@ CONTRACTS = {
 }
 
 COMBAT = {
-    "notice": "Use respond_approach for a defending Lord's Flee schedule in fixed player views. The trusted host can submit both sides' tactical choices in active or referee mode. See ACTIONS.md and battle.py/commands.py for full payloads and defaults.",
+    "notice": "In fixed player views, the opposing player uses respond_intercept for Intercept, Group and Flank Attack. Use respond_approach for a defending Lord's Flee schedule. The trusted host can submit both sides' tactical choices in active or referee mode. See ACTIONS.md and battle.py/commands.py for full payloads and defaults.",
     "parameters": "attacker_positions/defender_positions (indices 0,1,2; JSON string indices accepted); flank_choice; engagement_order; absorb_order/absorb_lords/absorb_plan; reposition; flee/flee_rounds; valour; leeward; caltrops; ravine; suspicion; for_trust_not_him; culverins; yeomen; caltrops_split; regroup; vanguard; swift_maneuver/swift_maneuver_end; final_charge; patrick; warden/warden_to; talbot; escape_ship; capture_holder; death_order; spoils_to; exile_spoils_to; responses; blocked_ford; intercept/intercept_group/flank_attack",
     "warden_to": "Lancastrian owner's {participating_lord_id: friendly_north_stronghold_id}; only selected Routed Lords facing Death move, each to its chosen refuge (not the Battle Locale). Nonempty map requests L16; {} selects none and keeps it. Without a map, warden=True retains the all-eligible/first-refuge default. Inspect battle_reactions.warden_options for participants and destinations.",
     "talbot": "Lancastrian owner's list of distinct participating Lancastrian Lord IDs. L36 Disbands only selected Routed Lords who would otherwise roll for Death. [] or false keeps L36. true selects all eligible Lords. Inspect battle_reactions.talbot_options for participants.",
@@ -140,6 +150,10 @@ def contract(state, typ, move=None):
     info["details"] = "inspect('grammar') and inspect('card', card='ID'); no output-size limit forbids detail."
     if typ == "resolve_feed" and move and state.pending and state.pending[0].get("kind") == "feed":
         info["options"] = deepcopy(state.pending[0]["options"])
+    if typ == "respond_intercept" and move:
+        for key in ("valour", "group_options"):
+            if key in move:
+                info[key] = deepcopy(move[key])
     if typ == "build_plan":
         side = (move or {}).get("side", state.active_side)
         info["side"] = side

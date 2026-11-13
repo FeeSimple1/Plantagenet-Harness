@@ -114,13 +114,17 @@ def test_parley_costs_and_unfriendly_location():
     r5 = actions.apply_action(s5, {"type": "parley", "side": "yorkist",
                                    "by_lord": "york", "target": "scarborough"})
     assert r5["way_cost"] == 1 and r5["spent"] == 2
-    # at an unfriendly current location: Parley elsewhere still traces a Route ...
-    s3 = _muster()
-    s3.locales["ely"].favour = "neutral"
-    r3 = actions.apply_action(s3, {"type": "parley", "side": "yorkist",
-                                   "by_lord": "york", "target": "lynn"})
-    assert r3["way_cost"] == 1 and r3["spent"] == 2
-    # ... while Parley at that location itself costs 0 Ways
+    # A Neutral or Enemy origin allows only a local Levy Parley (3.4.1).
+    for favour in ("neutral", "lancastrian"):
+        s3 = _muster()
+        s3.locales["ely"].favour = favour
+        before = s3.model_dump_json()
+        with pytest.raises(IllegalAction) as e:
+            actions.apply_action(s3, {"type": "parley", "side": "yorkist",
+                                      "by_lord": "york", "target": "lynn"})
+        assert e.value.code == "not_friendly_locale"
+        assert s3.model_dump_json() == before
+    # Parley at that location itself costs 0 Ways.
     s4 = _muster()
     s4.locales["ely"].favour = "neutral"
     r4 = actions.apply_action(s4, {"type": "parley", "side": "yorkist",

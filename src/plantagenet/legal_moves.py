@@ -43,6 +43,35 @@ def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
             {"type": "react", "side": side, "pass": True}]
 
 
+def _intercept_moves(state: GameState, pending: dict[str, Any]) -> list[dict[str, Any]]:
+    from plantagenet import battle, commands
+
+    side = pending["side"]
+    base = {"type": "respond_intercept", "side": side}
+    moves = [{**base, "pass": True}]
+    flank = battle._side_held_event(state, side, battle.FLANK_ATTACK)
+    dest = pending["locale"]
+    for lid in commands._intercept_candidates(state, dest, side):
+        lord = state.lords[lid]
+        title = commands._effective_title(state, lid)
+        group_options = [
+            ally.lord_id for ally in state.lords.values()
+            if title in ("marshal", "lieutenant") and ally.lord_id != lid
+            and ally.status == LordStatus.MUSTERED and ally.side == side
+            and ally.location == lord.location
+            and not commands._shaky_allies_block(state, [lid, ally.lord_id], dest)
+            and not (title == "lieutenant"
+                     and static_data.load_lords()[ally.lord_id].get("title") == "marshal")
+        ]
+        move = {**base, "lord": lid, "valour": ratings.rating(state, lid, "valour")}
+        if group_options:
+            move["group_options"] = group_options
+        moves.append(move)
+        if flank:
+            moves.append({**move, "flank_attack": True})
+    return moves
+
+
 def _pending_event_moves(state: GameState) -> list[dict[str, Any]]:
     """Offer only the current decision of the head drawn Event (3.1.3)."""
     from plantagenet import events
@@ -114,6 +143,8 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         pending = state.pending[0]
         if pending.get("kind") == "feed":
             return [{"type": "resolve_feed", "side": pending["side"]}]
+        if pending.get("kind") == "intercept":
+            return _intercept_moves(state, pending)
         if pending.get("kind") == "approach":
             responses = ("battle",) if pending["decisions"].get("blocked_ford") else (
                 "exile", "battle")

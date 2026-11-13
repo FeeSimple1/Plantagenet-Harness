@@ -199,6 +199,13 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             "choose_battle_capability", "array_battle", "resolve_battle"):
         raise IllegalAction("battle_setup_only",
                             "Bosworth uses Capability selection, Array, and Battle only")
+    if state.pending and state.pending[0].get("kind") == "intercept":
+        _require(atype == "respond_intercept", "intercept_pending",
+                 "the opposing side must attempt or decline Intercept")
+        from plantagenet.commands import respond_intercept
+        result = respond_intercept(state, action)
+        state.history.append(deepcopy({"action": action, "result": result}))
+        return result
     if state.pending and state.pending[0].get("kind") == "approach":
         _require(atype == "respond_approach", "approach_pending",
                  "the approached side must choose Exile or Battle")
@@ -231,7 +238,10 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
     result = handler(state, action)
-    recorded = {key: value for key, value in action.items() if key != "_defer_approach"}
+    # A deferred movement needs its flag in trusted history to replay its
+    # pending responses. Preserve the ordinary action record for other moves.
+    recorded = action if state.pending else {
+        key: value for key, value in action.items() if key != "_defer_approach"}
     state.history.append(deepcopy({"action": recorded, "result": result}))
     return result
 
@@ -435,6 +445,8 @@ def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     owners = [lord, *commands._shared_lords(state, lord, action.get("share"))]
     way_cost = 0
     if target != here:
+        _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
+                 "Levy Parley beyond the Lord's location requires a Friendly Locale (3.4.1)")
         distance = _route_with_ships(state, loc, target, lord.side, owners)
         _require(distance is not None, "no_route",
                  f"no Route free of Enemy Lords (Friendly except target) to {target} (3.4.1)")

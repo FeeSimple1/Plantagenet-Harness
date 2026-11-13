@@ -12,6 +12,7 @@ Blockade reaction checkpoints.
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from typing import Any, cast
 
 from plantagenet import campaign, influence, ratings, static_data
@@ -30,6 +31,7 @@ from plantagenet.errors import IllegalAction
 from plantagenet.state import CampaignState, Favour, GameState, LordState, LordStatus
 
 _SHAKY_PAIR = {"margaret": "warwick_lancastrian", "warwick_lancastrian": "margaret"}
+_INTERCEPT_KEYS = {"intercept", "intercept_group", "flank_attack"}
 
 
 def _shaky_allies_block(state: GameState, mover_ids: list[str], dest: str) -> bool:
@@ -228,7 +230,8 @@ def _adjust_neville_command(state: GameState, lord_id: str, previous_bonus: int)
         state.campaign.actions_remaining = max(0, state.campaign.actions_remaining + change)
 
 
-def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+def march(state: GameState, action: dict[str, Any], *,
+          intercept_response: dict[str, Any] | None = None) -> dict[str, Any]:
     lord = campaign._active_command_lord(state, action)
     assert state.campaign is not None
     loc = lord_location(lord)
@@ -260,9 +263,11 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if surprise_march:   # L33 Surprise Landing
         _require(way_kind != "path", "surprise_landing_no_path",
                  "the Surprise Landing free March may not use a Path (L33)")
-        state.flags.pop("surprise_march_lord", None)
 
     dest_has_enemy = enemy_lord_at(state, dest, lord.side)
+    truce = _active_event(state, "PARLIAMENT'S TRUCE")
+    _require(not (truce and dest_has_enemy), "parliaments_truce",
+             "Parliament's Truce prohibits Approach this Campaign (Y12/L20)")
 
     # Group March (4.3.1): a Marshal brings any; a Lieutenant all but a Marshal.
     movers = [lord]
@@ -291,6 +296,19 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     defer_approach = bool(action.get("_defer_approach"))
     if defer_approach:
         _owned_flee_rounds(decisions, mover_ids)
+        _require(not (_INTERCEPT_KEYS & decisions.keys()), "wrong_intercept_owner",
+                 "only the opposing side may choose Intercept (4.3.4)")
+        # Reserve the declared March before moving, Hauling or rolling. The
+        # response re-enters this handler with the opponent's election.
+        side = other_side(lord.side)
+        if intercept_response is None and not truce and _intercept_candidates(state, dest, side):
+            declared = deepcopy({**action, "by_lord": lord.lord_id, "group": group})
+            state.pending = [{"kind": "intercept", "side": side, "locale": dest,
+                              "march": declared}]
+            return {"type": "pending_intercept", "awaiting_side": side, "locale": dest,
+                    "by_lord": lord.lord_id, "group": list(group)}
+    if surprise_march:
+        state.flags.pop("surprise_march_lord", None)
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
     # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
     # its owner's mat for Feed; only the group's overall excess is discarded.
@@ -302,13 +320,9 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         m.exile_box = None
         m.moved_fought = True
 
-    # Parliament's Truce (Y12/L20): no Approach or Intercept this Campaign.
-    truce = _active_event(state, "PARLIAMENT'S TRUCE")
-    _require(not (truce and dest_has_enemy), "parliaments_truce",
-             "Parliament's Truce prohibits Approach this Campaign (Y12/L20)")
     # 4.3.4 explicitly permits Intercept to reinforce a pending Approach.
-    intercept_log = (None if truce
-                     else _try_intercept(state, dest, lord.side, decisions))
+    intercept_choices = decisions if intercept_response is None else intercept_response
+    intercept_log = (None if truce else _try_intercept(state, dest, lord.side, intercept_choices))
     if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
         for mover in movers:
             _apply_burgundians(state, mover)
@@ -316,9 +330,11 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         base = {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
                 "group": mover_ids[1:], "whole_card": whole_card, "intercept": intercept_log}
         # Flank Attack reverses which side Approaches and which side responds.
-        return _finish_approach(state, base, mover_ids,
-                                [intercept_log["interceptor"], *intercept_log.get("group", [])],
-                                decisions, defer=defer_approach)
+        attackers = [intercept_log["interceptor"], *intercept_log["group"]]
+        flee_rounds = (_owned_flee_rounds(intercept_response, attackers)
+                       if intercept_response is not None else {})
+        return _finish_approach(state, base, mover_ids, attackers, decisions,
+                                defer=defer_approach, interceptor_flee_rounds=flee_rounds)
     elif intercept_log and intercept_log["success"]:
         dest_has_enemy = True
 
@@ -338,7 +354,10 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         if defer_approach:
             finish_data["defer_approach"] = True
         from plantagenet import reactions
-        return reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
+        result = reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
+        if result["type"] == "pending_reactions" and intercept_log is not None:
+            result["intercept"] = deepcopy(intercept_log)
+        return result
     if whole_card:
         state.campaign.actions_remaining = 0
     else:
@@ -409,6 +428,8 @@ def _approach_prompt(pending: dict[str, Any]) -> dict[str, Any]:
               "locale": pending["locale"], "lord": pending["lords"][0]}
     if pending["decisions"].get("blocked_ford"):
         result["blocked_ford"] = True
+    if pending["base"].get("intercept") is not None:
+        result["intercept"] = deepcopy(pending["base"]["intercept"])
     return result
 
 
@@ -439,7 +460,8 @@ def _owned_flee_rounds(decisions: Any, lords: list[str], *,
 
 def _finish_approach(state: GameState, base: dict[str, Any], movers: list[str],
                      attackers: list[str], decisions: dict[str, Any], *,
-                     defer: bool = False) -> dict[str, Any]:
+                     defer: bool = False,
+                     interceptor_flee_rounds: dict[str, int] | None = None) -> dict[str, Any]:
     """Collect Exile/Battle elections before calling the synchronous resolver."""
     from plantagenet import battle
 
@@ -453,6 +475,8 @@ def _finish_approach(state: GameState, base: dict[str, Any], movers: list[str],
             pending = {"kind": "approach", "locale": dest, "side": other_side(aside),
                        "lords": defenders, "attackers": attackers, "movers": movers,
                        "base": base, "decisions": {**decisions, "responses": {}}}
+            if interceptor_flee_rounds:
+                pending["interceptor_flee_rounds"] = interceptor_flee_rounds
             state.pending = [pending]
             return _approach_prompt(pending)
     if base["type"] == "sail":
@@ -487,6 +511,7 @@ def respond_approach(state: GameState, action: dict[str, Any]) -> dict[str, Any]
         return _approach_prompt(pending)
     decisions = dict(pending["decisions"])
     flee_rounds = _owned_flee_rounds(decisions, pending["movers"], saved_movement=True)
+    flee_rounds.update(pending.get("interceptor_flee_rounds", {}))
     flee_rounds.update(pending.get("responding_flee_rounds", {}))
     has_flee_choices = "flee" in decisions or "flee_rounds" in decisions
     decisions.pop("flee", None)
@@ -497,6 +522,43 @@ def respond_approach(state: GameState, action: dict[str, Any]) -> dict[str, Any]
                             pending["attackers"], decisions)
 
 
+def _intercept_candidates(state: GameState, dest: str, side: str) -> list[str]:
+    adjacent = {loc for loc, way in _adjacency().get(dest, []) if way in ("road", "highway")}
+    return [lid for lid, lord in state.lords.items()
+            if lord.side == side and lord.status == LordStatus.MUSTERED
+            and lord.location in adjacent and not _shaky_allies_block(state, [lid], dest)]
+
+
+def respond_intercept(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Collect the opponent's single Intercept attempt or decline (4.3.4)."""
+    _require(bool(state.pending) and state.pending[0].get("kind") == "intercept",
+             "no_intercept", "there is no Intercept response pending")
+    pending = state.pending[0]
+    _require(action.get("side") == pending["side"], "wrong_intercept_side",
+             "only the opposing side may attempt or decline Intercept")
+    decline = action.get("pass", False)
+    leader = action.get("lord")
+    group = action.get("group", [])
+    flank = action.get("flank_attack", False)
+    tactical = action.get("decisions", {})
+    _require(isinstance(decline, bool) and isinstance(flank, bool),
+             "bad_intercept_response",
+             "choose pass, or a Lord with optional group and flank_attack")
+    _require(isinstance(tactical, dict) and tactical.keys() <= {"flee", "flee_rounds"}
+             and (flank or not tactical), "bad_intercept_decisions",
+             "with Flank Attack, you may schedule Flee for your Intercepting Lords")
+    if decline:
+        _require(leader is None and group == [] and not flank, "bad_intercept_response",
+                 "declining Intercept cannot name an Interceptor, Group or Flank Attack")
+        choices: dict[str, Any] = {}
+    else:
+        _require(isinstance(leader, str) and bool(leader), "bad_intercept_response",
+                 "an Intercept attempt must name a Lord")
+        choices = {"intercept": leader, "intercept_group": group, "flank_attack": flank, **tactical}
+    state.pending = []
+    return march(state, pending["march"], intercept_response=choices)
+
+
 def _try_intercept(state: GameState, dest: str, side: str,
                    decisions: dict[str, Any]) -> dict[str, Any] | None:
     """Intercept (4.3.4): a named Enemy Lord at a Locale adjacent to ``dest``
@@ -505,14 +567,9 @@ def _try_intercept(state: GameState, dest: str, side: str,
     iid = decisions.get("intercept")
     if not iid:
         return None
-    itc = state.lords.get(iid)
-    eligible = (itc is not None and itc.status == LordStatus.MUSTERED and itc.side != side
-                and itc.location is not None
-                and any(n == dest and t in ("road", "highway")
-                        for n, t in _adjacency().get(itc.location, [])))
-    _require(eligible, "bad_intercept",
-             f"{iid} cannot Intercept at {dest} (must be an Enemy adjacent by Road/Highway, 4.3.4)")
-    assert itc is not None
+    _require(iid in _intercept_candidates(state, dest, other_side(side)), "bad_intercept",
+             f"{iid} cannot Intercept at {dest} (4.3.4 and scenario restrictions)")
+    itc = state.lords[iid]
     from plantagenet import battle
     # 4.3.4: an Intercepting Marshal/Lieutenant may bring co-located Lords (Group).
     group = _other_lord_ids(decisions.get("intercept_group", []), iid,
@@ -533,6 +590,8 @@ def _try_intercept(state: GameState, dest: str, side: str,
                          "lieutenant_cannot_lead_marshal",
                          "a Lieutenant may not lead a Marshal (4.3.1)")
             movers.append(g)
+    _require(not _shaky_allies_block(state, [iid, *group], dest),
+             "shaky_allies", "Margaret and Warwick may never enter the same Stronghold (IIY)")
     valour = ratings.rating(state, iid, "valour")
     flank = bool(decisions.get("flank_attack"))
     if flank:                            # Flank Attack (Y2/L2): auto-succeed, become Attacker

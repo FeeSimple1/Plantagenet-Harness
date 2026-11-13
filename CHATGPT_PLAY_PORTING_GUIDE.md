@@ -157,7 +157,15 @@ menu annotations, return values, detailed inspection, previous receipts or
 validation probes. Enemy public mats/Capabilities remain visible. Inspecting a
 static card by ID never asserts that an opponent possesses it.
 
-In a fixed player view, an Approach pauses after any reactions resolve. The
+In a fixed player view, a March with eligible opposing Lords adjacent to the
+destination by Road or Highway pauses for Intercept. The opposing player uses
+`menu('respond_intercept')` to pass or choose a Lord. A player can select a
+subset of that Lord's listed `group_options` with `parameters={"group": [...]}`
+and can select the Flank Attack entry if holding that Event. The saved
+declaration resumes after the response. An active Parliament's Truce prevents
+the Intercept window.
+
+An Approach pauses after any reactions resolve. The
 approached player selects `respond_approach` to choose Exile or Battle for
 each Lord. The trusted host switches to that player's perspective to collect
 the choices. Blocked Ford leaves only the Battle response available. A player
