@@ -24,7 +24,7 @@ def _pending_approach_dests(state: GameState) -> set[str]:
     is being resolved, so co-location there is a legal transient."""
     out: set[str] = set()
     for p in (state.pending or []):
-        if p.get("kind") == "approach":
+        if p.get("kind") in ("approach", "battle_choices"):
             out.add(p["locale"])
         elif p.get("trigger") == "on_approach":
             dest = (p.get("ctx") or {}).get("dest")

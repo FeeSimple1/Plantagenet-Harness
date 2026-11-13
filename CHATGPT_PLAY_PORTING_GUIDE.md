@@ -163,7 +163,9 @@ destination by Road or Highway pauses for Intercept. The opposing player uses
 subset of that Lord's listed `group_options` with `parameters={"group": [...]}`
 and can select the Flank Attack entry if holding that Event. The saved
 declaration resumes after the response. An active Parliament's Truce prevents
-the Intercept window.
+the Intercept window. Flank Attack makes the Intercepting faction the Attacker
+in any ensuing Battle. The original March still determines who is Approached
+and which Approach reactions are offered.
 
 An Approach pauses after any reactions resolve. The
 approached player selects `respond_approach` to choose Exile or Battle for
@@ -172,8 +174,19 @@ the choices. Blocked Ford leaves only the Battle response available. A player
 can add `decisions.flee` or `decisions.flee_rounds` for that Lord when selecting
 Battle. For example, `parameters={"decisions": {"flee_rounds": {"henry_vi": 2}}}`
 schedules Henry VI to Flee in Round 2 if he can still do so. The moving player
-supplies its participating Lords' Flee choices in the March or Sail. Use the
-trusted host's active or referee mode for joint tactical scripts.
+supplies its participating Lords' Flee choices in the March or Sail.
+
+After Exile and Spoils, any remaining Battle pauses for `choose_battle_tactics`.
+The defending player chooses first, then the attacking player sees the committed
+defender Fronts and chooses its own. Use `describe(ID)` for participating Lords,
+Front slots and the default Array. Submit positions and Valour together, for
+example `parameters={"positions":{"1":"somerset_1","0":"henry_vi"},
+"valour":["somerset_1"]}`. Omitting positions accepts the displayed Array.
+Valour can be true (all of your Lords), false (none), or a list of your Lords
+who may reroll failed Protection. Omitting Valour enables it for your side.
+In Bosworth, both owners choose Valour after the committed Arrays.
+Save and load at either choice to resume with fresh menu IDs. The trusted
+host's active and referee modes also support joint tactical scripts.
 
 The trusted host may call `set_perspective(side)` to switch contexts. This is
 **output separation, not authentication**: arbitrary Python code that can read

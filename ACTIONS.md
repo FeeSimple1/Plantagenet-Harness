@@ -249,13 +249,22 @@ opponent pauses for `respond_intercept`. That player can pass or attempt with
 one offered Lord. A Marshal or Lieutenant can bring a subset of the listed
 `group_options`. A player holding Flank Attack can choose `flank_attack: true`
 and may include `decisions.flee_rounds` for the Intercepting Lords.
-The March resumes after the response, with Approach if the opposing Lords
-meet. Trusted joint scripts can continue to use `march.decisions.intercept`,
-`intercept_group` and `flank_attack` together.
+The March resumes after the response. If opposing Lords meet, Approach
+reactions and the approached Lords' Exile/Battle responses follow. Flank Attack
+reverses Battle roles after those responses. Trusted joint scripts can continue
+to use `march.decisions.intercept`, `intercept_group` and `flank_attack` together.
 
-Approach, Avoid Battle, Withdraw, Battle Array choices, Hit allocation,
-Reserve advance, etc. flow through a decision context and are documented
-when implemented.
+In fixed player views, the last `respond_approach` response resolves Exile and
+Spoils and, if a Battle follows, opens `choose_battle_tactics`. The Defender
+chooses first. The Attacker sees the Defender's Fronts before choosing its own.
+Each response accepts `positions` (index 0 left, 1 center, 2 right, mapped to
+participating Lord IDs) and `valour` (true, false, or participating Lord IDs
+allowed to reroll). Omit either field to accept the displayed default Front
+or enable all your Lords' Valour, respectively. Place the Defender's Lords in
+center, then either wing, as able. The Attacker fills the corresponding slots
+starting with center. Other Lords start in Reserve. `describe(ID)` lists the
+participating Lords and eligible slots. The Attacker's response resolves the
+Battle. Both decisions are saved with the pending state.
 
 On Approach, `decisions.responses` can select `"exile"` for each defending
 Lord. Exile Spoils transfer before any remaining defenders fight (4.3.5).
@@ -429,8 +438,9 @@ and history remain administrative, omniscient interfaces, like Campaign Plans.
 `resolve_battle`: `{"type":"resolve_battle","decisions":{...}}` becomes legal
 only after both sides finish setup. It resolves the set-piece Battle and sets
 the scenario result (winner wins; all-Rout is a draw). The Rebel side is Attacker
-and the King side Defender. Tactical Capability/Valour decisions remain available;
-`attacker_positions` and `defender_positions` cannot override the committed Arrays.
+and the King side Defender. In fixed player views, `resolve_battle` opens
+`choose_battle_tactics` for each player's Valour policy. Both committed Arrays
+are locked. Trusted joint scripts can supply other tactical decisions directly.
 
 ### System / flow actions
 

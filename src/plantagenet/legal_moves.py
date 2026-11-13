@@ -136,11 +136,10 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
                            state.grand_scenario["current_war"], winner):
                 return [{"type": "renew_war"}]
         return []
-    if state.phase == "battle":           # Bosworth: choose cards, Array, then Battle
-        from plantagenet.battle_setup import legal_moves as setup_moves
-        return setup_moves(state)
     if state.pending:
         pending = state.pending[0]
+        if pending.get("kind") == "battle_choices":
+            return [{"type": "choose_battle_tactics", "side": pending["side"]}]
         if pending.get("kind") == "feed":
             return [{"type": "resolve_feed", "side": pending["side"]}]
         if pending.get("kind") == "intercept":
@@ -152,6 +151,9 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
                      "lord": pending["lords"][0], "response": response}
                     for response in responses]
         return _reaction_moves(state)
+    if state.phase == "battle":           # Bosworth: choose cards, Array, then Battle
+        from plantagenet.battle_setup import legal_moves as setup_moves
+        return setup_moves(state)
     if state.pending_events:          # drawn immediate Events await resolution (3.1.3)
         return _pending_event_moves(state)
     if state.phase == "campaign":
@@ -900,6 +902,10 @@ def validated_legal_moves(state: GameState) -> dict[str, Any]:
 def _is_templated(mv: dict[str, Any]) -> bool:
     """A move the consumer must parameterize before it can apply (4.1 Plan is a
     free construction): not directly probeable, so kept and flagged."""
+    if mv.get("type") == "choose_battle_tactics":
+        # The default resolution can fail for other tactical policies (such as
+        # a Spoils allocation). Keep the template available for a custom Array.
+        return True
     if mv.get("type") == "build_plan" and "plan" not in mv:
         return True
     return mv.get("type") == "play_event" and "decisions" not in mv

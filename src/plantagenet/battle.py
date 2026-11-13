@@ -15,7 +15,7 @@ Player choices use an optional ``decisions`` payload with deterministic
 defaults: ``flee`` (lord ids, fleeing at the start of Round 1) and
 ``flee_rounds`` ({lord_id: round} to Flee at the start of a later Round, 4.4.2);
 ``attacker_positions``/``defender_positions``
-({index: lord_id}), ``absorb_order`` (unit-type priority), ``valour`` (bool).
+({index: lord_id}), ``absorb_order`` (unit-type priority), ``valour`` (bool or Lord list).
 """
 
 from __future__ import annotations
@@ -419,17 +419,27 @@ def _initial_array(attackers: list[str], defenders: list[str],
         dpos = _array_positions(decisions["defender_positions"], defenders)
         res_def = [d for d in defenders if d not in dpos.values()]
     else:
-        dpos = {idx: lid for idx, lid in zip(_FILL_ORDER, defenders[:3], strict=False)}
+        dpos = _default_front(defenders, _FILL_ORDER)
         res_def = defenders[3:]
     occupied = [i for i in _FILL_ORDER if i in dpos]
     if "attacker_positions" in decisions:
         apos = _array_positions(decisions["attacker_positions"], attackers)
         res_atk = [a for a in attackers if a not in apos.values()]
     else:
-        apos = {idx: lid for idx, lid in zip(occupied, attackers[:len(occupied)], strict=False)}
+        apos = _default_front(attackers, occupied)
         res_atk = attackers[len(occupied):]
     return ({"attacker": apos, "defender": dpos},
             {"attacker": res_atk, "defender": res_def})
+
+
+def _default_front(lords: list[str], slots: list[int]) -> dict[int, str]:
+    return dict(zip(slots, lords, strict=False))
+
+
+def _norfolk_is_late(state: GameState, side_lords: list[str]) -> bool:
+    return ("norfolk" in side_lords and len(side_lords) > 1
+            and "Norfolk is Late" in campaign._active_special_rules(state)
+            and not state.flags.get("norfolk_is_late_used"))
 
 
 def _reposition(positions: dict[str, Any], reserves: dict[str, Any],
@@ -816,7 +826,14 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     _apply_armour_caps(state, forces)
     _apply_phase_caps(state, forces, decisions)
 
+    positions, reserves = _initial_array(attackers, defenders, decisions)
     susp = _resolve_suspicion(state, locale, attackers, defenders, forces, decisions)
+    if susp and susp["success"]:
+        # The Event follows Array. First-Round Reposition fills any vacancy.
+        for side in ("attacker", "defender"):
+            positions[side] = {idx: lid for idx, lid in positions[side].items()
+                               if lid in forces}
+            reserves[side] = [lid for lid in reserves[side] if lid in forces]
     ftrust = _resolve_for_trust(state, attackers, defenders, forces, decisions)
     # All remaining participants fought, including stationary defenders and
     # Lords in Reserve (4.7). Suspicion removes its target before this point;
@@ -824,24 +841,18 @@ def resolve_battle(state: GameState, locale: str, attacker: str | list[str],
     # supply this flag: the defending army may not have moved this activation.
     for lid in attackers + defenders:
         state.lords[lid].moved_fought = True
-    positions, reserves = _initial_array(attackers, defenders, decisions)
     # Norfolk is Late (Towton): in the first Battle including Norfolk and another
     # Yorkist Lord, Norfolk stays in Reserve until Round 2.
     norfolk_late = False
-    if "norfolk" in attackers + defenders \
-            and "Norfolk is Late" in campaign._active_special_rules(state) \
-            and not state.flags.get("norfolk_is_late_used"):
-        nf_side = state.lords["norfolk"].side
-        if any(lid != "norfolk" and state.lords[lid].side == nf_side
-               for lid in attackers + defenders):
-            norfolk_late = True
-            state.flags["norfolk_is_late_used"] = True
-            for side in ("attacker", "defender"):
-                pos = positions[side]
-                for idx in [i for i, lid in pos.items() if lid == "norfolk"]:
-                    pos.pop(idx, None)
-                    if "norfolk" not in reserves[side]:
-                        reserves[side].append("norfolk")
+    if any(_norfolk_is_late(state, lords) for lords in (attackers, defenders)):
+        norfolk_late = True
+        state.flags["norfolk_is_late_used"] = True
+        for side in ("attacker", "defender"):
+            pos = positions[side]
+            for idx in [i for i, lid in pos.items() if lid == "norfolk"]:
+                pos.pop(idx, None)
+                if "norfolk" not in reserves[side]:
+                    reserves[side].append("norfolk")
     rounds: list[dict[str, Any]] = []
 
     def side_alive(ids: list[str]) -> bool:
@@ -1345,19 +1356,35 @@ def _foreign_haven_active(state: GameState) -> bool:
     return "Foreign Haven" in campaign._active_special_rules(state)
 
 
+def approached_lords(state: GameState, locale: str, approaching_side: str) -> list[str]:
+    return [lid for lid, lord in state.lords.items()
+            if lord.status == LordStatus.MUSTERED and lord.location == locale
+            and lord.side != approaching_side]
+
+
 def approach(state: GameState, locale: str, attacker_ids: list[str],
              decisions: dict[str, Any] | None = None) -> dict[str, Any]:
+    result, approaching, battling = prepare_approach(state, locale, attacker_ids, decisions)
+    if battling:
+        result["battle"] = resolve_battle(state, locale, approaching, battling, decisions)
+    return result
+
+
+def prepare_approach(state: GameState, locale: str, mover_ids: list[str],
+                     decisions: dict[str, Any] | None = None, *,
+                     include_stationary: bool = False,
+                     ) -> tuple[dict[str, Any], list[str], list[str]]:
+    """Resolve Approach and Exile Spoils before the surviving Lords Array."""
     decisions = decisions or {}
     responses = decisions.get("responses", {})
-    attackers = [a for a in attacker_ids
-                 if state.lords[a].status == LordStatus.MUSTERED
-                 and state.lords[a].location == locale]
-    if not attackers:
+    approaching = [lid for lid in mover_ids
+                   if state.lords[lid].status == LordStatus.MUSTERED
+                   and state.lords[lid].location == locale]
+    if not approaching:
         raise IllegalAction("no_attacker", "no Approaching Lord at the Locale")
-    aside = state.lords[attackers[0]].side
-    defenders = [lid for lid, v in state.lords.items()
-                 if v.status == LordStatus.MUSTERED and v.location == locale and v.side != aside]
-    dside = state.lords[defenders[0]].side if defenders else None
+    aside = state.lords[approaching[0]].side
+    approached = approached_lords(state, locale, aside)
+    dside = state.lords[approached[0]].side if approached else None
     # Blocked Ford (Y11/L11): either side may play to forbid Exile (all Battle, 4.3.5).
     blocked_ford = False
     for sd in decisions.get("blocked_ford", []):
@@ -1371,9 +1398,9 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
                               "blocked_ford": blocked_ford}
     battling: list[str] = []
     exile_spoils = {"cart": 0, "provender": 0}
-    for d in defenders:
+    for d in approached:
         if not blocked_ford and responses.get(d, "battle") == "exile":
-            _exile(state, locale, d, attackers[0], spoils_taken=exile_spoils)
+            _exile(state, locale, d, approaching[0], spoils_taken=exile_spoils)
             result["exiles"].append(d)
             if d == "warwick_lancastrian" and _foreign_haven_active(state):
                 campaign._foreign_haven_shift(state)     # Foreign Haven (Warwick exiles)
@@ -1388,10 +1415,14 @@ def approach(state: GameState, locale: str, attacker_ids: list[str],
                                decisions.get("spoils_to") if not battling else None)
         result["exile_spoils"] = exile_spoils
         result["exile_spoils_allocation"] = _distribute_spoils(
-            state, attackers, exile_spoils, choice)
-    if battling:
-        result["battle"] = resolve_battle(state, locale, attackers, battling, decisions)
-    return result
+            state, approaching, exile_spoils, choice)
+    if include_stationary and battling:
+        # A Flank Attack's Battle also includes Lords of the marching side
+        # already at the Stronghold. Only the movers receive Approach Spoils.
+        approaching.extend(lid for lid, lord in state.lords.items()
+                           if lid not in approaching and lord.side == aside
+                           and lord.status == LordStatus.MUSTERED and lord.location == locale)
+    return result, approaching, battling
 
 
 def _exile(state: GameState, locale: str, lord_id: str, attacker_id: str, *,

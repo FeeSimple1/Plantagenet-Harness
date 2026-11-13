@@ -196,7 +196,7 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if state.phase == "over" and atype != "renew_war":
         raise IllegalAction("game_over", "the War has ended; only Renewed War may follow (6.1.2)")
     if state.phase == "battle" and atype not in (
-            "choose_battle_capability", "array_battle", "resolve_battle"):
+            "choose_battle_capability", "array_battle", "resolve_battle", "choose_battle_tactics"):
         raise IllegalAction("battle_setup_only",
                             "Bosworth uses Capability selection, Array, and Battle only")
     if state.pending and state.pending[0].get("kind") == "intercept":
@@ -211,6 +211,14 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                  "the approached side must choose Exile or Battle")
         from plantagenet.commands import respond_approach
         result = respond_approach(state, action)
+        state.history.append(deepcopy({"action": action, "result": result}))
+        return result
+    if state.pending and state.pending[0].get("kind") == "battle_choices":
+        _require(atype == "choose_battle_tactics", "battle_choices_pending",
+                 "the awaiting player must choose its Array and Valour policy")
+        from plantagenet.battle_choices import respond
+
+        result = respond(state, action)
         state.history.append(deepcopy({"action": action, "result": result}))
         return result
     if state.pending and state.pending[0].get("kind") == "feed":
@@ -241,7 +249,8 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # A deferred movement needs its flag in trusted history to replay its
     # pending responses. Preserve the ordinary action record for other moves.
     recorded = action if state.pending else {
-        key: value for key, value in action.items() if key != "_defer_approach"}
+        key: value for key, value in action.items()
+        if key not in ("_defer_approach", "_defer_battle_choices")}
     state.history.append(deepcopy({"action": recorded, "result": result}))
     return result
 
@@ -1085,6 +1094,15 @@ def _h_resolve_battle(state: GameState, action: dict[str, Any]) -> dict[str, Any
     decisions = battle_decisions(state, action.get("decisions", {}))
     scn = static_data.load_scenario(state.scenario)
     locale = scn.get("battle_locale", "leicester")
+    if action.get("_defer_battle_choices"):
+        from plantagenet import battle_choices
+
+        return battle_choices.begin(state, locale, attackers, defenders, decisions)
+    return _resolve_bosworth_battle(state, locale, attackers, defenders, decisions)
+
+
+def _resolve_bosworth_battle(state: GameState, locale: str, attackers: list[str],
+                             defenders: list[str], decisions: dict[str, Any]) -> dict[str, Any]:
     for lid in attackers + defenders:                 # Arrayed at the Battle Locale
         state.lords[lid].location = locale
     from plantagenet import battle
