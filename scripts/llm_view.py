@@ -40,8 +40,11 @@ def pending_view(state, viewer):
                 data["options"] = deepcopy(inter["options"])
             return data
         if inter.get("kind") == "approach":
-            return {"kind": "approach", "awaiting_side": inter["side"],
+            data = {"kind": "approach", "awaiting_side": inter["side"],
                     "locale": inter["locale"], "lord": inter["lords"][0]}
+            if inter["decisions"].get("blocked_ford"):
+                data["blocked_ford"] = True
+            return data
         offers = inter.get("offers", [])
         idx = inter.get("idx", 0)
         offer = offers[idx] if idx < len(offers) else {}

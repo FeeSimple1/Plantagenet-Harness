@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from plantagenet import actions
 from plantagenet.scenarios import build_initial_state
+from plantagenet.state import GameState
 from tests._helpers import to_muster
 
 
@@ -84,6 +85,37 @@ def test_parley_blockade_roll_cancels_or_proceeds():
         if saw_cancel and saw_proceed:
             break
     assert saw_cancel and saw_proceed
+
+
+def test_levy_parley_through_a_shared_great_ship_pays_lordship_before_blockade():
+    state, active, _ = _camp(seed=1, warwick_at="dover")
+    state.phase, state.levy_step, state.campaign = "levy", "muster", None
+    lord = state.lords[active]
+    lord.assets.pop("ship")
+    donor = next(ally for ally in state.lords.values()
+                 if ally.side == "lancastrian" and ally.lord_id != active
+                 and ally.status == "mustered")
+    donor.location, donor.capabilities, donor.assets["ship"] = "bristol", ["L6"], 1
+    state.locales["calais"].favour = "neutral"
+    state.active_events.append({"card": "L18", "side": "lancastrian", "scope": "this_levy"})
+    before = state.influence["track"].model_dump()
+    lordship = lord.lordship_spent
+    action = {"type": "parley", "side": "lancastrian", "by_lord": active,
+              "target": "calais", "share": [donor.lord_id]}
+    assert actions.apply_action(state, action)["awaiting"]["card"] == "Y15"
+    assert lord.lordship_spent == lordship + 1
+    assert state.influence["track"].model_dump() == before
+    resumed = GameState.model_validate_json(state.model_dump_json())
+    result = actions.apply_action(state, {"type": "react", "side": "yorkist", "play": "Y15"})
+    assert result["cancelled"] and result["way_cost"] == 1
+    assert state.influence["track"].model_dump() == before
+    assert state.locales["calais"].favour == "neutral"
+    assert "used" not in state.active_events[-1]
+    proceed = actions.apply_action(resumed, {"type": "react", "side": "yorkist", "pass": True})
+    assert proceed["success"] and proceed["roll"] is None and proceed["spent"] == 1
+    assert resumed.locales["calais"].favour == "lancastrian"
+    assert resumed.active_events[-1]["used"] == {active: 1}
+    assert resumed.lords[active].lordship_spent == lordship + 1
 
 
 # ---------------------------------------------------------------- Supply

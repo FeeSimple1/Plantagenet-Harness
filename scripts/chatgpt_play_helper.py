@@ -552,6 +552,29 @@ def _reset_action(action):
     return {**action, "decisions": combined}
 
 
+def _check_combat_ownership(action, viewer):
+    """Check Approach responses, Blocked Ford and Flee in fixed player views."""
+    decisions = action.get("decisions")
+    if decisions is None:
+        return
+    if not isinstance(decisions, dict):
+        raise ValueError("Battle decisions must be a JSON object.")
+    if "responses" in decisions:
+        raise PermissionError("Use respond_approach to choose Exile or Battle for your Lord.")
+    if set(decisions.get("blocked_ford", [])) - {viewer}:
+        raise PermissionError("Only the owner may play Blocked Ford.")
+
+    from plantagenet.commands import _owned_flee_rounds
+
+    owned = [lid for lid, lord in _state().lords.items() if lord.side == viewer]
+    try:
+        _owned_flee_rounds(decisions, owned)
+    except IllegalAction as error:
+        if error.code == "wrong_flee_owner":
+            raise PermissionError("Flee choices may only name your own Lords.") from error
+        raise
+
+
 def apply(choice, *, expected_version=None, parameters=None):
     """Apply a stable ID, or a custom action with an explicit expected_version.
 
@@ -581,13 +604,8 @@ def apply(choice, *, expected_version=None, parameters=None):
     if viewer != "referee" and side != viewer:
         raise PermissionError("This action belongs to the other player.")
     defer_approach = _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail")
-    if defer_approach:
-        decisions = action.get("decisions") or {}
-        if isinstance(decisions, dict):
-            if "responses" in decisions:
-                raise PermissionError("Use respond_approach to choose Exile or Battle for your Lord.")
-            if set(decisions.get("blocked_ford", [])) - {viewer}:
-                raise PermissionError("Only the owner may play Blocked Ford.")
+    if _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail", "resolve_battle"):
+        _check_combat_ownership(action, viewer)
     if viewer != "referee" and action["type"] in ("react", "respond_approach", "resolve_feed"):
         action.setdefault("side", viewer)
     if action.get("type") == "end_activation" and viewer != "referee":

@@ -160,7 +160,12 @@ static card by ID never asserts that an opponent possesses it.
 In a fixed player view, an Approach pauses after any reactions resolve. The
 approached player selects `respond_approach` to choose Exile or Battle for
 each Lord. The trusted host switches to that player's perspective to collect
-the choices. A blocked ford forces Battle and skips these elections.
+the choices. Blocked Ford leaves only the Battle response available. A player
+can add `decisions.flee` or `decisions.flee_rounds` for that Lord when selecting
+Battle. For example, `parameters={"decisions": {"flee_rounds": {"henry_vi": 2}}}`
+schedules Henry VI to Flee in Round 2 if he can still do so. The moving player
+supplies its participating Lords' Flee choices in the March or Sail. Use the
+trusted host's active or referee mode for joint tactical scripts.
 
 The trusted host may call `set_perspective(side)` to switch contexts. This is
 **output separation, not authentication**: arbitrary Python code that can read

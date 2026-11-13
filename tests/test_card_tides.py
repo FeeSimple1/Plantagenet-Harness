@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from plantagenet import campaign, static_data
+import pytest
+
+from plantagenet import actions, campaign, static_data
 from plantagenet.scenarios import build_initial_state
-from plantagenet.state import Favour, LordStatus
+from plantagenet.state import CampaignState, Favour, GameState, LordStatus
 
 
 def _muster(state, lord_id, location):
@@ -88,3 +90,35 @@ def test_deeds_of_charity_pays_provender_for_influence():
     tow = campaign.tides_of_war(s, {"charity": {"salisbury": 2}})
     assert tow["points"]["yorkist"] == base + 2
     assert s.lords["salisbury"].assets["provender"] == 0
+
+
+@pytest.mark.parametrize(("side", "before", "charity", "expected_side", "expected", "threshold"), [
+    ("lancastrian", 37, 0, "lancastrian", 40, 40),
+    ("lancastrian", 45, 0, "lancastrian", 45, 40),
+    ("lancastrian", 32, 0, "lancastrian", 35, None),
+    ("yorkist", 37, 0, "yorkist", 34, None),
+    ("lancastrian", 37, 2, "lancastrian", 38, None),
+])
+def test_end_campaign_applies_net_tides_before_capping_and_checking_victory(
+        side, before, charity, expected_side, expected, threshold):
+    state = build_initial_state("henry_vi", seed=3)
+    state.phase = "campaign"
+    state.levy_step = "done"
+    state.campaign = CampaignState(step="end")
+    track = state.influence["track"]
+    track.marker_side, track.marker_at = side, before
+    action = {"type": "end_campaign"}
+    if charity:
+        state.lords["york"].capabilities.append("Y4")
+        state.lords["york"].assets["provender"] = charity
+        action["decisions"] = {"charity": {"york": charity}}
+    saved = GameState.model_validate_json(state.model_dump_json())
+    result = actions.apply_action(state, action)
+    assert result["tides_of_war"]["points"] == {"lancastrian": 12, "yorkist": 9 + charity}
+    assert (track.marker_side, track.marker_at) == (expected_side, expected)
+    assert result["victory"] == (
+        {"result": expected_side, "rule": "5.2", "threshold": threshold} if threshold else None)
+    if charity:
+        assert state.lords["york"].assets.get("provender", 0) == 0
+    assert actions.apply_action(saved, action) == result
+    assert saved.model_dump_json() == state.model_dump_json()

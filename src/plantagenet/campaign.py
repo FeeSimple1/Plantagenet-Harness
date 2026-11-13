@@ -921,8 +921,8 @@ def end_campaign(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
              "the Campaign ends only after both Plan stacks are exhausted (4.8)")
     # 4.8.1 Tides of War
     tow = tides_of_war(state, action.get("decisions"))
-    influence.gain_influence(state, "lancastrian", tow["points"]["lancastrian"])
-    influence.gain_influence(state, "yorkist", tow["points"]["yorkist"])
+    net = tow["points"]["lancastrian"] - tow["points"]["yorkist"]
+    influence.gain_influence(state, "lancastrian" if net >= 0 else "yorkist", abs(net))
     # 4.8.2 Disembark (Shipwreck may set an Automatic War Victory via Succession).
     disembark = _disembark(state, action.get("decisions"))
     # 4.8.3 Victory check

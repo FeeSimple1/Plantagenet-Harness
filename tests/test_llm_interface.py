@@ -104,6 +104,108 @@ def test_fixed_approach_waits_for_the_reacting_side_before_exile():
     assert get_id("respond_approach", lord=defender, response="exile")
 
 
+@pytest.mark.parametrize("field", ["flee", "flee_rounds"])
+@pytest.mark.parametrize("action_type", ["march", "sail"])
+def test_fixed_mover_cannot_choose_opposing_flee(field, action_type):
+    state, attacker, defender = _approach_setup(henry_holds_kings_parley=False)
+    attach(state, "yorkist")
+    before = state.model_dump_json()
+    stamp = nv.version()
+    schedule = {field: [defender] if field == "flee" else {defender: 1}}
+    if action_type == "march":
+        choice = get_id("march", by_lord=attacker, to="lincoln")
+    else:
+        choice = {"type": "sail", "side": "yorkist", "by_lord": attacker, "to": "lincoln"}
+    with pytest.raises(PermissionError, match="your own Lords"):
+        quiet(nv.apply, choice, expected_version=stamp, parameters={"decisions": schedule})
+    assert state.model_dump_json() == before and nv.version() == stamp
+
+
+@pytest.mark.parametrize("field", ["flee", "flee_rounds"])
+def test_defender_flee_from_a_saved_approach_is_owned_by_the_defender(tmp_path, field):
+    state, attacker, defender = _approach_setup(henry_holds_kings_parley=False)
+    attach(state, "yorkist")
+    move = get_id("march", by_lord=attacker, to="lincoln")
+    reply, _ = quiet(nv.apply, move)
+    assert reply["result"]["type"] == "pending_approach"
+    path = tmp_path / "approach.json"
+    quiet(nv.save, path)
+    for replay in range(2):
+        quiet(nv.load, path, perspective="lancastrian")
+        response = get_id("respond_approach", lord=defender, response="battle")
+        before = nv._state().model_dump_json()
+        bad, _ = quiet(nv.apply, response, parameters={"decisions": {"flee": [attacker]}})
+        assert bad["error"]["code"] == "wrong_flee_owner"
+        assert nv._state().model_dump_json() == before
+        schedule = {field: [defender] if field == "flee" else {defender: 1}}
+        reply, _ = quiet(nv.apply, response, parameters={"decisions": schedule})
+        battle = reply["result"]["approach"]["battle"]
+        assert battle["rounds"][0]["fled"] == [defender]
+        assert battle["winner_side"] == "yorkist"
+        if replay == 0:
+            resolved = nv._state().model_dump_json()
+        else:
+            assert nv._state().model_dump_json() == resolved
+
+
+@pytest.mark.parametrize("reaction_pending", [False, True])
+def test_older_saved_approach_drops_foreign_flee_orders(tmp_path, reaction_pending):
+    state, attacker, defender = _approach_setup(
+        henry_holds_kings_parley=reaction_pending,
+    )
+    attach(state, "yorkist")
+    quiet(nv.apply, get_id("march", by_lord=attacker, to="lincoln"))
+    path = tmp_path / "old_approach.json"
+    quiet(nv.save, path)
+    data = json.loads(path.read_text())
+    old = GameState.model_validate_json(data["state_json"])
+    continuation = old.pending[0]
+    if reaction_pending:
+        continuation = continuation["finish_data"]
+    continuation["decisions"].update(flee=[defender], flee_rounds={defender: 1})
+    data["state_json"] = old.model_dump_json()
+    path.write_text(json.dumps(data))
+    quiet(nv.load, path, perspective="lancastrian")
+    if reaction_pending:
+        quiet(nv.apply, get_id("react", **{"pass": True}))
+    reply, _ = quiet(nv.apply, get_id("respond_approach", lord=defender, response="battle"))
+    first_round = reply["result"]["approach"]["battle"]["rounds"][0]
+    assert not first_round.get("fled")
+    assert first_round["engagements"]
+
+
+def test_blocked_ford_keeps_the_defenders_flee_election():
+    state, attacker, defender = _approach_setup(henry_holds_kings_parley=False)
+    state.decks["yorkist"]["held"] = ["Y11"]
+    attach(state, "yorkist")
+    quiet(nv.apply, get_id("march", by_lord=attacker, to="lincoln"))
+    reply, _ = quiet(nv.apply, get_id("react", play="Y11"))
+    assert reply["result"]["blocked_ford"]
+    quiet(nv.set_perspective, "lancastrian")
+    assert {e["action"]["response"] for e in nv.all_actions()} == {"battle"}
+    move = get_id("respond_approach", lord=defender, response="battle")
+    reply, _ = quiet(nv.apply, move, parameters={"decisions": {"flee": [defender]}})
+    approach = reply["result"]["approach"]
+    assert approach["blocked_ford"] and not approach["exiles"]
+    assert approach["battle"]["rounds"][0]["fled"] == [defender]
+    assert "Y11" not in state.decks["yorkist"]["held"]
+
+
+def test_fixed_mover_preserves_own_flee_and_referee_can_script_both_sides():
+    state, attacker, defender = _approach_setup(henry_holds_kings_parley=False)
+    referee_state = state.model_copy(deep=True)
+    attach(state, "yorkist")
+    move = get_id("march", by_lord=attacker, to="lincoln")
+    quiet(nv.apply, move, parameters={"decisions": {"flee": [attacker]}})
+    quiet(nv.set_perspective, "lancastrian")
+    reply, _ = quiet(nv.apply, get_id("respond_approach", lord=defender, response="battle"))
+    assert reply["result"]["approach"]["battle"]["rounds"][0]["fled"] == [attacker]
+    attach(referee_state, "referee")
+    move = get_id("march", by_lord=attacker, to="lincoln")
+    reply, _ = quiet(nv.apply, move, parameters={"decisions": {"flee": [defender, attacker]}})
+    assert reply["result"]["approach"]["battle"]["rounds"][0]["fled"] == [defender, attacker]
+
+
 def plan_state():
     s = scenarios.build_initial_state("henry_vi", seed=17)
     to_muster(s)
