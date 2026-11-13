@@ -210,6 +210,7 @@ def test_great_ships_levy_parley_is_enumerated_across_seas():
     lord = state.lords["york"]
     lord.location = "lynn"
     lord.capabilities.append("Y6")
+    lord.assets["ship"] = 1
     state.locales["lynn"].favour = "yorkist"
     move = {"type": "parley", "side": "yorkist", "by_lord": "york", "target": "dover"}
     assert move in legal_moves(state)

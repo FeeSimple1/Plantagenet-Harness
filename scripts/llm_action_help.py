@@ -59,7 +59,10 @@ CONTRACTS = {
         "constraints": "Special Vassals count as Forces. Ships have each owner's Great Ships benefit. Discard only excess cargo needed for the selected Ship pool; no automatic discard. discard_options and discard_needed describe alternate allocations. Defaults do not exclude partial groups or Ship donor subsets. Group Sails pool only moving Lords' Ships. A cancelled Naval Blockade Sail spends Command but keeps its cargo.",
     },
     "supply": {"parameters": {"source": "Stronghold or Port", "use_ships": "bool", "share": "co-located friendly transport donors"}},
-    "tax": {"parameters": {"target": "eligible Seat or Special Stronghold", "extra_spend": "0, 1 or 3 Influence"}},
+    "tax": {"parameters": {"target": "eligible Seat or Special Stronghold",
+                           "extra_spend": "0, 1 or 3 Influence",
+                           "share": "chosen co-located Friendly Ship donors"},
+            "constraints": "A sea Route needs an actual Ship. Great Ships applies to its owner's Ships, including when Shared."},
     "end_activation": {"optional": {"feed_order": "{side: [feeding_lord_id, ...]}; reserve own food before sharing in this order", "pillage_by": "{locale_id: unfed_lord_id}; only a still-Unfed Lord may Pillage"}, "constraints": "Ends Commands and begins Feed, Rebel then King. The player view asks each owner for any unresolved Feed election before advancing the card."},
     "resolve_feed": {"optional": {"feed_order": "{your_side: [feeding_lord_id, ...]}", "pillage_by": "{locale_id: unfed_lord_id}"}, "constraints": "Feed your side in the chosen order. After reserving own food and sharing, a still-Unfed Lord may Pillage each eligible Stronghold. The listed Pillage candidates use the default order. Apply without parameters to choose the default."},
     "end_campaign": {
@@ -170,6 +173,7 @@ def contract(state, typ, move=None):
                 info["constraints"] = (
                     "Each Lord may Tax once. Omitted Lords decline; omitted spending is zero. "
                     "Use the normal Tax procedure, including Coin bonuses, with Coin doubled. "
+                    "Co-located Friendly Ships can qualify sea Routes. "
                     "Choose spending before rolling. Exhausted sources cannot be used again."
                 )
             elif cid == "Y26":

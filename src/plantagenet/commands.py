@@ -182,6 +182,17 @@ def _great_ships_available(state: GameState, owners: list[LordState]) -> bool:
                for owner in owners)
 
 
+def _ship_donors(state: GameState, lord: LordState) -> list[LordState]:
+    """Mustered Friendly Lords with Ships available to Share at this Locale."""
+    here = lord_location(lord)
+    if here is None:
+        return []
+    return [ally for ally in state.lords.values()
+            if ally.lord_id != lord.lord_id and ally.side == lord.side
+            and ally.status == LordStatus.MUSTERED and ally.assets.get("ship", 0) > 0
+            and lord_location(ally) == here]
+
+
 def _reachable_ports(here: str, *, all_seas: bool) -> set[str]:
     """Parley and Supply sea links from a Port or Exile box (Y6/L6)."""
     sea = _port_sea().get(here)
@@ -913,16 +924,18 @@ def heralds(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------- 4.6.3 Tax
-def _tax_route_cost(state: GameState, here: str, target: str, side: str,
-                    has_ship: bool, all_seas: bool = False,
+def _tax_route_cost(state: GameState, loc: tuple[str, str], target: str,
+                    side: str, owners: list[LordState], *,
                     block_sea: str | None = None) -> int | None:
-    """Shortest Route (Friendly chain free of Enemy Lords) from the Lord to
-    the Taxed Stronghold (4.6.3). Returns Way count, or None."""
+    """Shortest Friendly, Enemy-free Tax Route using the selected Ships (4.6.3)."""
     from plantagenet.actions import _parley_route_cost
-    if not is_friendly_stronghold(state, target, side):
+
+    if (enemy_lord_at(state, loc[1], side)
+            or not is_friendly_stronghold(state, target, side)):
         return None
-    return _parley_route_cost(state, ("stronghold", here), target, side, has_ship,
-                              all_seas=all_seas, block_sea=block_sea)
+    has_ship = any(owner.assets.get("ship", 0) > 0 for owner in owners)
+    return _parley_route_cost(state, loc, target, side, has_ship,
+                              all_seas=_great_ships_available(state, owners), block_sea=block_sea)
 
 
 def _active_event(state: GameState, title: str, side: str | None = None) -> bool:
@@ -957,7 +970,7 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     _require(lord_at_friendly_locale(state, lord), "not_friendly_locale",
              "Tax requires the acting Lord at a Friendly Locale (4.6.3)")
     loc = lord_location(lord)
-    here = cast(tuple[str, str], loc)[1]
+    assert loc is not None
     target = cast(str, action.get("target"))
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
 
@@ -979,30 +992,22 @@ def tax(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # A Route free of Enemy Lords must still connect a remote target (4.6.3), but
     # Tax pays NO per-Way Influence surcharge -- that surcharge is Parley-only
     # (1.4.2). way_cost is route distance, used only for Naval Blockade, never charged.
-    way_cost: int | None = 0
-    if target != here:
-        has_ship = lord.assets.get("ship", 0) > 0
-        gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
-        way_cost = _tax_route_cost(state, here, target, lord.side, has_ship, all_seas=gs)
-        _require(way_cost is not None, "no_route",
-                 f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
-        assert way_cost is not None
+    owners = [lord, *_shared_lords(state, lord, action.get("share"))]
+    way_cost = _tax_route_cost(state, loc, target, lord.side, owners)
+    _require(way_cost is not None, "no_route",
+             f"no Friendly Route free of Enemy Lords to {target} (4.6.3)")
+    assert way_cost is not None
 
     extra = int(action.get("extra_spend", 0))
     _require(extra in (0, 1, 3), "bad_extra_spend",
              "added Influence spend must be 0, 1, or 3 (1.4.2)")
     # Which blockaded Sea(s) (if any) does the Tax Route use (Y15)?
     used_seas: list[str] = []
-    if target != here and lord.side == "lancastrian":
-        blk = _live_blockade_seas(state)
-        if blk:
-            gs2 = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
-            hs2 = lord.assets.get("ship", 0) > 0
-            used_seas = _route_used_seas(
-                cast(int, way_cost),
-                lambda sea: _tax_route_cost(state, here, target, lord.side, hs2,
-                                            all_seas=gs2, block_sea=sea),
-                blk)
+    if way_cost and lord.side == "lancastrian":
+        used_seas = _route_used_seas(
+            way_cost, lambda sea: _tax_route_cost(
+                state, loc, target, lord.side, owners, block_sea=sea),
+            _live_blockade_seas(state))
     # Command-action cost is spent regardless of any Naval Blockade (Y15 tips).
     state.campaign.actions_remaining -= 1
     from plantagenet import reactions
@@ -1247,8 +1252,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # Stronghold Source: table Provender, Cart-limited, then Deplete (4.5.2).
     _require(state.locales[source].depletion != "exhausted", "exhausted",
              f"{source} is Exhausted and may not be a Supply Source (4.5.1)")
-    gs = great_ships or ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
-    ways = _supply_route_cost(state, here, source, lord.side, all_seas=gs)
+    ways = _supply_route_cost(state, here, source, lord.side, all_seas=great_ships)
     _require(ways is not None, "no_route", f"no Supply Route to {source} (4.5.1)")
     assert ways is not None
     base = static_data.stronghold_yields(source).get("supply", {}).get("provender", 0)
@@ -1261,7 +1265,7 @@ def supply(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if blk:
         used_seas = _route_used_seas(
             ways, lambda sea: _supply_route_cost(state, here, source, lord.side,
-                                                 all_seas=gs, block_sea=sea), blk)
+                                                 all_seas=great_ships, block_sea=sea), blk)
     state.campaign.actions_remaining -= 1           # Command cost spent regardless (Y15)
     from plantagenet import reactions
     ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}

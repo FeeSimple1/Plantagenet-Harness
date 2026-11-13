@@ -255,11 +255,11 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
 
     def neighbours(node: str) -> list[str]:
         out = [n for n, _t in adj.get(node, [])]
-        if node in port_sea:
+        if has_ship and node in port_sea:
             if all_seas:                          # Great Ships: connect all Ports (any Sea)
                 out += [p for p in port_sea if p != node
                         and not (block_sea and block_sea in (port_sea[node], port_sea[p]))]
-            elif has_ship:                        # Sea hop (1.4.2): same-Sea Ports
+            else:                                 # Sea hop (1.4.2): same-Sea Ports
                 sea = port_sea[node]
                 if sea != block_sea:              # Naval Blockade: no hops over the blocked Sea
                     out += [p for p, z in port_sea.items() if z == sea and p != node]
