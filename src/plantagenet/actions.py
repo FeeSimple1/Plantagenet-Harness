@@ -286,6 +286,17 @@ def _parley_route_cost(state: GameState, start: tuple[str, str], target: str,
     return None
 
 
+def _route_with_ships(state: GameState, start: tuple[str, str], target: str, side: str,
+                      owners: list[LordState], *, block_sea: str | None = None) -> int | None:
+    """Find a Parley or Tax Route using the selected Lords' Ships (1.5.3, Y6/L6)."""
+    from plantagenet.commands import _great_ships_available
+
+    return _parley_route_cost(
+        state, start, target, side, any(owner.assets.get("ship", 0) > 0 for owner in owners),
+        all_seas=_great_ships_available(state, owners), block_sea=block_sea,
+    )
+
+
 def _snap(state: GameState, lords: Iterable[str] = (), locales: Iterable[str] = (),
           vassals: Iterable[str] = (), decks: Iterable[str] = ()) -> dict[str, Any]:
     return {
@@ -401,54 +412,76 @@ def _jack_cade_eligible(state: GameState, lord: LordState) -> bool:
 
 
 def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    from plantagenet import commands, reactions
+
     use_votes = action.get("use_parliament_votes", True)
     _require(isinstance(use_votes, bool), "bad_parliament_choice",
              "use_parliament_votes must be true or false (L18)")
     peek = state.lords.get(cast(str, action.get("by_lord")))
-    mods = (_parley_event_mods(state, peek.lord_id, peek.side,
+    mods = (_parley_event_mods(state, peek.lord_id, peek.side, commit=False,
                                use_parliament_votes=use_votes)
             if peek is not None else {"auto": False, "discount": 0, "free_lordship": False})
     lord = _active_lord(state, action, require_lordship=not mods["free_lordship"])
     loc = lord_location(lord)
     assert loc is not None  # _active_lord guarantees a Locale (3.4)
-    kind, here = loc
+    _, here = loc
     target = cast(str, action.get("target", here))
     _require(target in state.locales, "unknown_target", f"no such Stronghold {target!r}")
     _require(not _london_blocks_parley(state, target, lord.side, mods),
              "london_for_york", "London for York requires Event aid for Lancastrian Parley (Y15)")
     extra = int(action.get("extra_spend", 0))
-    has_ship = lord.assets.get("ship", 0) > 0
-
-    own_unfriendly_here = (target == here and kind == "stronghold"
-                           and not is_friendly_stronghold(state, here, lord.side))
-    way_cost: int | None
-    if own_unfriendly_here:
-        way_cost = 0  # Parley at a not-yet-Friendly current location targets it only
-    else:
-        gs = ratings.has_capability(state, lord.lord_id, "GREAT SHIPS")
-        way_cost = _parley_route_cost(state, loc, target, lord.side, has_ship, all_seas=gs)
-        _require(way_cost is not None, "no_route",
+    _require(extra in (0, 1, 3), "bad_extra_spend",
+             "added Influence spend must be 0, 1, or 3 (1.4.2)")
+    owners = [lord, *commands._shared_lords(state, lord, action.get("share"))]
+    way_cost = 0
+    if target != here:
+        distance = _route_with_ships(state, loc, target, lord.side, owners)
+        _require(distance is not None, "no_route",
                  f"no Route free of Enemy Lords (Friendly except target) to {target} (3.4.1)")
-        assert way_cost is not None
+        assert distance is not None
+        way_cost = distance
 
-    fav = state.locales[target].favour
-    _require(cast(str, fav) != cast(str, lord.side), "already_friendly",
+    _require(not is_friendly_stronghold(state, target, lord.side), "already_friendly",
              f"{target} already Favours {lord.side} (3.4.1)")
 
-    chk = influence.check_influence(state, lord.lord_id, lord.side,
-                                    extra_spend=extra, way_cost=way_cost,
-                                    discount=mods["discount"], action="parley",
-                                    automatic=bool(mods["auto"]))
+    used_seas: list[str] = []
+    if way_cost and lord.side == "lancastrian":
+        used_seas = commands._route_used_seas(
+            way_cost, lambda sea: _route_with_ships(
+                state, loc, target, lord.side, owners, block_sea=sea),
+            commands._live_blockade_seas(state),
+        )
+    # Y15 spends Lordship before the Blockade roll. The Influence check follows it.
     if not mods["free_lordship"]:
         lord.lordship_spent += 1
-    changed = None
-    undo = _snap(state, locales=[target])
-    if chk["success"]:
-        _shift_favour(state, target, lord.side)
-        changed = f"{target}: {Favour(fav).value} -> {Favour(state.locales[target].favour).value}"
+    ctx = {"actor": lord.lord_id, "side": lord.side, "seas": used_seas}
+    finish = {"lord": lord.lord_id, "target": target, "way_cost": way_cost,
+              "extra": extra, "use_parliament_votes": use_votes}
+    return reactions.gate(state, "uses_port_on_sea", ctx, "actions:levy_parley_finish", finish)
+
+
+def levy_parley_finish(state: GameState, data: dict[str, Any], *,
+                       cancelled: bool) -> dict[str, Any]:
+    """Resolve Levy Parley after any Naval Blockade reaction (3.4.1, Y15)."""
+    lord = state.lords[data["lord"]]
+    target = data["target"]
     result = {"type": "parley", "by_lord": lord.lord_id, "target": target,
-              "way_cost": way_cost, **chk, "favour_change": changed}
+              "way_cost": data["way_cost"]}
+    if cancelled:
+        return {**result, "cancelled": True}
+    mods = _parley_event_mods(state, lord.lord_id, lord.side,
+                              use_parliament_votes=data["use_parliament_votes"])
+    chk = influence.check_influence(
+        state, lord.lord_id, lord.side, extra_spend=data["extra"], way_cost=data["way_cost"],
+        discount=mods["discount"], action="parley", automatic=bool(mods["auto"]),
+    )
+    result.update(chk, favour_change=None)
     if chk["success"]:
+        undo = _snap(state, locales=[target])
+        fav = state.locales[target].favour
+        _shift_favour(state, target, lord.side)
+        result["favour_change"] = (
+            f"{target}: {Favour(fav).value} -> {Favour(state.locales[target].favour).value}")
         return _gate_levy_cancel(state, lord.side, undo, result)
     return result
 

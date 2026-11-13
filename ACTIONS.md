@@ -138,7 +138,7 @@ adds +0/+1/+2 to the Influence rating for that check (1.4.2).
 
 | Action | Args | Rule | Status |
 |---|---|---|---|
-| `parley` | `target` (Stronghold; default current), `extra_spend`, `use_parliament_votes?` | 3.4.1 | done |
+| `parley` | `target` (Stronghold; default current), `extra_spend`, `use_parliament_votes?`, `share?` (co-located Friendly Ship donors) | 3.4.1 | done |
 | `levy_lord` | `target` (Ready Lord id), `extra_spend` | 3.4.2 | done |
 | `levy_vassal` | `target` (regular Vassal id), `extra_spend` | 3.4.3 | done |
 | `levy_transport` | `transport`: `"cart"` (2 Carts) or `"ship"` (1 Ship) | 3.4.5 | done |
@@ -281,10 +281,10 @@ the expected participants when either side has multiple Lords. For Bosworth,
 `death_order` lists the Lords who rolled in order.
 
 Naval Blockade (Y15) gates Lancastrian Sea actions via the `uses_port_on_sea`
-reaction trigger: `sail`, `tax`, `parley` (campaign), and `supply` pause for a
-Yorkist Warwick (Y15) at a Port whenever the action uses a Port on his Sea. The
-Command-action cost is spent regardless; a block cancels the action before the
-Influence check / effect.
+reaction trigger. `sail`, `tax`, `parley` (Levy or Campaign), and `supply` pause
+for a Yorkist Warwick (Y15) at a Port whenever the action uses a Port on his Sea.
+Spend the Lordship or Command cost before the reaction. A block cancels the
+action before the Influence check and any change to Favour.
 
 In-Battle Held-Event / Capability plays are passed via the `resolve_battle`
 `decisions` payload at the Event step (4.4.1): e.g. `leeward`, `caltrops`,

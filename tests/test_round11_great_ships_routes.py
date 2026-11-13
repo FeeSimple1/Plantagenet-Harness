@@ -7,6 +7,8 @@ from plantagenet.errors import IllegalAction
 from plantagenet.legal_moves import legal_moves
 from plantagenet.scenarios import build_initial_state
 from plantagenet.state import GameState
+from tests._helpers import to_muster
+from tests.test_llm_interface import attach, get_id, nv, quiet
 
 
 def _shipping_command(active, *, in_exile, great_ships=True):
@@ -67,3 +69,49 @@ def test_campaign_can_use_the_selected_ship_owners_cross_sea_reach(command, owne
             assert result["spent"] == 2
             if owner == "self":
                 assert result["success"]
+
+
+@pytest.mark.parametrize(("target", "capability_holder", "route"), [
+    ("harlech", None, True),
+    ("calais", "york", True),
+    ("calais", "march", False),
+])
+def test_levy_parley_can_use_the_selected_ship_owners_reach(target, capability_holder, route):
+    state = to_muster(build_initial_state("henry_vi", seed=3))
+    for lid in ("york", "march"):
+        state.lords[lid].location = "bristol"
+    state.locales["bristol"].favour = "yorkist"
+    state.locales[target].favour = "neutral"
+    if capability_holder:
+        actions.apply_action(state, {"type": "levy_capability", "side": "yorkist",
+                                     "by_lord": capability_holder, "card": "Y6"})
+    actions.apply_action(state, {"type": "levy_transport", "side": "yorkist",
+                                 "by_lord": "york", "transport": "ship"})
+    action = {"type": "parley", "side": "yorkist", "by_lord": "march",
+              "target": target, "share": ["york"]}
+    before = state.model_dump_json()
+    attach(state, "yorkist")
+    offered = [m for m in legal_moves(state) if all(m.get(key) == v for key, v in action.items())]
+    assert bool(offered) is route
+    assert state.model_dump_json() == before
+    if not route:
+        with pytest.raises(IllegalAction) as exc:
+            actions.apply_action(state, action)
+        assert exc.value.code == "no_route"
+        assert state.model_dump_json() == before
+        return
+    invalid = {**action, "share": ["york", "york"]}
+    with pytest.raises(IllegalAction) as exc:
+        actions.apply_action(state, invalid)
+    assert exc.value.code == "bad_share"
+    assert state.model_dump_json() == before
+    selected = get_id("parley", by_lord="march", target=target, share=["york"])
+    reply, _ = quiet(nv.apply, selected)
+    result = reply["result"]
+    assert result["way_cost"] == 1 and result["spent"] == 2
+    assert result["success"] and state.locales[target].favour == "yorkist"
+    assert state.lords["march"].lordship_spent == 1
+    assert state.lords["york"].assets["ship"] == 1
+    restored = GameState.model_validate_json(before)
+    assert actions.apply_action(restored, offered[0]) == result
+    assert restored.model_dump(exclude={"history"}) == state.model_dump(exclude={"history"})

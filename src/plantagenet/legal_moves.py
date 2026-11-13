@@ -115,9 +115,11 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         if pending.get("kind") == "feed":
             return [{"type": "resolve_feed", "side": pending["side"]}]
         if pending.get("kind") == "approach":
+            responses = ("battle",) if pending["decisions"].get("blocked_ford") else (
+                "exile", "battle")
             return [{"type": "respond_approach", "side": pending["side"],
                      "lord": pending["lords"][0], "response": response}
-                    for response in ("exile", "battle")]
+                    for response in responses]
         return _reaction_moves(state)
     if state.pending_events:          # drawn immediate Events await resolution (3.1.3)
         return _pending_event_moves(state)
@@ -301,26 +303,32 @@ def _troop_levy_moves(state: GameState, lord: LordState, side: str) -> list[dict
 def _parley_moves(state: GameState, lord_id: str, lord: LordState, side: str,
                   friendly_here: bool,
                   free_only: bool = False) -> list[dict[str, Any]]:
+    from plantagenet.commands import _ship_donors
+
     mods = actions._parley_event_mods(state, lord_id, side, commit=False)
     if free_only and not mods["free_lordship"]:
         return []
     loc = cast(tuple[str, str], actions.lord_location(lord))
     kind, here = loc
     moves: list[dict[str, Any]] = []
-    has_ship = lord.assets.get("ship", 0) > 0
     # Current location, if a Stronghold not yet Friendly to us.
     if kind == "stronghold" and state.locales[here].favour != side:
         moves.append({"type": "parley", "side": side, "by_lord": lord_id, "target": here})
     if friendly_here:
         # Reachable Strongholds that don't already Favour us.
-        great_ships = ratings.has_capability(state, lord_id, "GREAT SHIPS")
+        donors = _ship_donors(state, lord)
+        donor_ids = [ally.lord_id for ally in donors]
         for tid, ls in state.locales.items():
             if tid == here or ls.favour == side:
                 continue
-            if actions._parley_route_cost(state, loc, tid, side, has_ship,
-                                           all_seas=great_ships) is not None:
-                moves.append({"type": "parley", "side": side,
-                              "by_lord": lord_id, "target": tid})
+            move = {"type": "parley", "side": side, "by_lord": lord_id, "target": tid}
+            own_route = actions._route_with_ships(state, loc, tid, side, [lord])
+            if own_route is not None:
+                moves.append(move)
+            if donors:
+                shared_route = actions._route_with_ships(state, loc, tid, side, [lord, *donors])
+                if shared_route is not None and (own_route is None or shared_route < own_route):
+                    moves.append({**move, "share": donor_ids, "share_options": donor_ids})
     votes_available = (side == "lancastrian" and any(
         e.get("card") == "L18" and e.get("side") == side
         and e.get("used", {}).get(lord_id, 0) < 1 for e in state.active_events))

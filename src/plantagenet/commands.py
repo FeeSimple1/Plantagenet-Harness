@@ -284,8 +284,13 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                          "a Lieutenant may not lead a Marshal (4.3.1)")
             movers.append(g)
 
-    _require(not _shaky_allies_block(state, [m.lord_id for m in movers], dest),
+    mover_ids = [m.lord_id for m in movers]
+    _require(not _shaky_allies_block(state, mover_ids, dest),
              "shaky_allies", "Margaret and Warwick may never enter the same Stronghold (IIY)")
+    decisions = action.get("decisions") or {}
+    defer_approach = bool(action.get("_defer_approach"))
+    if defer_approach:
+        _owned_flee_rounds(decisions, mover_ids)
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
     # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
     # its owner's mat for Feed; only the group's overall excess is discarded.
@@ -297,7 +302,6 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         m.exile_box = None
         m.moved_fought = True
 
-    decisions = action.get("decisions") or {}
     # Parliament's Truce (Y12/L20): no Approach or Intercept this Campaign.
     truce = _active_event(state, "PARLIAMENT'S TRUCE")
     _require(not (truce and dest_has_enemy), "parliaments_truce",
@@ -305,8 +309,6 @@ def march(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     # 4.3.4 explicitly permits Intercept to reinforce a pending Approach.
     intercept_log = (None if truce
                      else _try_intercept(state, dest, lord.side, decisions))
-    mover_ids = [m.lord_id for m in movers]
-    defer_approach = bool(action.get("_defer_approach"))
     if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
         for mover in movers:
             _apply_burgundians(state, mover)
@@ -403,8 +405,36 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
 
 
 def _approach_prompt(pending: dict[str, Any]) -> dict[str, Any]:
-    return {"type": "pending_approach", "awaiting_side": pending["side"],
-            "locale": pending["locale"], "lord": pending["lords"][0]}
+    result = {"type": "pending_approach", "awaiting_side": pending["side"],
+              "locale": pending["locale"], "lord": pending["lords"][0]}
+    if pending["decisions"].get("blocked_ford"):
+        result["blocked_ford"] = True
+    return result
+
+
+def _owned_flee_rounds(decisions: Any, lords: list[str], *,
+                       saved_movement: bool = False) -> dict[str, int]:
+    """Read a player's Flee schedule, with the explicit round taking priority."""
+    _require(isinstance(decisions, dict), "bad_battle_decisions",
+             "battle decisions must be a JSON object")
+    first_round = decisions.get("flee", [])
+    scheduled = decisions.get("flee_rounds")
+    if scheduled is None:
+        scheduled = {}
+    _require(isinstance(first_round, list) and all(isinstance(lid, str) for lid in first_round)
+             and isinstance(scheduled, dict), "bad_flee",
+             "flee must list Lord IDs and flee_rounds must map Lord IDs to rounds")
+    rounds: dict[str, int] = dict.fromkeys(first_round, 1)
+    rounds.update(scheduled)
+    if saved_movement:
+        # Older deferred movements could store orders for the responding Lords.
+        rounds = {lid: number for lid, number in rounds.items() if lid in lords}
+    else:
+        _require(rounds.keys() <= set(lords), "wrong_flee_owner",
+                 "Flee choices may only name your own Lords taking part in this action (4.4.2)")
+    _require(all(type(number) is int and number >= 1 for number in rounds.values()),
+             "bad_flee_round", "Flee round must be a positive integer (4.4.2)")
+    return rounds
 
 
 def _finish_approach(state: GameState, base: dict[str, Any], movers: list[str],
@@ -414,7 +444,7 @@ def _finish_approach(state: GameState, base: dict[str, Any], movers: list[str],
     from plantagenet import battle
 
     dest = base["to"]
-    if defer and not decisions.get("blocked_ford"):
+    if defer:
         aside = state.lords[attackers[0]].side
         defenders = [lid for lid, lord in state.lords.items()
                      if lord.status == LordStatus.MUSTERED and lord.location == dest
@@ -440,15 +470,31 @@ def respond_approach(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     lord = pending["lords"][0]
     _require(action.get("side") == pending["side"], "wrong_approach_side",
              "only the approached side may choose Exile or Battle")
-    _require(action.get("lord") == lord and action.get("response") in ("exile", "battle"),
-             "bad_approach_response", f"choose Exile or Battle for {lord}")
-    pending["decisions"]["responses"][lord] = action["response"]
+    response = action.get("response")
+    blocked = bool(pending["decisions"].get("blocked_ford"))
+    allowed = ("battle",) if blocked else ("exile", "battle")
+    _require(action.get("lord") == lord and response in allowed,
+             "bad_approach_response", f"choose {' or '.join(allowed)} for {lord}")
+    choices = action.get("decisions", {})
+    _require(isinstance(choices, dict) and choices.keys() <= {"flee", "flee_rounds"},
+             "bad_approach_decisions", "Approach responses accept flee and flee_rounds")
+    flee_rounds = _owned_flee_rounds(choices, [lord] if response == "battle" else [])
+    if flee_rounds:
+        pending.setdefault("responding_flee_rounds", {}).update(flee_rounds)
+    pending["decisions"]["responses"][lord] = response
     pending["lords"].pop(0)
     if pending["lords"]:
         return _approach_prompt(pending)
+    decisions = dict(pending["decisions"])
+    flee_rounds = _owned_flee_rounds(decisions, pending["movers"], saved_movement=True)
+    flee_rounds.update(pending.get("responding_flee_rounds", {}))
+    has_flee_choices = "flee" in decisions or "flee_rounds" in decisions
+    decisions.pop("flee", None)
+    if flee_rounds or has_flee_choices:
+        decisions["flee_rounds"] = flee_rounds
     state.pending = []
     return _finish_approach(state, pending["base"], pending["movers"],
-                            pending["attackers"], pending["decisions"])
+                            pending["attackers"], decisions)
 
 
 def _try_intercept(state: GameState, dest: str, side: str,
@@ -713,6 +759,9 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                  "shaky_allies",
                  "Margaret and Warwick may never enter the same Stronghold (IIY)")
 
+    if action.get("_defer_approach"):
+        _owned_flee_rounds(action.get("decisions") or {}, [m.lord_id for m in movers])
+
     # Ship requirement: 1 Ship per 6 Forces, per 2 Provender, per 2 Carts (4.6.1).
     # A single Ship carries up to each limit. Ships may be Shared (1.5.3): from
     # co-located Friendly Lords for a lone Lord, or pooled across the Group.
@@ -928,14 +977,12 @@ def _tax_route_cost(state: GameState, loc: tuple[str, str], target: str,
                     side: str, owners: list[LordState], *,
                     block_sea: str | None = None) -> int | None:
     """Shortest Friendly, Enemy-free Tax Route using the selected Ships (4.6.3)."""
-    from plantagenet.actions import _parley_route_cost
+    from plantagenet.actions import _route_with_ships
 
     if (enemy_lord_at(state, loc[1], side)
             or not is_friendly_stronghold(state, target, side)):
         return None
-    has_ship = any(owner.assets.get("ship", 0) > 0 for owner in owners)
-    return _parley_route_cost(state, loc, target, side, has_ship,
-                              all_seas=_great_ships_available(state, owners), block_sea=block_sea)
+    return _route_with_ships(state, loc, target, side, owners, block_sea=block_sea)
 
 
 def _active_event(state: GameState, title: str, side: str | None = None) -> bool:
