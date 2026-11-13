@@ -181,6 +181,7 @@ Phase 3a-ii adds the movement/economy Commands:
 | Action | Args | Rule | Status |
 |---|---|---|---|
 | `march` | `side`, `by_lord`, `to`, optional `group`, `decisions` | 4.3 | done (speeds + Haul + Group; into an Enemy Locale -> Approach 4.3.5) |
+| `respond_intercept` | `side`, `pass: true` or `lord` with optional `group`, `flank_attack` | 4.3.4 | Opposing player's choice after a March declaration in a fixed player view |
 | `sail` | `side`, `by_lord`, `to` (Port or Sea), optional `group`, `share`, `discard` | 4.6.1 | 1 Ship per 6 Forces (including Special Vassals), 2 Provender, 2 Carts; whole card unless Seamanship |
 | `tax` | `side`, `by_lord`, `target`, `extra_spend` | 4.6.3 | done (own Seat auto; Vassal Seat / Special via Route + Influence; strongholds Coin; Depletes) |
 | `parley` | `side`, `by_lord`, `target`, `extra_spend`, optional `share` | 4.6.4 | Own location succeeds automatically. An adjacent Stronghold or connected Port requires Influence. |
@@ -191,9 +192,7 @@ name co-located friendly Ship owners whose Ships the action uses.
 
 Feed (4.7) is now live: a Moved-Fought Lord removes 1 Provender per 6 Troops;
 if short it Pillages an Unexhausted Stronghold (3.2.1) and Feeds from the
-gain, else Unfed-Disbands (3.2.4). March into an Enemy Locale (Approach
-4.3.5) or adjacent to an Enemy by land (Intercept 4.3.4) is rejected with a
-`*_phase_3b` code (Battle is Phase 3b).
+gain, else Unfed-Disbands (3.2.4).
 
 The Campaign Command menu (4.2.2) is complete: March, Sail, Supply, Forage,
 Tax, Parley, Pass.
@@ -244,6 +243,15 @@ card effects are Phase 4.
 Rules of Play p. 32.)
 
 ### Combat sub-decisions (Phase 3b)
+
+In fixed player views, a March to a Stronghold with an eligible adjacent
+opponent pauses for `respond_intercept`. That player can pass or attempt with
+one offered Lord. A Marshal or Lieutenant can bring a subset of the listed
+`group_options`. A player holding Flank Attack can choose `flank_attack: true`
+and may include `decisions.flee_rounds` for the Intercepting Lords.
+The March resumes after the response, with Approach if the opposing Lords
+meet. Trusted joint scripts can continue to use `march.decisions.intercept`,
+`intercept_group` and `flank_attack` together.
 
 Approach, Avoid Battle, Withdraw, Battle Array choices, Hit allocation,
 Reserve advance, etc. flow through a decision context and are documented

@@ -42,7 +42,7 @@ from plantagenet.state import GameState  # noqa: E402
 VALIDATE = True
 SOFT_OUTPUT_CHARS = None  # advisory only: never truncates a result or excludes a choice
 _NON_ACTION_KEYS = {"note", "cards_required", "discard_held_options", "battle_reactions",
-                    "death_order_options", "event_choices"}
+                    "death_order_options", "event_choices", "group_options", "valour"}
 _S = {"state": None, "scenario": None, "seed": 1, "history": [], "findings": [],
       "turn": 0, "transitions": 0, "perspective": "active", "epoch": "", "revision": 0,
       "fingerprint": None, "catalog": None, "baseline": None, "receipts": [],
@@ -122,6 +122,12 @@ def _clean(action):
             if k not in _NON_ACTION_KEYS and not k.startswith("_")}
 
 
+def _movement_action(action):
+    if _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail"):
+        return {**action, "_defer_approach": True}
+    return action
+
+
 def scenario_ids():
     return static_data.list_scenario_ids()
 
@@ -163,7 +169,7 @@ def _validate_entries():
             entry["status"] = "template"
             continue
         try:
-            apply_action_local(deep_copy(_state()), _clean(a))
+            apply_action_local(deep_copy(_state()), _movement_action(_clean(a)))
             entry["status"] = "valid"
         except Exception as error:
             entry["status"] = "rejected"
@@ -553,18 +559,20 @@ def _reset_action(action):
 
 
 def _check_combat_ownership(action, viewer):
-    """Check Approach responses, Blocked Ford and Flee in fixed player views."""
+    """Check Intercept, Approach responses, Blocked Ford and Flee ownership."""
     decisions = action.get("decisions")
     if decisions is None:
         return
     if not isinstance(decisions, dict):
         raise ValueError("Battle decisions must be a JSON object.")
+    from plantagenet.commands import _INTERCEPT_KEYS, _owned_flee_rounds
+
+    if action["type"] == "march" and _INTERCEPT_KEYS & decisions.keys():
+        raise PermissionError("Use respond_intercept to attempt or decline Intercept for your side.")
     if "responses" in decisions:
         raise PermissionError("Use respond_approach to choose Exile or Battle for your Lord.")
     if set(decisions.get("blocked_ford", [])) - {viewer}:
         raise PermissionError("Only the owner may play Blocked Ford.")
-
-    from plantagenet.commands import _owned_flee_rounds
 
     owned = [lid for lid, lord in _state().lords.items() if lord.side == viewer]
     try:
@@ -603,10 +611,10 @@ def apply(choice, *, expected_version=None, parameters=None):
     side = action.get("side", viewer if viewer != "referee" else _view.decision_side(_state()))
     if viewer != "referee" and side != viewer:
         raise PermissionError("This action belongs to the other player.")
-    defer_approach = _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail")
     if _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail", "resolve_battle"):
         _check_combat_ownership(action, viewer)
-    if viewer != "referee" and action["type"] in ("react", "respond_approach", "resolve_feed"):
+    if viewer != "referee" and action["type"] in (
+            "react", "respond_intercept", "respond_approach", "resolve_feed"):
         action.setdefault("side", viewer)
     if action.get("type") == "end_activation" and viewer != "referee":
         orders = action.get("feed_order", {})
@@ -626,7 +634,7 @@ def apply(choice, *, expected_version=None, parameters=None):
     before_key = _baseline_key()
     result_owner = side
     try:
-        engine_action = {**action, "_defer_approach": True} if defer_approach else action
+        engine_action = _movement_action(action)
         if action["type"] == "end_activation" and viewer != "referee":
             engine_action = {**engine_action, "interactive_feed": True}
         raw_result = apply_action_local(s, engine_action)
