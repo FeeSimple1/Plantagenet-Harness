@@ -47,6 +47,16 @@ def get_id(typ, **filters):
                 and all(e["action"].get(k) == v for k, v in filters.items()))
 
 
+def complete_battle_choices(*, defender=None, attacker=None):
+    for role, parameters in (("defender", defender), ("attacker", attacker)):
+        pending = nv._state().pending[0]
+        assert pending["kind"] == "battle_choices" and pending["role"] == role
+        quiet(nv.set_perspective, pending["side"])
+        reply, _ = quiet(nv.apply, get_id("choose_battle_tactics"), parameters=parameters)
+        assert reply["kind"] == "result", dict(reply)
+    return reply
+
+
 @pytest.mark.parametrize("response", ["exile", "battle"])
 def test_fixed_players_resolve_approach_with_the_defenders_choice_after_reload(tmp_path, response):
     state, attacker, defender = _approach_setup(seed=1, henry_holds_kings_parley=False)
@@ -84,6 +94,9 @@ def test_fixed_players_resolve_approach_with_the_defenders_choice_after_reload(t
     with pytest.raises(nv.StaleSelectionError):
         quiet(nv.apply, move)
     final, _ = quiet(nv.apply, get_id("respond_approach", lord=defender, response=response))
+    if response == "battle":
+        assert final["result"]["type"] == "pending_battle_choices"
+        final = complete_battle_choices()
     assert final["result"]["approach"] == result["approach"]
     assert nv._state().model_dump(exclude={"history"}) == expected.model_dump(exclude={"history"})
 
@@ -139,6 +152,8 @@ def test_defender_flee_from_a_saved_approach_is_owned_by_the_defender(tmp_path, 
         assert nv._state().model_dump_json() == before
         schedule = {field: [defender] if field == "flee" else {defender: 1}}
         reply, _ = quiet(nv.apply, response, parameters={"decisions": schedule})
+        assert reply["result"]["type"] == "pending_battle_choices"
+        reply = complete_battle_choices()
         battle = reply["result"]["approach"]["battle"]
         assert battle["rounds"][0]["fled"] == [defender]
         assert battle["winner_side"] == "yorkist"
@@ -169,6 +184,8 @@ def test_older_saved_approach_drops_foreign_flee_orders(tmp_path, reaction_pendi
     if reaction_pending:
         quiet(nv.apply, get_id("react", **{"pass": True}))
     reply, _ = quiet(nv.apply, get_id("respond_approach", lord=defender, response="battle"))
+    assert reply["result"]["type"] == "pending_battle_choices"
+    reply = complete_battle_choices()
     first_round = reply["result"]["approach"]["battle"]["rounds"][0]
     assert not first_round.get("fled")
     assert first_round["engagements"]
@@ -185,6 +202,8 @@ def test_blocked_ford_keeps_the_defenders_flee_election():
     assert {e["action"]["response"] for e in nv.all_actions()} == {"battle"}
     move = get_id("respond_approach", lord=defender, response="battle")
     reply, _ = quiet(nv.apply, move, parameters={"decisions": {"flee": [defender]}})
+    assert reply["result"]["type"] == "pending_battle_choices"
+    reply = complete_battle_choices()
     approach = reply["result"]["approach"]
     assert approach["blocked_ford"] and not approach["exiles"]
     assert approach["battle"]["rounds"][0]["fled"] == [defender]
@@ -199,6 +218,8 @@ def test_fixed_mover_preserves_own_flee_and_referee_can_script_both_sides():
     quiet(nv.apply, move, parameters={"decisions": {"flee": [attacker]}})
     quiet(nv.set_perspective, "lancastrian")
     reply, _ = quiet(nv.apply, get_id("respond_approach", lord=defender, response="battle"))
+    assert reply["result"]["type"] == "pending_battle_choices"
+    reply = complete_battle_choices()
     assert reply["result"]["approach"]["battle"]["rounds"][0]["fled"] == [attacker]
     attach(referee_state, "referee")
     move = get_id("march", by_lord=attacker, to="lincoln")

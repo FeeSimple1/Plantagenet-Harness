@@ -254,7 +254,7 @@ def test_flank_attack_auto_intercepts_and_interceptor_attacks():
     r = actions.apply_action(s, {"type": "march", "side": "yorkist", "by_lord": "york",
                                  "to": "cambridge",
                                  "decisions": {"intercept": "henry_vi", "flank_attack": True,
-                                               "responses": {"york": "battle"}}})
+                                               "responses": {"henry_vi": "battle"}}})
     assert r["intercept"]["flank_attack"] is True
     assert r["intercept"]["success"] is True       # auto-succeeds, no Valour roll
     # The Interceptor (Henry VI) is the Attacker; the Marching Lord (York) Defends.

@@ -5,8 +5,9 @@ import pytest
 from plantagenet import actions, legal_moves
 from plantagenet.invariants import board_invariant_violations
 from plantagenet.scenarios import build_initial_state
+from plantagenet.state import LordStatus
 from tests._helpers import to_muster
-from tests.test_llm_interface import attach, get_id, nv, quiet
+from tests.test_llm_interface import attach, complete_battle_choices, get_id, nv, quiet
 
 
 def _york_campaign(seed=3):
@@ -137,6 +138,12 @@ def test_native_intercept_hands_off_and_replays_from_saved_declaration(tmp_path,
 def test_flank_attack_and_intercept_group_belong_to_the_intercepting_player(tmp_path):
     state = _york_campaign()
     actions.apply_action(state, _march("cambridge"))
+    # A stationary ally at the destination also Defends in the Flank Battle.
+    salisbury = state.lords["salisbury"]
+    salisbury.location = "st_albans"
+    salisbury.status = LordStatus.MUSTERED
+    salisbury.calendar_box = None
+    salisbury.forces = {"retinue": 1}
     for pile in state.decks["lancastrian"].values():
         if "L2" in pile:
             pile.remove("L2")
@@ -162,7 +169,7 @@ def test_flank_attack_and_intercept_group_belong_to_the_intercepting_player(tmp_
     out = _play("respond_intercept", lord="henry_vi", flank_attack=True, parameters={
         "group": ["somerset_1"], "decisions": {"flee_rounds": {"somerset_1": 1}},
     })
-    assert out["type"] == "pending_approach" and out["awaiting_side"] == "yorkist"
+    assert out["type"] == "pending_approach" and out["awaiting_side"] == "lancastrian"
     assert out["intercept"]["flank_attack"] and out["intercept"]["roll"] is None
     assert state.rng_state == rng
     assert state.lords["henry_vi"].location == state.lords["somerset_1"].location == "st_albans"
@@ -171,10 +178,13 @@ def test_flank_attack_and_intercept_group_belong_to_the_intercepting_player(tmp_
     assert not board_invariant_violations(state)
     path = tmp_path / "flank.json"
     quiet(nv.save, path)
-    quiet(nv.load, path, perspective="yorkist")
-    out = _play("respond_approach", lord="york", response="battle")
-    battle = out["approach"]["battle"]
+    quiet(nv.load, path, perspective="lancastrian")
+    _play("respond_approach", lord="henry_vi", response="battle")
+    out = _play("respond_approach", lord="somerset_1", response="battle")
+    assert out["type"] == "pending_battle_choices" and out["awaiting_side"] == "yorkist"
+    battle = complete_battle_choices()["result"]["approach"]["battle"]
     assert battle["attackers"] == ["henry_vi", "somerset_1"]
+    assert battle["defenders"] == ["york", "salisbury"]
     assert battle["rounds"][0]["fled"] == ["somerset_1"]
     assert not board_invariant_violations(nv._state())
 

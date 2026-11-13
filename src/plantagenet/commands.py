@@ -323,28 +323,20 @@ def march(state: GameState, action: dict[str, Any], *,
     # 4.3.4 explicitly permits Intercept to reinforce a pending Approach.
     intercept_choices = decisions if intercept_response is None else intercept_response
     intercept_log = (None if truce else _try_intercept(state, dest, lord.side, intercept_choices))
-    if intercept_log and intercept_log["success"] and intercept_log.get("flank_attack"):
-        for mover in movers:
-            _apply_burgundians(state, mover)
-        state.campaign.actions_remaining = 0
-        base = {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
-                "group": mover_ids[1:], "whole_card": whole_card, "intercept": intercept_log}
-        # Flank Attack reverses which side Approaches and which side responds.
-        attackers = [intercept_log["interceptor"], *intercept_log["group"]]
-        flee_rounds = (_owned_flee_rounds(intercept_response, attackers)
-                       if intercept_response is not None else {})
-        return _finish_approach(state, base, mover_ids, attackers, decisions,
-                                defer=defer_approach, interceptor_flee_rounds=flee_rounds)
-    elif intercept_log and intercept_log["success"]:
+    interceptor_flee_rounds = {}
+    if intercept_log and intercept_log["success"]:
         dest_has_enemy = True
+        if intercept_log["flank_attack"] and intercept_response is not None:
+            interceptors = [intercept_log["interceptor"], *intercept_log["group"]]
+            interceptor_flee_rounds = _owned_flee_rounds(intercept_response, interceptors)
 
     if dest_has_enemy:
         # Approach (4.3.5): commit the card cost, then open the reaction window
         # (King's Parley / Parliament's Truce cancel; Blocked Ford forces Battle).
         state.campaign.actions_remaining = 0
-        target_lords = [lid for lid, ls in state.lords.items()
-                        if ls.status == LordStatus.MUSTERED and ls.location == dest
-                        and ls.side != lord.side]
+        from plantagenet import battle, reactions
+
+        target_lords = battle.approached_lords(state, dest, lord.side)
         ctx = {"approaching_side": lord.side, "dest": dest, "target_lords": target_lords}
         finish_data = {"movers": [m.lord_id for m in movers], "leader": lord.lord_id,
                        "origin": here, "origin_kind": kind, "dest": dest, "way": way_kind,
@@ -353,7 +345,8 @@ def march(state: GameState, action: dict[str, Any], *,
                        "moved_before": moved_before}
         if defer_approach:
             finish_data["defer_approach"] = True
-        from plantagenet import reactions
+        if interceptor_flee_rounds:
+            finish_data["interceptor_flee_rounds"] = interceptor_flee_rounds
         result = reactions.gate(state, "on_approach", ctx, "commands:march_finish", finish_data)
         if result["type"] == "pending_reactions" and intercept_log is not None:
             result["intercept"] = deepcopy(intercept_log)
@@ -419,8 +412,9 @@ def march_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> 
     for mid in data["movers"]:
         _apply_burgundians(state, state.lords[mid])      # Y14/Y23 Burgundians at a Port
     cast(CampaignState, state.campaign).actions_remaining = 0
-    return _finish_approach(state, base, data["movers"], data["movers"], decisions,
-                            defer=bool(data.get("defer_approach")))
+    return _finish_approach(state, base, data["movers"], decisions,
+                            defer=bool(data.get("defer_approach")),
+                            interceptor_flee_rounds=data.get("interceptor_flee_rounds"))
 
 
 def _approach_prompt(pending: dict[str, Any]) -> dict[str, Any]:
@@ -459,31 +453,80 @@ def _owned_flee_rounds(decisions: Any, lords: list[str], *,
 
 
 def _finish_approach(state: GameState, base: dict[str, Any], movers: list[str],
-                     attackers: list[str], decisions: dict[str, Any], *,
+                     decisions: dict[str, Any], *,
                      defer: bool = False,
                      interceptor_flee_rounds: dict[str, int] | None = None) -> dict[str, Any]:
-    """Collect Exile/Battle elections before calling the synchronous resolver."""
+    """Collect Exile/Battle elections from the Lords the movers Approached."""
     from plantagenet import battle
 
     dest = base["to"]
     if defer:
-        aside = state.lords[attackers[0]].side
-        defenders = [lid for lid, lord in state.lords.items()
-                     if lord.status == LordStatus.MUSTERED and lord.location == dest
-                     and lord.side != aside]
-        if defenders:
-            pending = {"kind": "approach", "locale": dest, "side": other_side(aside),
-                       "lords": defenders, "attackers": attackers, "movers": movers,
+        approaching_side = state.lords[movers[0]].side
+        approached = battle.approached_lords(state, dest, approaching_side)
+        if approached:
+            pending = {"kind": "approach", "locale": dest, "side": other_side(approaching_side),
+                       "lords": approached, "movers": movers,
                        "base": base, "decisions": {**decisions, "responses": {}}}
             if interceptor_flee_rounds:
                 pending["interceptor_flee_rounds"] = interceptor_flee_rounds
             state.pending = [pending]
             return _approach_prompt(pending)
+    return _resolve_approach(state, base, movers, decisions)
+
+
+def restore_pending_approach(state: GameState) -> None:
+    """Correct the response owner in a saved, pre-repair Flank Attack Approach."""
+    if not state.pending:
+        return
+    pending = state.pending[0]
+    if pending.get("kind") != "approach" or "attackers" not in pending:
+        return
+    pending.pop("attackers")
+    approaching_side = state.lords[pending["movers"][0]].side
+    if pending["side"] != approaching_side:
+        return
+    from plantagenet import battle
+
+    # Old Flank Attack saves reached this checkpoint after Intercept, with
+    # the moving side erroneously answering. Collect the real responses here.
+    pending["side"] = other_side(approaching_side)
+    pending["lords"] = battle.approached_lords(state, pending["locale"], approaching_side)
+    pending["decisions"]["responses"] = {}
+    pending.pop("responding_flee_rounds", None)
+
+
+def _resolve_approach(state: GameState, base: dict[str, Any], movers: list[str],
+                      decisions: dict[str, Any], *,
+                      collect_battle_choices: bool = False) -> dict[str, Any]:
+    from plantagenet import battle, battle_choices
+
+    dest = base["to"]
+    intercept = base.get("intercept") or {}
+    flank_attack = bool(intercept.get("flank_attack"))
     if base["type"] == "sail":
         _maybe_open_hold_window(state, "sail", movers, dest)
-    base["approach"] = battle.approach(state, dest, attackers, decisions)
+    approach, approaching, battling = battle.prepare_approach(
+        state, dest, movers, decisions, include_stationary=flank_attack)
+    base["approach"] = approach
+    if battling:
+        # Flank Attack changes the roles in the Battle that follows Approach.
+        attackers, defenders = ((battling, approaching) if flank_attack
+                                else (approaching, battling))
+        if collect_battle_choices:
+            if "flee_rounds" in decisions:
+                participants = set(attackers + defenders)
+                decisions["flee_rounds"] = {
+                    lid: rnd for lid, rnd in decisions["flee_rounds"].items()
+                    if lid in participants
+                }
+            return battle_choices.begin(state, dest, attackers, defenders, decisions, movement=base)
+        approach["battle"] = battle.resolve_battle(state, dest, attackers, defenders, decisions)
+    return finish_approach_movement(state, base)
+
+
+def finish_approach_movement(state: GameState, base: dict[str, Any]) -> dict[str, Any]:
     if base["type"] == "march":
-        _maybe_open_hold_window(state, "march", movers, dest)
+        _maybe_open_hold_window(state, "march", [base["by_lord"], *base["group"]], base["to"])
     return base
 
 
@@ -518,8 +561,8 @@ def respond_approach(state: GameState, action: dict[str, Any]) -> dict[str, Any]
     if flee_rounds or has_flee_choices:
         decisions["flee_rounds"] = flee_rounds
     state.pending = []
-    return _finish_approach(state, pending["base"], pending["movers"],
-                            pending["attackers"], decisions)
+    return _resolve_approach(state, pending["base"], pending["movers"], decisions,
+                             collect_battle_choices=True)
 
 
 def _intercept_candidates(state: GameState, dest: str, side: str) -> list[str]:
@@ -914,7 +957,7 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
            "discarded": discards}
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
         ids = [m.lord_id for m in movers]
-        return _finish_approach(state, out, ids, ids, data.get("decisions") or {},
+        return _finish_approach(state, out, ids, data.get("decisions") or {},
                                 defer=bool(data.get("defer_approach")))
     _maybe_open_hold_window(state, "sail", [m.lord_id for m in movers], data["dest"])
     return out

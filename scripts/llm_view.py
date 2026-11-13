@@ -15,7 +15,7 @@ SIDES = ("lancastrian", "yorkist")
 def decision_side(state):
     if state.pending:
         inter = state.pending[0]
-        if inter.get("kind") in ("intercept", "approach", "feed"):
+        if inter.get("kind") in ("intercept", "approach", "battle_choices", "feed"):
             return inter["side"]
         offers = inter.get("offers", [])
         index = inter.get("idx", 0)
@@ -49,6 +49,13 @@ def pending_view(state, viewer):
                     "locale": inter["locale"], "lord": inter["lords"][0]}
             if inter["decisions"].get("blocked_ford"):
                 data["blocked_ford"] = True
+            return data
+        if inter.get("kind") == "battle_choices":
+            data = {"kind": "battle_choices", "awaiting_side": inter["side"],
+                    "locale": inter["locale"], "role": inter["role"],
+                    "attackers": list(inter["attackers"]), "defenders": list(inter["defenders"])}
+            if "defender_positions" in inter["decisions"]:
+                data["defender_front"] = dict(inter["decisions"]["defender_positions"])
             return data
         offers = inter.get("offers", [])
         idx = inter.get("idx", 0)
@@ -153,7 +160,8 @@ def private_action(action, owner, viewer, state):
     if viewer in ("referee", owner):
         return action_view(action, viewer, state)
     typ = action.get("type")
-    if typ in ("build_plan", "draw", "choose_battle_capability", "array_battle", "react"):
+    if typ in ("build_plan", "draw", "choose_battle_capability", "array_battle", "react",
+               "choose_battle_tactics"):
         return {"type": typ, "side": owner, "private_parameters": "withheld"}
     out = action_view(action, viewer, state)
     if typ == "sail":

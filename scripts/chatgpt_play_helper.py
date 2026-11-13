@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import llm_action_help as _help  # noqa: E402
 import llm_view as _view  # noqa: E402
 
-from plantagenet import actions, legal_moves, render, static_data  # noqa: E402
+from plantagenet import actions, battle_choices, legal_moves, render, static_data  # noqa: E402
 from plantagenet import invariants as _inv  # noqa: E402
 from plantagenet.errors import IllegalAction  # noqa: E402
 from plantagenet.scenarios import build_initial_state  # noqa: E402
@@ -42,7 +42,7 @@ from plantagenet.state import GameState  # noqa: E402
 VALIDATE = True
 SOFT_OUTPUT_CHARS = None  # advisory only: never truncates a result or excludes a choice
 _NON_ACTION_KEYS = {"note", "cards_required", "discard_held_options", "battle_reactions",
-                    "death_order_options", "event_choices", "group_options", "valour"}
+                    "death_order_options", "event_choices", "group_options"}
 _S = {"state": None, "scenario": None, "seed": 1, "history": [], "findings": [],
       "turn": 0, "transitions": 0, "perspective": "active", "epoch": "", "revision": 0,
       "fingerprint": None, "catalog": None, "baseline": None, "receipts": [],
@@ -119,12 +119,17 @@ def _baseline_key():
 
 def _clean(action):
     return {k: deepcopy(v) for k, v in action.items()
-            if k not in _NON_ACTION_KEYS and not k.startswith("_")}
+            if k not in _NON_ACTION_KEYS and not k.startswith("_")
+            and (k != "valour" or action["type"] == "choose_battle_tactics")}
 
 
-def _movement_action(action):
-    if _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail"):
+def _interactive_action(action):
+    if _S["perspective"] not in _view.SIDES:
+        return action
+    if action["type"] in ("march", "sail"):
         return {**action, "_defer_approach": True}
+    if action["type"] == "resolve_battle":
+        return {**action, "_defer_battle_choices": True}
     return action
 
 
@@ -169,7 +174,7 @@ def _validate_entries():
             entry["status"] = "template"
             continue
         try:
-            apply_action_local(deep_copy(_state()), _movement_action(_clean(a)))
+            apply_action_local(deep_copy(_state()), _interactive_action(_clean(a)))
             entry["status"] = "valid"
         except Exception as error:
             entry["status"] = "rejected"
@@ -559,7 +564,7 @@ def _reset_action(action):
 
 
 def _check_combat_ownership(action, viewer):
-    """Check Intercept, Approach responses, Blocked Ford and Flee ownership."""
+    """Route joint decisions through the appropriate owner response."""
     decisions = action.get("decisions")
     if decisions is None:
         return
@@ -571,6 +576,8 @@ def _check_combat_ownership(action, viewer):
         raise PermissionError("Use respond_intercept to attempt or decline Intercept for your side.")
     if "responses" in decisions:
         raise PermissionError("Use respond_approach to choose Exile or Battle for your Lord.")
+    if battle_choices.OWNER_FIELDS & decisions.keys():
+        raise PermissionError("Use choose_battle_tactics to choose your own Array and Valour.")
     if set(decisions.get("blocked_ford", [])) - {viewer}:
         raise PermissionError("Only the owner may play Blocked Ford.")
 
@@ -606,6 +613,8 @@ def apply(choice, *, expected_version=None, parameters=None):
     if parameters:
         if {"type", "side"} & parameters.keys():
             raise ValueError("parameters cannot change action type or side")
+        if any(key.startswith("_") for key in parameters):
+            raise ValueError("parameters cannot set internal action fields")
         action.update(deepcopy(parameters))
     viewer = _viewer()
     side = action.get("side", viewer if viewer != "referee" else _view.decision_side(_state()))
@@ -613,7 +622,9 @@ def apply(choice, *, expected_version=None, parameters=None):
         raise PermissionError("This action belongs to the other player.")
     if _S["perspective"] in _view.SIDES and action["type"] in ("march", "sail", "resolve_battle"):
         _check_combat_ownership(action, viewer)
-    if viewer != "referee" and action["type"] in (
+    if action["type"] == "choose_battle_tactics":
+        action.setdefault("side", side)
+    elif viewer != "referee" and action["type"] in (
             "react", "respond_intercept", "respond_approach", "resolve_feed"):
         action.setdefault("side", viewer)
     if action.get("type") == "end_activation" and viewer != "referee":
@@ -634,7 +645,7 @@ def apply(choice, *, expected_version=None, parameters=None):
     before_key = _baseline_key()
     result_owner = side
     try:
-        engine_action = _movement_action(action)
+        engine_action = _interactive_action(action)
         if action["type"] == "end_activation" and viewer != "referee":
             engine_action = {**engine_action, "interactive_feed": True}
         raw_result = apply_action_local(s, engine_action)

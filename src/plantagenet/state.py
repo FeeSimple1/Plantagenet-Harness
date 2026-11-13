@@ -199,11 +199,15 @@ class GameState(_Model):
 
     # -- persistence ------------------------------------------------------
     @model_validator(mode="after")
-    def _restore_succession_cards(self) -> GameState:
+    def _restore_saved_state(self) -> GameState:
         if self.grand_scenario:
             from plantagenet import succession
 
             succession.restore_expired_cards(self)
+        if self.pending and self.pending[0].get("kind") == "approach":
+            from plantagenet.commands import restore_pending_approach
+
+            restore_pending_approach(self)
         return self
 
     def to_json(self) -> str:

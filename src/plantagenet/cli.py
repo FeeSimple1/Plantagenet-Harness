@@ -159,6 +159,11 @@ def pending(file: str) -> None:
         out["trigger"] = inter.get("trigger")
         if idx < len(offers):
             out["awaiting"] = offers[idx]          # the next reactor who owes a `react`
+        elif inter.get("kind") == "battle_choices":
+            from plantagenet.battle_choices import options
+
+            out["awaiting"] = {"side": inter["side"], "role": inter["role"],
+                               "action": "choose_battle_tactics", "options": options(gs, inter)}
     elif gs.pending_events:
         event = gs.pending_events[0]
         out["pending_events"] = gs.pending_events
