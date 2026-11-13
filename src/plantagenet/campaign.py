@@ -869,8 +869,9 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
     rebel = next(s for s, r in state.roles.items() if r == "rebel")
     king = next(s for s, r in state.roles.items() if r == "king")
     rolls: list[dict[str, Any]] = []
-    landed_sides: set[str] = set()
+    feed: dict[str, Any] = {}
     for side in (rebel, king):
+        landed = False
         seafarers = [lid for lid, lord in state.lords.items()
                      if lord.side == side and lord.at_sea is not None]
         for original_lid in seafarers:
@@ -900,14 +901,17 @@ def _disembark(state: GameState, decisions: dict[str, Any] | None) -> dict[str, 
                     ls.location = choice
                     ls.status = LordStatus.MUSTERED
                     ls.moved_fought = True             # must immediately Feed (4.7)
-                    landed_sides.add(side)
+                    landed = True
                     rolls.append({"lord": lid, "roll": roll, "landed": choice})
                 else:                                  # no free Port reachable -> Disband
                     ls.at_sea = None
                     _disband_lord(state, ls)
                     rolls.append({"lord": lid, "roll": roll, "disbanded": True})
+        # Resolve this side's Feed and Unfed Disbands before the next side
+        # checks Port occupancy. Co-located landings can Share as in normal Feed.
+        if landed:
+            feed[side] = _feed(state, side, decisions)
     state.store_dice(roller)
-    feed = {s: _feed(state, s, decisions) for s in (rebel, king) if s in landed_sides}
     return {"rolls": rolls, "feed": feed}
 
 

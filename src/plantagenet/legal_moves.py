@@ -742,6 +742,12 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
     if not friendly_here:
         return out
 
+    ship_donors = commands._ship_donors(state, lord)
+    fleets: list[tuple[list[LordState], dict[str, Any]]] = [([lord], {})]
+    if ship_donors:
+        donor_ids = [ally.lord_id for ally in ship_donors]
+        fleets.append(([lord, *ship_donors], {"share": donor_ids, "share_options": donor_ids}))
+
     # Tax (4.6.3): own Seat / Vassal Seats / Special Strongholds, reachable, not Exhausted.
     try:
         statics = static_data.load_lords()[lord_id]
@@ -749,31 +755,26 @@ def _command_moves(state: GameState, side: str, lord_id: str) -> list[dict[str, 
         targets = {statics["seat"]}
         targets |= {regular[v]["seat"] for v in lord.vassals if v in regular}
         targets |= {"london", "calais", "harlech"}
-        has_ship = lord.assets.get("ship", 0) > 0
         for t in sorted(targets):     # sorted: set order must not leak into move order
             if t not in state.locales or state.locales[t].depletion == "exhausted":
                 continue
-            if t == here or (t == statics["seat"] and here == statics["seat"]):
-                out.append({"type": "tax", "side": side, "by_lord": lord_id, "target": t})
-            elif commands._tax_route_cost(state, here, t, side, has_ship) is not None:
-                out.append({"type": "tax", "side": side, "by_lord": lord_id, "target": t})
+            move = {"type": "tax", "side": side, "by_lord": lord_id, "target": t}
+            own_route = commands._tax_route_cost(state, loc, t, side, [lord])
+            if own_route is not None:
+                out.append(move)
+            if ship_donors and own_route != 0:
+                owners, params = fleets[-1]
+                shared_route = commands._tax_route_cost(state, loc, t, side, owners)
+                if shared_route is not None and (own_route is None or shared_route < own_route):
+                    out.append({**move, **params})
     except (KeyError, AttributeError, IndexError):
         pass
-
-    ship_donors = [ally for ally in state.lords.values()
-                   if ally.lord_id != lord_id and ally.side == side
-                   and ally.status == LordStatus.MUSTERED and ally.assets.get("ship", 0) > 0
-                   and actions.lord_location(ally) == loc]
-    fleets: list[tuple[list[LordState], dict[str, Any]]] = [([lord], {})]
-    if ship_donors:
-        donor_ids = [ally.lord_id for ally in ship_donors]
-        fleets.append(([lord, *ship_donors], {"share": donor_ids, "share_options": donor_ids}))
 
     # Supply (4.5): Friendly non-Exhausted Stronghold Sources reachable with
     # enough Carts; Port Sources via Ship.
     try:
         carts = commands._transport_capacity(state, [lord], "cart")
-        great_ships = ratings.has_capability(state, lord_id, "GREAT SHIPS")
+        great_ships = commands._great_ships_available(state, [lord])
         for src in state.locales:
             if src == here:
                 base = static_data.stronghold_yields(src).get("supply", {}).get("provender", 0)

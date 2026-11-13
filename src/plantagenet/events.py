@@ -12,7 +12,7 @@ from collections import Counter
 from collections.abc import Callable
 from typing import Any, cast
 
-from plantagenet import influence, ratings, static_data
+from plantagenet import influence, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import Favour, GameState, LordState, LordStatus, VassalStatus
 
@@ -555,14 +555,16 @@ def tax_collectors_targets(state: GameState) -> dict[str, list[str]]:
             continue
         candidates = {statics[lid]["seat"], "london", "calais", "harlech"}
         candidates.update(regular[v]["seat"] for v in lord.vassals if v in regular)
+        # Sharing only qualifies the Route. Tax Collectors spends no Ships and
+        # has no Lancastrian Naval Blockade reaction to choosing a fleet.
+        owners = [lord, *commands._ship_donors(state, lord)]
         targets = []
         for target in sorted(candidates):
             locale = state.locales[target]
-            if locale.favour != "yorkist" or locale.depletion == "exhausted":
+            if locale.depletion == "exhausted":
                 continue
-            if target != here and commands._tax_route_cost(
-                    state, here, target, "yorkist", lord.assets.get("ship", 0) > 0,
-                    all_seas=ratings.has_capability(state, lid, "GREAT SHIPS")) is None:
+            if commands._tax_route_cost(state, ("stronghold", here), target,
+                                        "yorkist", owners) is None:
                 continue
             targets.append(target)
         if targets:

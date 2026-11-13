@@ -31,10 +31,10 @@ def test_parley_route_cost_ways_and_great_ships():
     s.locales["lynn"].favour = "yorkist"
     assert actions._parley_route_cost(s, ("stronghold", "ely"), "norwich", "yorkist", False) == 2
     # Great Ships connect all Ports unless the pair touches the blocked Sea
-    cost = actions._parley_route_cost(s, ("stronghold", "lynn"), "dover", "yorkist", False,
+    cost = actions._parley_route_cost(s, ("stronghold", "lynn"), "dover", "yorkist", True,
                                       all_seas=True, block_sea="irish_sea")
     assert cost == 1
-    blocked = actions._parley_route_cost(s, ("stronghold", "lynn"), "dover", "yorkist", False,
+    blocked = actions._parley_route_cost(s, ("stronghold", "lynn"), "dover", "yorkist", True,
                                          all_seas=True, block_sea="north_sea")
     assert blocked is None
 

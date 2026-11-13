@@ -718,7 +718,7 @@ def test_great_ships_supply_hops_start_only_at_ports():
     # no all-port hop from a non-port node.
     def prep(st):
         st.lords["york"].capabilities.append("Y6")
-        st.lords["york"].assets = {"cart": 2}
+        st.lords["york"].assets = {"cart": 2, "ship": 1}
         st.locales["truro"].favour = "yorkist"
     s = _campaign(prep=prep)                               # york at ely (inland)
     with pytest.raises(IllegalAction) as e:
@@ -734,7 +734,7 @@ def test_great_ships_supply_port_to_port_is_one_way():
         st.lords["york"].location = "lynn"
         st.locales["lynn"].favour = "yorkist"
         st.locales["dover"].favour = "yorkist"
-        st.lords["york"].assets = {"cart": 2}
+        st.lords["york"].assets = {"cart": 2, "ship": 1}
     s = _campaign(prep=prep)
     r = actions.apply_action(s, {"type": "supply", "side": "yorkist",
                                  "by_lord": "york", "source": "dover"})

@@ -318,6 +318,9 @@ def test_tax_collectors():
     assert s.locales["ipswich"].depletion == "depleted"
     s2 = build_initial_state("henry_vi", seed=2)         # London is a listed Tax target
     s2.lords["york"].location = "london"
+    for lord in s2.lords.values():
+        if lord.side == "lancastrian" and lord.location == "london":
+            lord.location = "canterbury"
     s2.locales["london"].favour = "yorkist"
     r2 = _play(s2, "Y10", "yorkist", lords=["york"], tax_targets={"york": "london"})
     assert r2["taxes"]["york"]["coin"] == 6
