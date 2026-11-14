@@ -79,6 +79,22 @@ def _other(side: str) -> str:
     return "lancastrian" if side == "yorkist" else "yorkist"
 
 
+APPROACH_TRIGGERS = ("on_approach", "high_admiral_approach")
+
+
+def approach_pending(inter: dict[str, Any]) -> bool:
+    return (inter.get("trigger") in APPROACH_TRIGGERS
+            or (inter.get("resume_key") == "commands:sail_finish"
+                and bool(inter["finish_data"].get("dest_has_enemy"))))
+
+
+def _truce_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"side": side, "card": cid, "kind": "held", "priority": 20,
+             "effect": "parliaments_truce"}
+            for side in ("lancastrian", "yorkist")
+            if (cid := _held(state, side, "PARLIAMENT'S TRUCE"))]
+
+
 def _on_approach_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str, Any]]:
     """Reactions to an Approach (4.3.5): King's Parley (L15, Henry VI) and
     Parliament's Truce cancel it; Blocked Ford forces Battle (no Exile).
@@ -89,11 +105,7 @@ def _on_approach_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str,
             and _has_cap(state, "henry_vi", "KING'S PARLEY"):
         offers.append({"side": "lancastrian", "card": "L15", "lord": "henry_vi",
                        "kind": "capability", "priority": 10, "effect": "kings_parley"})
-    for side in ("lancastrian", "yorkist"):
-        cid = _held(state, side, "PARLIAMENT'S TRUCE")
-        if cid:
-            offers.append({"side": side, "card": cid, "kind": "held",
-                           "priority": 20, "effect": "parliaments_truce"})
+    offers.extend(_truce_offers(state, ctx))
     for side in ("lancastrian", "yorkist"):
         cid = _held(state, side, "BLOCKED FORD")
         if cid:
@@ -122,6 +134,7 @@ def _kings_name_offers(state: GameState, ctx: dict[str, Any]) -> list[dict[str, 
 _TRIGGER_OFFERS: dict[str, list[Callable[[GameState, dict[str, Any]], list[dict[str, Any]]]]] = {
     "uses_port_on_sea": [_naval_blockade_offers],
     "on_approach": [_on_approach_offers],
+    "high_admiral_approach": [_truce_offers],
     "after_successful_levy_action": [_kings_name_offers],
 }
 
@@ -146,13 +159,6 @@ def _react_naval_blockade(state: GameState, inter: dict[str, Any], offer: dict[s
     return {"card": "Y15", "lord": offer["lord"], "roll": roll, "blocked": blocked}
 
 
-def _discard_held(state: GameState, side: str, cid: str) -> None:
-    held = state.decks.get(side, {}).get("held", [])
-    if cid in held:
-        held.remove(cid)
-    state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
-
-
 # L15 (cap, discarded)
 def _react_kings_parley(state: GameState, inter: dict[str, Any], offer: dict[str, Any],
                         action: dict[str, Any]) -> dict[str, Any]:
@@ -166,15 +172,19 @@ def _react_kings_parley(state: GameState, inter: dict[str, Any], offer: dict[str
 
 
 # Y12/L20 (held)
+def _truce_cancels_approach(inter: dict[str, Any], card: str) -> dict[str, Any]:
+    inter["cancelled"] = True
+    inter["finish_data"]["cancel_reason"] = "parliaments_truce"
+    return {"card": card, "effect": "parliaments_truce", "cancels_approach": True}
+
+
 def _react_parliaments_truce(state: GameState, inter: dict[str, Any],
                              offer: dict[str, Any],
                              action: dict[str, Any]) -> dict[str, Any]:
-    _discard_held(state, offer["side"], offer["card"])
-    state.active_events.append({"card": offer["card"], "side": offer["side"],
-                                "scope": "this_campaign"})       # prohibits further A/I
-    inter["cancelled"] = True
-    inter["finish_data"]["cancel_reason"] = "parliaments_truce"
-    return {"card": offer["card"], "effect": "parliaments_truce", "cancels_approach": True}
+    from plantagenet.events import play_held_event
+
+    play_held_event(state, {"side": offer["side"], "card": offer["card"]})
+    return _truce_cancels_approach(inter, offer["card"])
 
 
 # Y11/L11 (held) -- forces Battle
@@ -229,6 +239,21 @@ def gate(state: GameState, trigger: str, ctx: dict[str, Any],
             "awaiting": offers[0], "remaining": len(offers)}
 
 
+def _finish_reaction(state: GameState, inter: dict[str, Any]) -> dict[str, Any]:
+    resume = _resolve_resume(inter["resume_key"])
+    state.pending = []
+    final = resume(state, inter["finish_data"], cancelled=inter["cancelled"])
+    final["reactions"] = inter["log"]
+    return final
+
+
+def cancel_approach_with_truce(state: GameState, card: str) -> dict[str, Any]:
+    """Finish the pending Approach after its player's Truce interrupts it."""
+    inter = state.pending[0]
+    inter["log"].append(_truce_cancels_approach(inter, card))
+    return _finish_reaction(state, inter)
+
+
 def resolve(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     """Handle a ``react`` action against the current pending interaction."""
     _require(state.pending, "no_pending", "there is no pending reaction to resolve")
@@ -247,14 +272,7 @@ def resolve(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     inter["idx"] += 1
 
     if inter["cancelled"] or inter["idx"] >= len(inter["offers"]):
-        resume = _resolve_resume(inter["resume_key"])
-        log = inter["log"]
-        cancelled = inter["cancelled"]
-        finish_data = inter["finish_data"]
-        state.pending = []
-        final = resume(state, finish_data, cancelled=cancelled)
-        final["reactions"] = log
-        return final
+        return _finish_reaction(state, inter)
     return {"type": "pending_reactions", "trigger": inter["trigger"],
             "awaiting": inter["offers"][inter["idx"]], "resolved": inter["log"]}
 

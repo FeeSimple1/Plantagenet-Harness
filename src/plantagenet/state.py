@@ -206,6 +206,7 @@ class GameState(_Model):
     @model_validator(mode="after")
     def _restore_saved_state(self) -> GameState:
         from plantagenet import events
+        from plantagenet.actions import restore_jack_cade
 
         # Older saves included the L33 grant in the ordinary Command count.
         legacy_march = self.flags.pop("surprise_march_lord", None)
@@ -217,6 +218,8 @@ class GameState(_Model):
             c.surprise_march_lord = legacy_march
         events.restore_sun_in_splendour(self)
         events.restore_yorkist_parade(self)
+        events.restore_parliaments_truce(self)
+        restore_jack_cade(self)
         if self.grand_scenario:
             from plantagenet import succession
 

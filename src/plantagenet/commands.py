@@ -268,7 +268,7 @@ def march(state: GameState, action: dict[str, Any], *,
 
     dest_has_enemy = enemy_lord_at(state, dest, lord.side)
     truce = _active_event(state, "PARLIAMENT'S TRUCE")
-    _require(not (truce and dest_has_enemy), "parliaments_truce",
+    _require(not (truce and dest_has_enemy) or intercept_response is not None, "parliaments_truce",
              "Parliament's Truce prohibits Approach this Campaign (Y12/L20)")
 
     # Group March (4.3.1): a Marshal brings any; a Lieutenant all but a Marshal.
@@ -309,6 +309,14 @@ def march(state: GameState, action: dict[str, Any], *,
                               "march": declared}]
             return {"type": "pending_intercept", "awaiting_side": side, "locale": dest,
                     "by_lord": lord.lord_id, "group": list(group)}
+    base = {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
+            "group": group, "whole_card": whole_card, "intercept": None, "approach": None}
+    if truce and dest_has_enemy:
+        # Truce interrupted the declaration while Intercept was still pending.
+        # Cancel the Approach without hauling or moving either group.
+        c.actions_remaining = 0
+        c.surprise_march_lord = None
+        return {**base, "approach_cancelled": "parliaments_truce"}
     if surprise_march:
         c.surprise_march_lord = None
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
@@ -365,9 +373,7 @@ def march(state: GameState, action: dict[str, Any], *,
     for mover in movers:
         _apply_burgundians(state, mover)
     _maybe_open_hold_window(state, "march", mover_ids, dest)
-    return {"type": "march", "by_lord": lord.lord_id, "to": dest, "way": way_kind,
-            "group": [m.lord_id for m in movers[1:]], "whole_card": whole_card,
-            "intercept": intercept_log, "approach": None}
+    return {**base, "intercept": intercept_log}
 
 
 def _maybe_open_hold_window(state: GameState, action_type: str,
@@ -602,8 +608,14 @@ def respond_intercept(state: GameState, action: dict[str, Any]) -> dict[str, Any
         _require(isinstance(leader, str) and bool(leader), "bad_intercept_response",
                  "an Intercept attempt must name a Lord")
         choices = {"intercept": leader, "intercept_group": group, "flank_attack": flank, **tactical}
+    return resume_intercept(state, choices)
+
+
+def resume_intercept(state: GameState, choices: dict[str, Any]) -> dict[str, Any]:
+    """Resume the declared March after answering or prohibiting Intercept."""
+    declaration = state.pending[0]["march"]
     state.pending = []
-    return march(state, pending["march"], intercept_response=choices)
+    return march(state, declaration, intercept_response=choices)
 
 
 def _try_intercept(state: GameState, dest: str, side: str,
@@ -928,9 +940,27 @@ def sail(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
     """Resume after the Sail reaction window (4.6.1 / Q-004)."""
     lord = state.lords[data["lord"]]
-    if cancelled:                       # Naval Blockade cancelled the Sail (card cost stands)
-        return {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
-                "cancelled": True, "discarded": {}}
+    if not cancelled and data.get("dest_has_enemy"):
+        if _active_event(state, "PARLIAMENT'S TRUCE"):
+            return sail_move_finish(state, {**data, "cancel_reason": "parliaments_truce"},
+                                    cancelled=True)
+        from plantagenet import reactions
+
+        # Truce can cancel a High Admiral Approach before cargo or Lords move.
+        ctx = {"approaching_side": lord.side, "dest": data["dest"]}
+        return reactions.gate(state, "high_admiral_approach", ctx,
+                              "commands:sail_move_finish", data)
+    return sail_move_finish(state, data, cancelled=cancelled)
+
+
+def sail_move_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> dict[str, Any]:
+    lord = state.lords[data["lord"]]
+    if cancelled:                 # The Command cost stands when the Sail is cancelled.
+        result: dict[str, Any] = {"type": "sail", "by_lord": lord.lord_id, "to": data["dest"],
+                                  "cancelled": True, "discarded": {}}
+        if "cancel_reason" in data:
+            result["approach_cancelled"] = data["cancel_reason"]
+        return result
     neville_bonus = _neville_command_bonus(state, lord.lord_id)
     movers = [state.lords[mid] for mid in data.get("movers", [data["lord"]])]
     # A blocked Sail does not occur. Hold the elected cargo reduction until

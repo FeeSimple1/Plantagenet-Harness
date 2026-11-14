@@ -196,6 +196,11 @@ def advance_after_draw(state: GameState, side: str, first_levy: bool) -> str:
     if side == rebel:
         state.active_side = cast(Side, king)
         return "king_draw"
-    state.levy_step = "muster" if first_levy else "pay"
-    state.active_side = cast(Side, rebel)
+    if first_levy:
+        from plantagenet.actions import begin_muster
+
+        begin_muster(state, rebel)
+    else:
+        state.levy_step = "pay"
+        state.active_side = cast(Side, rebel)
     return state.levy_step

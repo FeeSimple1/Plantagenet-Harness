@@ -15,6 +15,7 @@ from plantagenet.state import Favour, GameState, LordState, LordStatus, VassalSt
 
 _OTHER = {"yorkist": "lancastrian", "lancastrian": "yorkist"}
 EVENT_INFLUENCE_SPENDS = (0, 1, 3)
+PARLIAMENTS_TRUCE = {"yorkist": "Y12", "lancastrian": "L20"}
 
 
 def _require(cond: object, code: str, msg: str) -> None:
@@ -611,14 +612,6 @@ _IMMEDIATE: dict[str, Callable[[GameState, str, dict[str, Any]], dict[str, Any]]
 }
 
 
-def _held_card(state: GameState, side: str, title: str) -> str | None:
-    cards = static_data.load_cards()
-    for cid in state.decks.get(side, {}).get("held", []):
-        if cards[cid]["event"]["title"] == title:
-            return cid
-    return None
-
-
 def expire_scope(state: GameState, scope: str) -> list[str]:
     """Remove active Events of ``scope`` ("this_levy"/"this_campaign") and
     DISCARD any whose card is not already in a pile. A drawn This-Levy/This-
@@ -784,6 +777,23 @@ def restore_yorkist_parade(state: GameState) -> None:
             pile[:] = [cid for cid in pile if cid != "Y20"]
 
 
+def _hp_parliaments_truce(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
+    _require(state.phase == "campaign", "not_campaign",
+             "Parliament's Truce is played during Campaign (Y12/L20)")
+    card = PARLIAMENTS_TRUCE[side]
+    state.active_events.append({"card": card, "side": side, "scope": "this_campaign"})
+    return {"active": card}
+
+
+def restore_parliaments_truce(state: GameState) -> None:
+    """Keep a Truce from an older Approach reaction out of the discard pile."""
+    for event in state.active_events:
+        side, card = event.get("side"), event.get("card")
+        if card in PARLIAMENTS_TRUCE.values() and event.get("scope") == "this_campaign":
+            discard = state.decks.get(cast(str, side), {}).get("discard", [])
+            discard[:] = [cid for cid in discard if cid != card]
+
+
 # Y13/L13: inspect Enemy Held cards (info)
 def _hp_aspielles(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     foe = "lancastrian" if side == "yorkist" else "yorkist"
@@ -795,22 +805,22 @@ _HELD_PLAYS: dict[str, Callable[[GameState, str, dict[str, Any]], dict[str, Any]
     "L28": _hp_rebel_supply_depot, "L33": _hp_surprise_landing,
     "Y24": _hp_sun_in_splendour, "Y20": _hp_yorkist_parade,
     "Y13": _hp_aspielles, "L13": _hp_aspielles,
+    "Y12": _hp_parliaments_truce, "L20": _hp_parliaments_truce,
 }
 
 
 def play_held_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
-    """Play a Held Event in one of its own-timing windows (1.9.1):
-    Rebel Supply Depot (L28), Surprise Landing (L33), Sun in Splendour (Y24),
-    Yorkist Parade (Y20)."""
+    """Play a Held Event in one of its own-timing windows (1.9.1)."""
     cid = cast(str, action.get("card"))
     side = cast(str, action.get("side"))
     _require(cid in _HELD_PLAYS, "not_held_play", f"{cid} is not a coded Held-play Event")
-    held = _held_card(state, side, static_data.load_cards()[cid]["event"]["title"])
-    _require(held == cid, "not_held", f"{side} is not holding {cid}")
+    _require(static_data.load_cards()[cid]["side"] == side
+             and cid in state.decks.get(side, {}).get("held", []),
+             "not_held", f"{side} is not holding {cid}")
     res = _HELD_PLAYS[cid](state, side, action.get("decisions", {}))
     deck = state.decks[side]
     deck["held"].remove(cid)
-    if cid != "Y20":  # Yorkist Parade stays in play until its Levy ends.
+    if cid not in ("Y20", *PARLIAMENTS_TRUCE.values()):  # These expire from active_events.
         deck.setdefault("discard", []).append(cid)
     return {"type": "play_held_event", "card": cid, "side": side, **res}
 
