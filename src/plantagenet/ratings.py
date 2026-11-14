@@ -173,10 +173,13 @@ def _ev_privy_council(state: GameState, ev: dict[str, Any],
     return {"influence": 1}
 
 
-# Y20: this Levy +2 Yorkist Influence
+# Y20: +2 Yorkist Influence during the Levy covered by the Event.
 def _ev_yorkist_parade(state: GameState, ev: dict[str, Any],
         lid: str, action: str | None) -> dict[str, int]:
-    return {"influence": 2}
+    if (state.phase == "levy" and state.levy_step != "done"
+            and ev.get("levy_turn", state.turn_box) == state.turn_box):
+        return {"influence": 2}
+    return {}
 
 
 # Y22: a chosen Yorkist Lord Lordship +3
