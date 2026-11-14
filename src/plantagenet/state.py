@@ -134,6 +134,11 @@ class CampaignState(_Model):
     plan_index: dict[str, int] = Field(default_factory=dict)             # side -> next card
     active_lord: str | None = None                # Lord currently Activated
     actions_remaining: int = 0                    # Command actions left this card
+    surprise_march_lord: str | None = None        # L33: one free non-Path March
+
+    @property
+    def has_surprise_march(self) -> bool:
+        return self.surprise_march_lord is not None and self.surprise_march_lord == self.active_lord
 
 
 class BattleSetupState(_Model):
@@ -200,6 +205,14 @@ class GameState(_Model):
     # -- persistence ------------------------------------------------------
     @model_validator(mode="after")
     def _restore_saved_state(self) -> GameState:
+        # Older saves included the L33 grant in the ordinary Command count.
+        legacy_march = self.flags.pop("surprise_march_lord", None)
+        c = self.campaign
+        if (legacy_march is not None and c is not None and c.step == "activation"
+                and legacy_march == c.active_lord and c.actions_remaining > 0
+                and c.surprise_march_lord is None):
+            c.actions_remaining -= 1
+            c.surprise_march_lord = legacy_march
         if self.grand_scenario:
             from plantagenet import succession
 

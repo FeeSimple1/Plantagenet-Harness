@@ -696,8 +696,7 @@ def _hp_surprise_landing(state: GameState, side: str, d: dict[str, Any]) -> dict
     _require(state.campaign is not None, "not_campaign", "Surprise Landing is a Campaign play")
     assert state.campaign is not None
     # Timing (1.9.1): only just after a Sail that ends at a Port -- the Hold-event
-    # window must record a Sail for this side. (The free action should be a
-    # non-Path March -- the consumer is responsible for that constraint.)
+    # window must record a Sail for this side.
     win = state.hold_window
     _require(win is not None and win.get("action") == "sail" and win.get("side") == side,
              "no_sail_window",
@@ -707,8 +706,7 @@ def _hp_surprise_landing(state: GameState, side: str, d: dict[str, Any]) -> dict
     _require(al is not None and al.location is not None
              and static_data.load_locales().get(al.location, {}).get("port"),
              "not_at_port", "Surprise Landing is played just after Sailing to a Port (L33)")
-    state.campaign.actions_remaining += 1       # a free March action ...
-    state.flags["surprise_march_lord"] = alid   # ... which may NOT be a Path (L33)
+    state.campaign.surprise_march_lord = alid
     return {"free_action": True}
 
 

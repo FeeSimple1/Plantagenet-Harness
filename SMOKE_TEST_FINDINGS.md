@@ -935,10 +935,12 @@ REMAINING (documented, low priority)
 
 Suite 459 -> 520; ruff clean. Commits: audit/full-rules-batch1 + batches 2-11.
 
-## Round (2026-06-02b): closed the two documented remainders
+## Round (2026-06-02b): L33 Path restriction and Somerset succession
 
 - L33 Surprise Landing free March may not use a Path (enforced in march() via a
   per-Lord flag, consumed on a valid non-Path March, cleared at end of activation).
+  Round 22 completed the repair by giving the free March its own allowance and
+  requiring other Commands to spend ordinary actions.
 - Somerset (1) -> (2) now replaces IN PLACE on removal (E5): _kill_lord captures
   the board position and Succession re-seats the replacement Mustered there,
   not on the Calendar (Calendar fallback only when no map/exile position exists).

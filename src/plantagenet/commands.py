@@ -230,10 +230,16 @@ def _adjust_neville_command(state: GameState, lord_id: str, previous_bonus: int)
         state.campaign.actions_remaining = max(0, state.campaign.actions_remaining + change)
 
 
+def _roads_as_highways(state: GameState, lord: LordState) -> bool:
+    return (ratings.has_capability(state, lord.lord_id, "YORKISTS NEVER WAIT")
+            or (lord.side == "lancastrian" and _active_event(state, "FORCED MARCHES")))
+
+
 def march(state: GameState, action: dict[str, Any], *,
           intercept_response: dict[str, Any] | None = None) -> dict[str, Any]:
-    lord = campaign._active_command_lord(state, action)
-    assert state.campaign is not None
+    lord = campaign._active_command_lord(state, action, allow_surprise_march=True)
+    c = state.campaign
+    assert c is not None
     loc = lord_location(lord)
     _require(loc is not None, "lord_not_on_locale", "the Lord must be at a Locale to March")
     assert loc is not None
@@ -248,10 +254,7 @@ def march(state: GameState, action: dict[str, Any], *,
 
     # Road-as-Highway for a lone Lord: Yorkists Never Wait (Y11 Capability) /
     # Forced Marches (L8 Event, Lancastrian) -- enables the Road 2-for-1 chain.
-    lone = not action.get("group")
-    roads_as_highway = lone and (
-        ratings.has_capability(state, lord.lord_id, "YORKISTS NEVER WAIT")
-        or (lord.side == "lancastrian" and _active_event(state, "FORCED MARCHES")))
+    roads_as_highway = not action.get("group") and _roads_as_highways(state, lord)
 
     # Determine speed/cost to the destination (4.3.3).
     cost = _march_cost(state, here, dest, kind, roads_as_highway, side=lord.side)
@@ -259,10 +262,9 @@ def march(state: GameState, action: dict[str, Any], *,
              f"{dest} is not reachable from {here} in one March action (4.3.3)")
     assert cost is not None
     way_kind, whole_card = cost
-    surprise_march = state.flags.get("surprise_march_lord") == lord.lord_id
-    if surprise_march:   # L33 Surprise Landing
-        _require(way_kind != "path", "surprise_landing_no_path",
-                 "the Surprise Landing free March may not use a Path (L33)")
+    _require(not whole_card or c.actions_remaining > 0, "surprise_landing_no_path",
+             "the Surprise Landing free March may not use a Path (L33)")
+    surprise_march = c.has_surprise_march and not whole_card
 
     dest_has_enemy = enemy_lord_at(state, dest, lord.side)
     truce = _active_event(state, "PARLIAMENT'S TRUCE")
@@ -308,7 +310,7 @@ def march(state: GameState, action: dict[str, Any], *,
             return {"type": "pending_intercept", "awaiting_side": side, "locale": dest,
                     "by_lord": lord.lord_id, "group": list(group)}
     if surprise_march:
-        state.flags.pop("surprise_march_lord", None)
+        c.surprise_march_lord = None
     # Haul (4.3.2): discard Provender exceeding Carts -- including Sharing across a
     # Group (a groupmate's spare Carts carry an ally's surplus). Provender stays on
     # its owner's mat for Feed; only the group's overall excess is discarded.
@@ -333,7 +335,8 @@ def march(state: GameState, action: dict[str, Any], *,
     if dest_has_enemy:
         # Approach (4.3.5): commit the card cost, then open the reaction window
         # (King's Parley / Parliament's Truce cancel; Blocked Ford forces Battle).
-        state.campaign.actions_remaining = 0
+        c.actions_remaining = 0
+        c.surprise_march_lord = None
         from plantagenet import battle, reactions
 
         target_lords = battle.approached_lords(state, dest, lord.side)
@@ -352,10 +355,11 @@ def march(state: GameState, action: dict[str, Any], *,
             result["intercept"] = deepcopy(intercept_log)
         return result
     if whole_card:
-        state.campaign.actions_remaining = 0
+        c.actions_remaining = 0
     else:
-        state.campaign.actions_remaining -= 1
-        # A free Surprise Landing March can follow a Sail that used the whole card.
+        if not surprise_march:
+            c.actions_remaining -= 1
+        # L24 can still adjust Command when Seamanship reduces the Sail's cost.
         if not surprise_march or _active_event(state, "SEAMANSHIP", lord.side):
             _adjust_neville_command(state, lord.lord_id, neville_bonus)
     for mover in movers:
@@ -956,6 +960,7 @@ def sail_finish(state: GameState, data: dict[str, Any], *, cancelled: bool) -> d
            "from_sea": data["from_sea"], "to_sea": data["to_sea"], "group": group,
            "discarded": discards}
     if data["dest_has_enemy"]:          # High Admiral: Sail triggers Approach (4.3.5)
+        cast(CampaignState, state.campaign).surprise_march_lord = None
         ids = [m.lord_id for m in movers]
         return _finish_approach(state, out, ids, data.get("decisions") or {},
                                 defer=bool(data.get("defer_approach")))

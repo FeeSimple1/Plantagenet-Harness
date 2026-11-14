@@ -145,7 +145,8 @@ def _reveal(state: GameState) -> None:
         c.actions_remaining = ratings.rating(state, cast(str, lid), "command")
 
 
-def _active_command_lord(state: GameState, action: dict[str, Any]) -> LordState:
+def _active_command_lord(state: GameState, action: dict[str, Any], *,
+                         allow_surprise_march: bool = False) -> LordState:
     side = cast(str, action.get("side"))
     c = state.campaign
     _require(c is not None and c.step == "activation", "wrong_step",
@@ -156,7 +157,8 @@ def _active_command_lord(state: GameState, action: dict[str, Any]) -> LordState:
     _require(c.active_lord is not None, "no_active_lord",
              "no Lord is Activated (Pass card or off-map); end the Activation")
     assert c.active_lord is not None
-    _require(c.actions_remaining > 0, "no_actions_left",
+    _require(c.actions_remaining > 0 or (allow_surprise_march and c.has_surprise_march),
+             "no_actions_left",
              "the Active Lord has no Command actions remaining (4.2.1)")
     by = action.get("by_lord", c.active_lord)
     _require(by == c.active_lord, "wrong_lord", f"the Active Lord is {c.active_lord}")
@@ -170,7 +172,7 @@ def end_activation(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     assert c is not None
     _require(side == state.active_side, "not_active_side",
              f"it is the {state.active_side} side's Activation")
-    state.flags.pop("surprise_march_lord", None)   # L33 grant does not carry over
+    c.surprise_march_lord = None                  # L33 grant does not carry over
     if action.get("interactive_feed"):
         choices = _owned_feed_choices(state, side, action)
         if choices:
