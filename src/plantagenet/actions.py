@@ -22,8 +22,8 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
-from plantagenet import influence, ratings, static_data
-from plantagenet.errors import IllegalAction
+from plantagenet import events, influence, ratings, static_data
+from plantagenet.errors import DataError, IllegalAction
 from plantagenet.state import (
     Favour,
     GameState,
@@ -199,6 +199,22 @@ def _apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             "choose_battle_capability", "array_battle", "resolve_battle", "choose_battle_tactics"):
         raise IllegalAction("battle_setup_only",
                             "Bosworth uses Capability selection, Array, and Battle only")
+    if (state.phase == "campaign" and state.pending and atype == "play_held_event"
+            and action.get("card") in events.PARLIAMENTS_TRUCE.values()
+            and state.pending[0].get("kind") in ("intercept", "reaction")):
+        pending = state.pending[0]
+        result = events.play_held_event(state, action)
+        if pending.get("kind") == "intercept":
+            from plantagenet.commands import resume_intercept
+
+            result["movement"] = resume_intercept(state, {})
+        else:
+            from plantagenet import reactions
+
+            if reactions.approach_pending(pending):
+                result["movement"] = reactions.cancel_approach_with_truce(state, result["card"])
+        state.history.append(deepcopy({"action": action, "result": result}))
+        return result
     if state.pending and state.pending[0].get("kind") == "intercept":
         _require(atype == "respond_intercept", "intercept_pending",
                  "the opposing side must attempt or decline Intercept")
@@ -391,8 +407,10 @@ def _parley_event_mods(state: GameState, lord_id: str, side: str,
     # Jack Cade (Y4): up to 2 free, auto-succeed Parleys for eligible Yorkists.
     if side == "yorkist":
         for ev in matches("JACK CADE"):
-            if (ev.get("side") == "yorkist" and _jack_cade_eligible(state, lord)
-                    and use(ev, lord_id, 2)):
+            eligible_lords = ev.get("eligible_lords")
+            eligible = (lord_id in eligible_lords if eligible_lords is not None
+                        else _jack_cade_eligible(state, lord))
+            if ev.get("side") == "yorkist" and eligible and use(ev, lord_id, 2):
                 mod["auto"] = True
                 mod["discount"] += 99            # 0 Influence (clamped to >=0 spend)
                 mod["free_lordship"] = True      # ... and 0 Lordship (Y4: "without ... Lordship")
@@ -418,9 +436,7 @@ def _jack_cade_eligible(state: GameState, lord: LordState) -> bool:
     here = lord.location
     region = locs.get(here, {}).get("region") if here else None
     regions = {region} | {locs.get(n, {}).get("region")
-                          for n, _t in __import__("plantagenet.commands",
-                                                  fromlist=["_adjacency"])._adjacency().get(
-                              here or "", [])}
+                          for n, _t in _adjacency().get(here or "", [])}
     for area in regions:
         if not area:
             continue
@@ -428,6 +444,12 @@ def _jack_cade_eligible(state: GameState, lord: LordState) -> bool:
         if in_area and all(state.locales[k].favour == "yorkist" for k in in_area):
             return True
     return False
+
+
+def _jack_cade_recipients(state: GameState) -> list[str]:
+    return sorted(lord.lord_id for lord in state.lords.values()
+                  if lord.side == "yorkist" and lord.status == LordStatus.MUSTERED
+                  and not lord.mustered_this_segment and _jack_cade_eligible(state, lord))
 
 
 def _h_parley(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -1053,6 +1075,45 @@ def _h_concede(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
 
 
 # ------------------------------------------------------------- end_muster
+def begin_muster(state: GameState, side: str) -> None:
+    state.levy_step = "muster"
+    state.active_side = cast(Side, side)
+    if side == "yorkist":
+        for event in state.active_events:
+            if event.get("card") == "Y4" and event.get("side") == side:
+                event["eligible_lords"] = _jack_cade_recipients(state)
+
+
+def restore_jack_cade(state: GameState) -> None:
+    """Recover the Muster-entry recipients when an older save has the action log."""
+    if (state.phase, state.levy_step, state.active_side) != ("levy", "muster", "yorkist"):
+        return
+    event = next((e for e in state.active_events if e.get("card") == "Y4"
+                  and e.get("side") == "yorkist" and "eligible_lords" not in e), None)
+    if event is None:
+        return
+    from plantagenet.scenarios import build_initial_state
+
+    if state.history:
+        try:
+            replay = build_initial_state(state.scenario, seed=state.seed)
+            for entry in state.history:
+                if apply_action(replay, entry["action"]) != entry["result"]:
+                    break
+                if ((replay.phase, replay.levy_step, replay.active_side, replay.turn_box)
+                        == ("levy", "muster", "yorkist", state.turn_box)
+                        and (replay.grand_scenario or {}).get("current_war")
+                        == (state.grand_scenario or {}).get("current_war")):
+                    drawn = next((e for e in replay.active_events if e.get("card") == "Y4"), {})
+                    if "eligible_lords" in drawn:
+                        event["eligible_lords"] = drawn["eligible_lords"]
+                        return
+                    break
+        except (DataError, IllegalAction, KeyError):
+            pass  # Incomplete or divergent history cannot recover the old board.
+    event["eligible_lords"] = _jack_cade_recipients(state)
+
+
 def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     side = cast(str, action.get("side"))
     _require(side == state.active_side, "not_active_side",
@@ -1065,11 +1126,10 @@ def _h_end_muster(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     rebel = [s for s, r in state.roles.items() if r == "rebel"][0]
     king = [s for s, r in state.roles.items() if r == "king"][0]
     if side == rebel:
-        state.active_side = cast(Side, king)
+        begin_muster(state, king)
         return {"type": "end_muster", "next": "king_muster"}
     state.levy_step = "done"
-    from plantagenet.events import expire_scope
-    expire_scope(state, "this_levy")     # discard expired This-Levy Event cards (no leak)
+    events.expire_scope(state, "this_levy")     # discard expired This-Levy Event cards (no leak)
     return {"type": "end_muster", "next": "levy_complete"}
 
 
@@ -1170,7 +1230,6 @@ _HANDLERS: dict[str, Callable[[GameState, dict[str, Any]], dict[str, Any]]] = {
     "draw": lambda st, a: __import__("plantagenet.arts_of_war", fromlist=["draw"]).draw(st, a),
     "play_event": lambda st, a: __import__(
         "plantagenet.events", fromlist=["play_event"]).play_event(st, a),
-    "play_held_event": lambda st, a: __import__(
-        "plantagenet.events", fromlist=["play_held_event"]).play_held_event(st, a),
+    "play_held_event": events.play_held_event,
     "exile_pact": lambda st, a: _command_handler("exile_pact")(st, a),
 }

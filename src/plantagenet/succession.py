@@ -275,7 +275,15 @@ def _rewrite_lord_refs(state: GameState, old: str, new: str) -> None:
     """REPLACE (Scenario Ref): swap Command-card references from ``old`` to
     ``new`` wherever they sit -- the side's already-built Plan stack and the
     Active-Lord pointer -- so a replacement is reflected in an in-progress
-    Campaign rather than leaving dangling references to the removed Lord."""
+    Campaign rather than leaving dangling references to the removed Lord.
+    Jack Cade's Muster allowance also follows the same living Lord."""
+    for event in state.active_events:
+        if event.get("card") == "Y4" and old in event.get("eligible_lords", []):
+            eligible = event["eligible_lords"]
+            eligible[eligible.index(old)] = new
+            used = event.get("used", {})
+            if old in used:
+                used[new] = used.pop(old)
     c = state.campaign
     if c is None:
         return

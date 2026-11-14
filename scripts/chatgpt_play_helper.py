@@ -158,8 +158,12 @@ def legal_actions_for_side(state, side):
 def _catalog():
     stamp = _sync()
     if _S["catalog"] is None:
+        viewer = _viewer()
+        moves = legal_actions_for_side(_state(), None)
+        if viewer != "referee":
+            moves = [a for a in moves if a.get("side") in (None, viewer)]
         _S["catalog"] = [{"id": f"{stamp}/{i}", "action": a, "status": "unchecked"}
-                         for i, a in enumerate(legal_actions_for_side(_state(), None))]
+                         for i, a in enumerate(moves)]
     return _S["catalog"]
 
 
@@ -186,11 +190,6 @@ def _validate_entries():
                                    "id": entry["id"], **entry["error"]})
 
 
-def _visible_entry(entry):
-    side = entry["action"].get("side")
-    return _viewer() == "referee" or side is None or side == _viewer()
-
-
 def all_actions(*, validated=None):
     """Complete player-visible programmatic catalog, no printing/paging.
 
@@ -205,7 +204,7 @@ def all_actions(*, validated=None):
         _validate_entries()
     out = []
     for entry in entries:
-        if not _visible_entry(entry) or (validate and entry["status"] == "rejected"):
+        if validate and entry["status"] == "rejected":
             continue
         e = deepcopy(entry)
         e["action"] = _view.action_view(e["action"], _viewer(), _state())
@@ -224,16 +223,18 @@ def _overview():
                            "parameters": typ in _help.PARAMETERIZED}
         if len(items) == 1:
             categories[typ]["id"] = items[0]["id"]
-    if not entries and not _catalog() and _state().phase != "over":
+    awaiting_side = _view.decision_side(_state())
+    if not entries and not _catalog() and _state().phase != "over" and _viewer() in (
+            "referee", awaiting_side):
         if not any(f.get("version") == version() and f["kind"] == "no_legal_moves"
                    for f in _S["findings"]):
             _S["findings"].append({"kind": "no_legal_moves", "turn": _S["turn"],
-                                   "side": _view.decision_side(_state()), "version": version()})
+                                   "side": awaiting_side, "version": version()})
     return {"version": version(), "categories": categories, "total": len(entries),
-            "acting_side": _view.decision_side(_state()), "perspective": _viewer(),
+            "acting_side": awaiting_side, "perspective": _viewer(),
             "pending": _view.pending_view(_state(), _viewer()),
             "victory": deepcopy(_state().victory),
-            "rejected_count": sum(e["status"] == "rejected" and _visible_entry(e) for e in _catalog())}
+            "rejected_count": sum(e["status"] == "rejected" for e in _catalog())}
 
 
 def _overview_text(overview):
@@ -250,7 +251,7 @@ def _overview_text(overview):
         if _state().phase == "over":
             lines.append("GAME OVER " + _json(_state().victory))
         elif _viewer() != "referee" and _viewer() != overview["acting_side"]:
-            lines.append("Waiting for other player; private menu withheld.")
+            lines.append("Waiting for the other player's decision.")
         else:
             lines.append("No offered actions: inspect('pending'/'state'); findings_report().")
     return "\n".join(lines)
@@ -387,8 +388,6 @@ def _resolve_id(identifier):
         raise StaleSelectionError(f"selection belongs to {prefix}, current state is {stamp}; refresh menu")
     for e in _catalog():
         if e["id"] == identifier:
-            if not _visible_entry(e):
-                raise PermissionError("This decision belongs to the other player.")
             return e
     raise ValueError(f"unknown selection {identifier!r}")
 
@@ -665,6 +664,11 @@ def apply(choice, *, expected_version=None, parameters=None):
         _S["transitions"] += 1
     if action["type"] in ("end_campaign", "renew_war"):
         _S["reset_choices"] = {}
+    elif action["type"] == "play_held_event":
+        # A card played before Reset can no longer be selected for Held discard.
+        discard = _S["reset_choices"].get(side, {}).get("discard_held", [])
+        if action["card"] in discard:
+            discard.remove(action["card"])
     if cls == "offmenu" and action.get("type") != "concede":
         _S["findings"].append({"kind": "under_enum_accepted", "turn": _S["turn"],
                                "side": side, "action": deepcopy(action)})

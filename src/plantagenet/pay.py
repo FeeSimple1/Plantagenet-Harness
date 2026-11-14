@@ -68,9 +68,10 @@ def pay(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         state.active_side = cast(Side, king)
         result["next"] = "king_pay"
     else:
+        from plantagenet.actions import begin_muster
+
         returned = campaign.ready_vassals(state)   # 3.3.2 Ready Vassals
-        state.levy_step = "muster"
-        state.active_side = cast(Side, rebel)
+        begin_muster(state, rebel)
         result["ready_vassals"] = returned
         result["next"] = "muster"
     return result

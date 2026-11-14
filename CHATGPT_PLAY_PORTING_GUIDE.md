@@ -163,7 +163,9 @@ destination by Road or Highway pauses for Intercept. The opposing player uses
 subset of that Lord's listed `group_options` with `parameters={"group": [...]}`
 and can select the Flank Attack entry if holding that Event. The saved
 declaration resumes after the response. An active Parliament's Truce prevents
-the Intercept window. Flank Attack makes the Intercepting faction the Attacker
+the Intercept window. While Intercept is pending, each holder can find its own
+Truce in `menu('play_held_event')`. The host can switch to the holder's view
+before applying it. Flank Attack makes the Intercepting faction the Attacker
 in any ensuing Battle. The original March still determines who is Approached
 and which Approach reactions are offered.
 

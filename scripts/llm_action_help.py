@@ -75,7 +75,9 @@ CONTRACTS = {
     },
     "play_held_event": {
         "parameters": {"card": "currently playable Held Event", "decisions": "card-specific targets/allocations"},
-        "constraints": "Optional, timing-limited; not mutually exclusive with ordinary commands. L28: four total Provender, nonnegative allocation among selected movers; L33: Sail-to-Port window. Inspect card text.",
+        "constraints": "Optional and timing-limited. Y12/L20 can stop a pending Intercept during Campaign. "
+                       "L28 grants four total Provender split among selected movers. "
+                       "L33 uses the Sail-to-Port window. Inspect card text.",
     },
     "react": {
         "parameters": {"play": "current offered card ID", "pass": "True to decline", "decisions": "any effect-specific choices supported by the resolver"},
@@ -89,7 +91,8 @@ CONTRACTS = {
                        "decisions.flee_rounds": "with Flank Attack, map your Intercepting Lords to Flee rounds"},
         "constraints": "The opposing player chooses once before the March resolves (4.3.4). "
                        "A normal attempt succeeds on a roll at or below Valour. "
-                       "Flank Attack succeeds without a roll and makes the intercepting side the Attacker.",
+                       "Flank Attack succeeds without a roll and makes the intercepting side the Attacker. "
+                       "Either holder can use play_held_event for Parliament's Truce before the response.",
     },
     "respond_approach": {
         "parameters": {"lord": "the pending approached Lord",

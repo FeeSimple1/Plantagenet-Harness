@@ -527,6 +527,14 @@ Stronghold or Yorkist Exile box. Play before the Muster segment for Edward to
 use Lordship that Levy. During Muster the card still summons him, and he can
 use Lordship from the next Levy.
 
+`Y12` / `L20` Parliament's Truce — `{card, side}`. Either side may play its own
+card during Campaign, including while a declared March awaits Intercept. The
+March resumes without Intercept. If an Enemy Lord already occupies the
+destination, the Approach is cancelled. For an outstanding Approach reaction,
+the holder can play Truce from its own menu or use `react` when offered the
+card. Truce prohibits Approach and Intercept for both sides until Reset returns
+the card to the deck.
+
 `L28` Rebel Supply Depot — `{card, side, decisions:{lords, provender?}}`. Movement-triggered:
 offered only while the Hold-event timing window opened by a qualifying March or
 Sail to a Port is open; the named Lord(s) must be unique movers. Grants four

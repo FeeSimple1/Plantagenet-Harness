@@ -24,14 +24,15 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from plantagenet import actions, ratings, static_data
+from plantagenet import actions, events, ratings, static_data
 from plantagenet.errors import IllegalAction
 from plantagenet.state import GameState, LordState, LordStatus, VassalStatus
 
 
 def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
-    """The only legal moves while a reaction is pending (Q-004): the awaiting
-    reactor may play its card or decline. ``apply_action`` rejects all else."""
+    """The awaiting reactor may play its offered card or decline (Q-004)."""
+    from plantagenet.reactions import APPROACH_TRIGGERS
+
     inter = state.pending[0]
     offers = inter.get("offers", [])
     idx = inter.get("idx", 0)
@@ -39,8 +40,11 @@ def _reaction_moves(state: GameState) -> list[dict[str, Any]]:
         return []
     offer = offers[idx]
     side = offer.get("side")
-    return [{"type": "react", "side": side, "play": offer.get("card")},
-            {"type": "react", "side": side, "pass": True}]
+    moves = [{"type": "react", "side": side, "play": offer.get("card")},
+             {"type": "react", "side": side, "pass": True}]
+    # The current Truce offer already provides play and pass.
+    offered_card = offer.get("card") if inter.get("trigger") in APPROACH_TRIGGERS else None
+    return moves + [move for move in _truce_moves(state) if move["card"] != offered_card]
 
 
 def _intercept_moves(state: GameState, pending: dict[str, Any]) -> list[dict[str, Any]]:
@@ -138,12 +142,12 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         return []
     if state.pending:
         pending = state.pending[0]
+        if pending.get("kind") == "intercept":
+            return _intercept_moves(state, pending) + _truce_moves(state)
         if pending.get("kind") == "battle_choices":
             return [{"type": "choose_battle_tactics", "side": pending["side"]}]
         if pending.get("kind") == "feed":
             return [{"type": "resolve_feed", "side": pending["side"]}]
-        if pending.get("kind") == "intercept":
-            return _intercept_moves(state, pending)
         if pending.get("kind") == "approach":
             responses = ("battle",) if pending["decisions"].get("blocked_ford") else (
                 "exile", "battle")
@@ -388,12 +392,13 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
     c = state.campaign
     if c is None:
         return []
+    truce = _truce_moves(state)
     if c.step == "plan":
         # The Plan is a free construction (4.1); the consumer submits it via
         # build_plan. We surface the requirement rather than enumerate stacks.
         pending = [s for s in ("lancastrian", "yorkist") if not c.plan_built.get(s)]
         return [{"type": "build_plan", "side": s, "cards_required": c.cards_required}
-                for s in pending]
+                for s in pending] + truce
     if c.step == "activation":
         side = state.active_side
         moves: list[dict[str, Any]] = []
@@ -406,7 +411,7 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
                 _attach_battle_reactions(state, side, moves)
         moves.extend(_held_event_moves(state, side))     # Held Events (1.9.1)
         moves.append({"type": "end_activation", "side": side})
-        return moves
+        return moves + truce
     if c.step == "end":
         held = {side: list(state.decks.get(side, {}).get("held", []))
                 for side in ("lancastrian", "yorkist")
@@ -416,8 +421,16 @@ def _campaign_moves(state: GameState) -> list[dict[str, Any]]:
             # Informational template data: the concrete no-discard action remains
             # legal as-is; a player may instead submit decisions.discard_held.
             move["discard_held_options"] = held
-        return [move]
+        return [move, *truce]
     return []
+
+
+def _truce_moves(state: GameState) -> list[dict[str, Any]]:
+    if state.phase != "campaign":
+        return []
+    return [{"type": "play_held_event", "side": side, "card": card}
+            for side, card in events.PARLIAMENTS_TRUCE.items()
+            if card in state.decks.get(side, {}).get("held", [])]
 
 
 def _sail_moves(state: GameState, lord_id: str, lord: LordState, side: str,
