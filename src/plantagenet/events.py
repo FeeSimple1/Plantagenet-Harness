@@ -1,9 +1,6 @@
-"""Immediate Arts of War Event effects (1.9.1), resolved via the ``play_event``
-action with a ``decisions`` payload for any targeting choices.
+"""Drawn and Held Arts of War Event resolution (1.9.1, 3.1.3).
 
 Each resolver is keyed by card id and takes (state, side, decisions) -> dict.
-Hold and This-Levy/This-Campaign Events are handled elsewhere (held pile /
-active_events + per-handler hooks); this module covers the "immediate" type.
 """
 
 from __future__ import annotations
@@ -622,13 +619,6 @@ def _held_card(state: GameState, side: str, title: str) -> str | None:
     return None
 
 
-def _use_held(state: GameState, side: str, cid: str) -> None:
-    held = state.decks.get(side, {}).get("held", [])
-    if cid in held:
-        held.remove(cid)
-    state.decks.setdefault(side, {}).setdefault("discard", []).append(cid)
-
-
 def expire_scope(state: GameState, scope: str) -> list[str]:
     """Remove active Events of ``scope`` ("this_levy"/"this_campaign") and
     DISCARD any whose card is not already in a pile. A drawn This-Levy/This-
@@ -735,10 +725,35 @@ def _hp_sun_in_splendour(state: GameState, side: str, d: dict[str, Any]) -> dict
     ed.calendar_exile = False
     ed.forces = dict(statics.get("forces", {}))
     ed.assets = dict(statics.get("assets", {}))
+    ed.mustered_this_segment = state.levy_step == "muster"
     return {"mustered": "edward_iv", "at": target}
 
 
-# Y20: this Levy Yorkist Influence +2
+def restore_sun_in_splendour(state: GameState) -> None:
+    """Recover Edward's Muster restriction in an older mid-Muster save."""
+    if state.phase != "levy" or state.levy_step != "muster":
+        return
+    ed = state.lords.get("edward_iv")
+    if ed is None or ed.status != LordStatus.MUSTERED or ed.mustered_this_segment:
+        return
+    for entry in reversed(state.history):
+        action = entry.get("action", {})
+        kind = action.get("type")
+        if (entry.get("result", {}).get("next") == "muster"
+                or (kind == "end_muster" and action.get("side") == "yorkist")):
+            break  # entered Muster, or already ended the Yorkist portion
+        if kind == "play_held_event" and action.get("card") == "Y24":
+            ed.mustered_this_segment = True
+            break
+
+
+# Y20: this Levy (or the following Levy when played in Campaign) Influence +2
+def _parade_levy_turn(state: GameState) -> int:
+    if state.phase == "levy" and state.levy_step != "done":
+        return state.turn_box
+    return state.turn_box + 1
+
+
 def _hp_yorkist_parade(state: GameState, side: str, d: dict[str, Any]) -> dict[str, Any]:
     _require(state.locales["london"].favour == "yorkist", "london_not_friendly",
              "Yorkist Parade needs London Friendly (Y20)")
@@ -746,8 +761,27 @@ def _hp_yorkist_parade(state: GameState, side: str, d: dict[str, Any]) -> dict[s
             if lid in ("york", "warwick_yorkist") and ls.status == LordStatus.MUSTERED}
     _require("london" in here, "no_york_or_warwick",
              "York or Warwick must be at London (Y20)")
-    state.active_events.append({"card": "Y20", "side": "yorkist", "scope": "this_levy"})
-    return {"active": "Y20"}
+    levy_turn = _parade_levy_turn(state)
+    state.active_events.append({"card": "Y20", "side": side, "scope": "this_levy",
+                                "levy_turn": levy_turn})
+    return {"active": "Y20", "levy_turn": levy_turn}
+
+
+def restore_yorkist_parade(state: GameState) -> None:
+    """Reserve the card in saves that also left a played Y20 in a deck pile."""
+    parade = next((e for e in state.active_events
+                   if (e.get("card"), e.get("side"), e.get("scope"))
+                   == ("Y20", "yorkist", "this_levy") and "levy_turn" not in e), None)
+    if parade is None:
+        return
+    parade["levy_turn"] = _parade_levy_turn(state)
+    # Old saves could even draw and play the same physical card twice.
+    state.active_events[:] = [e for e in state.active_events if e is parade
+                              or (e.get("card"), e.get("side")) != ("Y20", "yorkist")]
+    deck = state.decks.get("yorkist", {})
+    for zone in ("draw", "discard", "held"):
+        if pile := deck.get(zone):
+            pile[:] = [cid for cid in pile if cid != "Y20"]
 
 
 # Y13/L13: inspect Enemy Held cards (info)
@@ -774,7 +808,10 @@ def play_held_event(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     held = _held_card(state, side, static_data.load_cards()[cid]["event"]["title"])
     _require(held == cid, "not_held", f"{side} is not holding {cid}")
     res = _HELD_PLAYS[cid](state, side, action.get("decisions", {}))
-    _use_held(state, side, cid)
+    deck = state.decks[side]
+    deck["held"].remove(cid)
+    if cid != "Y20":  # Yorkist Parade stays in play until its Levy ends.
+        deck.setdefault("discard", []).append(cid)
     return {"type": "play_held_event", "card": cid, "side": side, **res}
 
 

@@ -510,20 +510,22 @@ and during Campaign activation whenever Gloucester is Mustered at London.
 
 ### Own-timing Held Events (1.9.1, play_held_event)
 
-`play_held_event` plays a Held Event in one of its own-timing windows. All six
-coded cards are now advertised by `legal_moves` for the active side, each
-emitted fully-formed (decisions filled) so it is directly playable, and each
-mirroring its handler pre-check:
+`play_held_event` plays a Held Event in one of its own-timing windows.
+`legal_moves` gives each option to its owner with its decisions filled in.
 
 `Y13` / `L13` Aspielles — inspect the Enemy's Held cards. Any moment; offered
 whenever held. `{card, side}`.
 
 `Y20` Yorkist Parade — `{card, side}`. Offered whenever London Favours the
-Yorkists with York or Warwick there.
+Yorkists with York or Warwick there. The receipt's `levy_turn` identifies
+which Levy gets the +2 Influence. A Campaign play applies to the following
+Levy. The card stays in play until that Levy ends.
 
 `Y24` Sun in Splendour — `{card, side, decisions:{target}}`. Offered during the
 Levy while Edward IV is on the Calendar/Exile; one move per Friendly Enemy-free
-Stronghold or Yorkist Exile box.
+Stronghold or Yorkist Exile box. Play before the Muster segment for Edward to
+use Lordship that Levy. During Muster the card still summons him, and he can
+use Lordship from the next Levy.
 
 `L28` Rebel Supply Depot — `{card, side, decisions:{lords, provender?}}`. Movement-triggered:
 offered only while the Hold-event timing window opened by a qualifying March or

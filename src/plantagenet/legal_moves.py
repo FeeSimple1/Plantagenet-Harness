@@ -158,8 +158,13 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         return _pending_event_moves(state)
     if state.phase == "campaign":
         return _campaign_moves(state)
+    yorkist_levy_plays = []
+    if state.phase == "levy" and (state.levy_step != "muster" or state.active_side != "yorkist"):
+        # These Events may be played throughout the Levy, including between
+        # the Yorkist draw and the next side's draw or Pay.
+        yorkist_levy_plays = _held_event_moves(state, "yorkist", only=("Y20", "Y24"))
     if state.phase == "levy" and state.levy_step == "done":
-        return [{"type": "begin_campaign"}]
+        return [{"type": "begin_campaign"}, *yorkist_levy_plays]
     if state.phase == "levy" and state.levy_step == "arts_of_war":
         first_levy = state.turn_box == (state.calendar.first_box or state.turn_box)
         if first_levy:
@@ -168,10 +173,10 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
             drawn = list(state.decks.get(side, {}).get("draw", [])[:2])
             moves = [{"type": "draw", "side": side, "assignments": assignment}
                      for assignment in capability_assignment_options(state, side, drawn)]
-            return moves + _crown_richard_moves(state)
-        return [{"type": "draw", "side": state.active_side}]
+            return moves + _crown_richard_moves(state) + yorkist_levy_plays
+        return [{"type": "draw", "side": state.active_side}, *yorkist_levy_plays]
     if state.phase == "levy" and state.levy_step == "pay":
-        return [{"type": "pay", "side": state.active_side}]
+        return [{"type": "pay", "side": state.active_side}, *yorkist_levy_plays]
     if state.levy_step != "muster":
         return []
     side = state.active_side
@@ -201,6 +206,7 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
         pass
     out.extend(_crown_richard_moves(state))
     out.extend(_held_event_moves(state, side))   # own-timing Held Events (1.9.1)
+    out.extend(yorkist_levy_plays)
     # The active side may always end its Muster segment.
     out.append({"type": "end_muster", "side": side})
     return out
@@ -598,8 +604,9 @@ def _crown_richard_moves(state: GameState) -> list[dict[str, Any]]:
     return [{"type": "crown_richard", "side": "yorkist"}]
 
 
-def _held_event_moves(state: GameState, side: str) -> list[dict[str, Any]]:
-    """Enumerate own-timing Held Event plays (1.9.1, play_held_event) the active
+def _held_event_moves(state: GameState, side: str, *,
+                      only: tuple[str, ...] | None = None) -> list[dict[str, Any]]:
+    """Enumerate own-timing Held Event plays (1.9.1, play_held_event) the given
     side may make now, each emitted fully-formed (decisions filled) so it is
     directly playable. Any-moment cards -- Aspielles (Y13/L13), Yorkist Parade
     (Y20), Sun in Splendour (Y24) -- are offered whenever held and their own
@@ -608,6 +615,8 @@ def _held_event_moves(state: GameState, side: str) -> list[dict[str, Any]]:
     qualifying March/Sail to a Port is open (mirrors each handler pre-check)."""
     out: list[dict[str, Any]] = []
     held = state.decks.get(side, {}).get("held", [])
+    if only is not None:
+        held = [cid for cid in held if cid in only]
     if not held:
         return out
     win = state.hold_window

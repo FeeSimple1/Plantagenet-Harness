@@ -173,7 +173,7 @@ class GameState(_Model):
     victory: dict[str, Any] | None = None   # set when the game ends (4.8.3, 5.x)
     # side -> {"draw": [...], "discard": [...], "held": [...]} Arts of War piles:
     decks: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
-    # This Levy / This Campaign Events currently in effect:
+    # In-play Events, including any scheduled for the following Levy:
     active_events: list[dict[str, Any]] = Field(default_factory=list)
     arts_of_war: dict[str, str] = Field(default_factory=dict)   # side -> deck composition text
     history: list[dict[str, Any]] = Field(default_factory=list)
@@ -205,6 +205,8 @@ class GameState(_Model):
     # -- persistence ------------------------------------------------------
     @model_validator(mode="after")
     def _restore_saved_state(self) -> GameState:
+        from plantagenet import events
+
         # Older saves included the L33 grant in the ordinary Command count.
         legacy_march = self.flags.pop("surprise_march_lord", None)
         c = self.campaign
@@ -213,6 +215,8 @@ class GameState(_Model):
                 and c.surprise_march_lord is None):
             c.actions_remaining -= 1
             c.surprise_march_lord = legacy_march
+        events.restore_sun_in_splendour(self)
+        events.restore_yorkist_parade(self)
         if self.grand_scenario:
             from plantagenet import succession
 
