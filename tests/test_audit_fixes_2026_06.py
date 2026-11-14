@@ -1090,34 +1090,39 @@ def test_surprise_landing_requires_active_lord_at_a_port():
     s.lords["york"].location = "bristol"              # a Port
     before = s.campaign.actions_remaining
     events._hp_surprise_landing(s, "lancastrian", {})
-    assert s.campaign.actions_remaining == before + 1
+    assert s.campaign.actions_remaining == before
+    assert s.campaign.surprise_march_lord == "york"
 
 
 def test_surprise_landing_free_march_may_not_be_path():
     import pytest
 
-    from plantagenet import actions
+    from plantagenet import actions, legal_moves
     from plantagenet.errors import IllegalAction
     from tests.test_commands import _to_campaign
     s = _to_campaign("henry_vi")
     s.active_side = "yorkist"
     s.campaign.active_lord = "york"
-    s.campaign.actions_remaining = 1
+    s.campaign.actions_remaining = 0
     s.lords["york"].location = "lancaster"            # only Path neighbours
     s.locales["lancaster"].favour = "yorkist"
     s.locales["appleby"].favour = "yorkist"
-    s.flags["surprise_march_lord"] = "york"
+    s.campaign.surprise_march_lord = "york"
+    assert not any(move["type"] == "march" for move in legal_moves.legal_moves(s))
     with pytest.raises(IllegalAction) as e:           # L33: the free March may not Path
         actions.apply_action(s, {"type": "march", "side": "yorkist",
                                  "by_lord": "york", "to": "appleby"})
     assert e.value.code == "surprise_landing_no_path"
+    ordinary = s.model_copy(deep=True)
+    ordinary.campaign.actions_remaining = 1
+    result = actions.apply_action(ordinary, {"type": "march", "side": "yorkist", "to": "appleby"})
+    assert result["way"] == "path" and ordinary.campaign.actions_remaining == 0
     # A non-Path March is allowed and consumes the grant.
     s.lords["york"].location = "ely"
     s.locales["ely"].favour = "yorkist"
-    s.campaign.actions_remaining = 1
     actions.apply_action(s, {"type": "march", "side": "yorkist",
                              "by_lord": "york", "to": "cambridge"})   # Highway
-    assert "surprise_march_lord" not in s.flags
+    assert s.campaign.surprise_march_lord is None and s.campaign.actions_remaining == 0
 
 
 def test_somerset_one_replaced_in_place_on_death():

@@ -146,6 +146,18 @@
           "default": 0,
           "title": "Actions Remaining",
           "type": "integer"
+        },
+        "surprise_march_lord": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Surprise March Lord"
         }
       },
       "title": "CampaignState",

@@ -311,6 +311,8 @@ def briefing(state, viewer, dumps):
             plans.append(f"{side}=[{seq}]" + (f"+{hidden} hidden" if hidden else ""))
         lines.append(f"Campaign {c.step}; required={c.cards_required}; built={counts(c.plan_built)}; "
                      f"indices={counts(c.plan_index)}; active={c.active_lord}; commands={c.actions_remaining}; " + "; ".join(plans))
+        if c.has_surprise_march:
+            lines.append(f"{c.active_lord} may take one free non-Path March (Surprise Landing).")
     if view["battle_setup"]:
         lines.append("Battle setup " + dumps(view["battle_setup"]))
     if view["flags"]:
